@@ -5,7 +5,7 @@ import { env } from '@/config/env';
 import { paths } from '@/config/paths';
 import { User } from '@/types/api';
 
-const ADMIN_ROLES: readonly (number | string)[] = [0, 1, 'SUPERADMIN', 'ADMIN'];
+const ADMIN_ROLES: readonly (number | string)[] = [0, 1, 2, 'SUPERADMIN', 'ADMIN', 'TL'];
 
 export const mapUser = (backendUser: Record<string, any>): User => {
   if (!backendUser) return null as any;
@@ -16,7 +16,7 @@ export const mapUser = (backendUser: Record<string, any>): User => {
     email: backendUser.email?.id || backendUser.email || '',
     firstName: userInfo.firstName || backendUser.firstName || '',
     lastName: userInfo.lastName || backendUser.lastName || '',
-    role: ADMIN_ROLES.includes(backendUser.role) ? 'ADMIN' : 'USER',
+    role: backendUser.role ?? (ADMIN_ROLES.includes(backendUser.role) ? 'ADMIN' : 'USER'),
     teamId: backendUser.teamId || '',
     bio: backendUser.bio || '',
     fatherName: userInfo.fatherName || '',

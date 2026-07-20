@@ -141,8 +141,17 @@ const ProfileRoute = () => {
     );
   }
 
-  const role = user.data.role || 'Employee';
-  const isEmployee = role.toLowerCase() === 'employee';
+  const getRoleString = (r: any) => {
+    if (r === 0 || r === 'CEO') return 'CEO';
+    if (r === 1 || r === 'Manager') return 'Manager';
+    if (r === 2 || r === 'Team Lead') return 'Team Lead';
+    if (r === 4 || r === 'Employee') return 'Employee';
+    return String(r);
+  };
+
+  const role = user.data.role;
+  const roleString = getRoleString(role);
+  const isEmployee = typeof role === 'number' ? role === 4 : String(role).toLowerCase() === 'employee';
 
   // Photo upload trigger
   const handlePhotoClick = () => {
@@ -407,7 +416,7 @@ const ProfileRoute = () => {
                     <label className="block text-xs font-bold text-slate-400 pl-1">Authority Role Badge</label>
                     <div className="flex h-10 items-center pl-2">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-[#1E3A8A]/10 text-[#1E3A8A] border border-blue-100 uppercase tracking-wide">
-                        {role}
+                        {roleString}
                       </span>
                     </div>
                   </div>

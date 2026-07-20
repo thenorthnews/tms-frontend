@@ -89,7 +89,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [roleView, setRoleView] = useState<'CEO' | 'Manager' | 'Employee'>(() => {
     const saved = localStorage.getItem('dashboard_role_view');
     if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') return saved;
-    return user.data?.role === 'ADMIN' ? 'CEO' : 'Manager';
+    return (user.data?.role === 0 || user.data?.role === 'ADMIN') ? 'CEO' : 'Manager';
   });
 
   useEffect(() => {
@@ -122,7 +122,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     },
     !isEmployee && { name: 'Teams', to: paths.app.teams.getHref(), icon: Users },
     isCEO && { name: 'Reports', to: paths.app.reports.getHref(), icon: FileText },
-    { name: 'Notifications', to: paths.app.notifications.getHref(), icon: Bell },
+    // { name: 'Notifications', to: paths.app.notifications.getHref(), icon: Bell },
     { name: 'Profile/Settings', to: paths.app.profile.getHref(), icon: Settings },
   ].filter(Boolean) as SideNavigationItem[];
 

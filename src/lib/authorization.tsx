@@ -18,7 +18,17 @@ export const useAuthorization = () => {
   const checkAccess = React.useCallback(
     ({ allowedRoles }: { allowedRoles: RoleTypes[] }) => {
       if (allowedRoles && allowedRoles.length > 0 && user.data) {
-        return allowedRoles?.includes(user.data.role);
+        const userRole = user.data.role;
+        const numericRole = typeof userRole === 'string' ? parseInt(userRole, 10) : userRole;
+        return allowedRoles.some(allowedRole => {
+          if (allowedRole === 'ADMIN') {
+            return [0, 1, 2, 'CEO', 'MANAGER', 'TL'].includes(numericRole) || userRole === 'ADMIN';
+          }
+          if (allowedRole === 'USER') {
+            return numericRole === 4 || userRole === 'USER';
+          }
+          return false;
+        });
       }
 
       return true;

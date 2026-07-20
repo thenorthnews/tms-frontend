@@ -25,7 +25,10 @@ export enum UserStatus {
 }
 
 export enum UserRole {
-  USER = 4,
+  CEO = 0,
+  MANAGER = 1,
+  TL = 2,
+  EMPLOYEE = 4,
 }
 
 export const UsersList = () => {
@@ -131,7 +134,12 @@ export const UsersList = () => {
       title: 'Role',
       field: 'role',
       Cell({ entry: { role } }: any) {
-        const roleString = typeof role === 'number' && role === UserRole.USER ? 'USER' : role;
+        let roleString = 'Unknown';
+        if (role === UserRole.CEO) roleString = 'CEO';
+        else if (role === UserRole.MANAGER) roleString = 'Manager';
+        else if (role === UserRole.TL) roleString = 'Team Lead';
+        else if (role === UserRole.EMPLOYEE) roleString = 'Employee';
+        else roleString = String(role);
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
             {roleString}

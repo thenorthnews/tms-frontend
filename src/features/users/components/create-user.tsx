@@ -79,6 +79,7 @@ export const CreateUserForm = () => {
           gender: Gender.MALE,
           salary: '' as unknown as number,
           image: '',
+          role: 4,
         },
       }}
     >
@@ -118,9 +119,22 @@ export const CreateUserForm = () => {
             <div className="space-y-6">
               <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
                 <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Account Details</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
                   <Input label="Email" type="email" error={formState.errors['email']} registration={register('email')} />
                   <Input label="Password" type="password" error={formState.errors['password']} registration={register('password')} />
+                </div>
+                <div>
+                  <Select
+                    label="Role"
+                    error={formState.errors['role']}
+                    registration={register('role')}
+                    options={[
+                      { label: 'Employee', value: '4' },
+                      { label: 'Team Lead', value: '2' },
+                      { label: 'Manager', value: '1' },
+                      { label: 'CEO', value: '0' },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -136,7 +150,7 @@ export const CreateUserForm = () => {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, setValue)}
+                    onChange={(e) => handleImageUpload(e, setValue as any)}
                     className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                   />
                   {uploading && <p className="text-sm text-indigo-600 mt-2">Uploading...</p>}

@@ -31,7 +31,7 @@ export const DashboardOverview = () => {
   const [roleView, setRoleView] = useState<'CEO' | 'Manager' | 'Employee'>(() => {
     const saved = localStorage.getItem('dashboard_role_view');
     if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') return saved;
-    return user.data?.role === 'ADMIN' ? 'CEO' : 'Manager';
+    return (user.data?.role === 0 || user.data?.role === 'ADMIN') ? 'CEO' : 'Manager';
   });
 
   useEffect(() => {

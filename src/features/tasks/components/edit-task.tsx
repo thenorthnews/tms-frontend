@@ -311,10 +311,10 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       </div>
 
       {/* Main Content: 2 Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 sm:gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
         
-        {/* Left Column (65% width) */}
-        <div className="lg:col-span-6.5 space-y-6">
+        {/* Left Column (approx 58% width) */}
+        <div className="lg:col-span-7 space-y-6">
           
           {/* Title and Header Card */}
           <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm relative space-y-4">
@@ -512,8 +512,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
         </div>
 
-        {/* Right Column (35% width) - Details card & Sub-tasks */}
-        <div className="lg:col-span-3.5 space-y-6">
+        {/* Right Column (approx 42% width) - Details card & Sub-tasks */}
+        <div className="lg:col-span-5 space-y-6">
           
           {/* Details Card */}
           <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">

@@ -7,6 +7,8 @@ import { User } from '@/types/api';
 export const getUsers = async (
   page = 1,
   search = '',
+  limit?: number,
+  role?: number,
 ): Promise<{
   data: User[];
   meta: {
@@ -20,19 +22,21 @@ export const getUsers = async (
     params: {
       page,
       search,
+      limit,
+      role,
     },
   })) as any;
   const users = (response.users || []).map(mapUser);
   const total = response.total || 0;
-  const limit = response.limit || 10;
-  const totalPages = Math.ceil(total / limit);
+  const limitVal = response.limit || 10;
+  const totalPages = Math.ceil(total / limitVal);
 
   return {
     data: users,
     meta: {
       totalPages,
       page: response.page || page,
-      limit,
+      limit: limitVal,
       total,
     },
   };
@@ -41,22 +45,26 @@ export const getUsers = async (
 export const getUsersQueryOptions = ({
   page,
   search,
-}: { page?: number; search?: string } = {}) => {
+  limit,
+  role,
+}: { page?: number; search?: string; limit?: number; role?: number } = {}) => {
   return queryOptions({
-    queryKey: ['users', { page, search }],
-    queryFn: () => getUsers(page, search),
+    queryKey: ['users', { page, search, limit, role }],
+    queryFn: () => getUsers(page, search, limit, role),
   });
 };
 
 type UseUsersOptions = {
   page?: number;
   search?: string;
+  limit?: number;
+  role?: number;
   queryConfig?: QueryConfig<typeof getUsersQueryOptions>;
 };
 
-export const useUsers = ({ page, search, queryConfig }: UseUsersOptions = {}) => {
+export const useUsers = ({ page, search, limit, role, queryConfig }: UseUsersOptions = {}) => {
   return useQuery({
-    ...getUsersQueryOptions({ page, search }),
+    ...getUsersQueryOptions({ page, search, limit, role }),
     ...queryConfig,
   });
 };

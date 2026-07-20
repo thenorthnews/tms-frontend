@@ -154,6 +154,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
             gender: userInfo.gender ?? 0,
             salary: userInfo.salary ?? ('' as unknown as number),
             image: userInfo.image || '',
+            role: userData.role ?? 4,
           } as UpdateUserInput,
         }}
       >
@@ -223,12 +224,28 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
               <div className="space-y-6">
                 <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
                   <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Account Details</h3>
+                <div className="mb-4">
                   <Input
                     label="Email"
                     type="email"
                     error={formState.errors['email']}
                     registration={register('email')}
                   />
+                </div>
+                <div>
+                  <Select
+                    label="Role"
+                    error={formState.errors['role']}
+                    registration={register('role')}
+                    defaultValue={String(userData.role ?? 4)}
+                    options={[
+                      { label: 'Employee', value: '4' },
+                      { label: 'Team Lead', value: '2' },
+                      { label: 'Manager', value: '1' },
+                      { label: 'CEO', value: '0' },
+                    ]}
+                  />
+                </div>
                 </div>
 
                 <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">

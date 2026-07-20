@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import {
   Users,
@@ -29,16 +30,62 @@ import { useUsers } from '@/features/users/api/get-users';
 import { useDeleteUser } from '@/features/users/api/delete-user';
 import { useCreateUser } from '@/features/users/api/create-user';
 import { useTasks } from '@/features/tasks/api/get-tasks';
-import { useTeams, useCreateTeam, useAddTeamMember, useRemoveTeamMember } from '../api/teams';
+import { useTeams, useCreateTeam, useDeleteTeam, useAddTeamMember, useRemoveTeamMember } from '../api/teams';
 
 export const TeamManagement = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
   const currentUser = useUser();
-  const isCEO = currentUser.data?.role === 'ADMIN';
+  const isCEO = currentUser.data?.role === 0 || currentUser.data?.role === 'ADMIN';
+
+  // --- INTERACTIVE UI STATES ---
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [isAssignMemberOpen, setIsAssignMemberOpen] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
+
+  const handleRoleFilterChange = (val: string) => {
+    setSelectedRoleFilter(val);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setMemberSearch(val);
+    setCurrentPage(1);
+  };
 
   // --- QUERY REAL DATA ---
-  const usersQuery = useUsers({ page: 1 });
+  const roleVal = selectedRoleFilter === 'all'
+    ? undefined
+    : selectedRoleFilter === 'ceo'
+    ? 0
+    : selectedRoleFilter === 'manager'
+    ? 1
+    : selectedRoleFilter === 'tl'
+    ? 2
+    : 4; // employee
+
+  // Query 1: For the paginated table (using backend page, limit, search, role)
+  const usersQuery = useUsers({
+    page: currentPage,
+    limit: 10,
+    search: memberSearch,
+    role: roleVal,
+    queryConfig: {
+      placeholderData: keepPreviousData,
+    }
+  });
+
+  // Query 2: For dropdowns and statistics (fetches all users up to 1000)
+  const allUsersQuery = useUsers({
+    page: 1,
+    limit: 1000,
+  });
+
   const tasksQuery = useTasks({ params: { limit: 1000 } });
   const teamsQuery = useTeams();
 
@@ -85,12 +132,11 @@ export const TeamManagement = () => {
     },
   });
 
-  // --- INTERACTIVE UI STATES ---
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
-  const [isAssignMemberOpen, setIsAssignMemberOpen] = useState(false);
-  const [selectedTeamId, setSelectedTeamId] = useState('');
-  const [memberSearch, setMemberSearch] = useState('');
+  const deleteTeamMutation = useDeleteTeam({
+    onSuccess: () => {
+      addNotification({ type: 'success', title: 'Team deleted successfully' });
+    },
+  });
   
   // New member form state (with role)
   const [newMember, setNewMember] = useState({
@@ -99,7 +145,7 @@ export const TeamManagement = () => {
     email: '',
     password: '',
     phoneNumber: '',
-    role: 'employee' as 'manager' | 'employee',
+    role: 'employee' as 'ceo' | 'manager' | 'tl' | 'employee',
   });
 
   // Create team form state
@@ -109,7 +155,10 @@ export const TeamManagement = () => {
   const [sortKey, setSortKey] = useState<'name' | 'role' | 'assigned' | 'completed' | 'progress'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  if (usersQuery.isLoading || tasksQuery.isLoading || teamsQuery.isLoading) {
+  // Assign member to team handler
+  const [assignUserId, setAssignUserId] = useState('');
+
+  if (usersQuery.isLoading || allUsersQuery.isLoading || tasksQuery.isLoading || teamsQuery.isLoading) {
     return (
       <div className="flex h-64 w-full items-center justify-center">
         <Spinner size="lg" />
@@ -118,6 +167,7 @@ export const TeamManagement = () => {
   }
 
   const dbUsers = usersQuery.data?.data || [];
+  const allDbUsers = allUsersQuery.data?.data || [];
   const dbTasks = tasksQuery.data?.data || [];
   const dbTeams = (teamsQuery.data as any) || [];
 
@@ -139,7 +189,7 @@ export const TeamManagement = () => {
       id: u.id,
       name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'No Name',
       email: u.email || '',
-      role: u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : 'Developer',
+      role: u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'Team Lead' : 'Employee',
       assigned,
       completed,
       avatarInitials: `${u.firstName?.[0] || 'U'}${u.lastName?.[0] || ''}`.toUpperCase(),
@@ -147,13 +197,9 @@ export const TeamManagement = () => {
     };
   });
 
-  // Filter based on search box input
-  const searchedMembers = teamMembers.filter(
-    (m) =>
-      m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      m.email.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      m.role.toLowerCase().includes(memberSearch.toLowerCase())
-  );
+  // Filter based on search box input & role dropdown filter
+  // Since backend already filters by role and search, searchedMembers is a direct pass-through
+  const searchedMembers = teamMembers;
 
   // Sorting Handler
   const handleSort = (key: 'name' | 'role' | 'assigned' | 'completed' | 'progress') => {
@@ -170,12 +216,11 @@ export const TeamManagement = () => {
     return Math.round((m.completed / m.assigned) * 100);
   };
 
-  // Sort Members List
+  // Sort Members List (client side sorting on the paginated list)
   const sortedMembers = [...searchedMembers].sort((a, b) => {
     let aVal: any = a[sortKey as keyof typeof a];
     let bVal: any = b[sortKey as keyof typeof b];
 
-    // Override custom progress key sort values
     if (sortKey === 'progress') {
       aVal = getProgressVal(a);
       bVal = getProgressVal(b);
@@ -192,12 +237,28 @@ export const TeamManagement = () => {
     }
   });
 
-  // Derived metrics
-  const totalMembersCount = teamMembers.length;
-  const activeTasksCount = teamMembers.reduce((acc, m) => acc + (m.assigned - m.completed), 0);
+  // Backend Pagination Logic
+  const totalPages = usersQuery.data?.meta?.totalPages || 1;
+  const backendTotal = usersQuery.data?.meta?.total || 0;
+  
+  // Since pagination is performed by the backend, paginatedMembers is simply the sortedMembers array
+  const paginatedMembers = sortedMembers;
+
+  // Derived metrics calculated over ALL database users
+  const allTeamMembersForStats = allDbUsers.map((u: any) => {
+    const assignedTasks = dbTasks.filter(
+      (t: any) => t.assignedTo?._id === u.id || t.assignedTo === u.id
+    );
+    const assigned = assignedTasks.length;
+    const completed = assignedTasks.filter((t: any) => t.status === 2).length;
+    return { assigned, completed };
+  });
+
+  const totalMembersCount = allTeamMembersForStats.length;
+  const activeTasksCount = allTeamMembersForStats.reduce((acc, m) => acc + (m.assigned - m.completed), 0);
   const avgCompletionRate = totalMembersCount > 0
     ? Math.round(
-        (teamMembers.reduce((acc, m) => acc + (m.assigned > 0 ? (m.completed / m.assigned) : 0), 0) / totalMembersCount) * 100
+        (allTeamMembersForStats.reduce((acc, m) => acc + (m.assigned > 0 ? (m.completed / m.assigned) : 0), 0) / totalMembersCount) * 100
       )
     : 0;
 
@@ -220,7 +281,7 @@ export const TeamManagement = () => {
         gender: 0,
         salary: 60000,
         image: '',
-        role: newMember.role === 'manager' ? 1 : 4,
+        role: newMember.role === 'ceo' ? 0 : newMember.role === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
       }
     });
   };
@@ -235,8 +296,6 @@ export const TeamManagement = () => {
     createTeamMutation.mutate({ name: newTeam.name, managerId: newTeam.managerId });
   };
 
-  // Assign member to team handler
-  const [assignUserId, setAssignUserId] = useState('');
   const handleAssignMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeamId || !assignUserId) return;
@@ -252,10 +311,10 @@ export const TeamManagement = () => {
   };
 
   // Get managers list for team creation dropdown
-  const managers = dbUsers.filter((u: any) => u.role === 1);
+  const managers = allDbUsers.filter((u: any) => u.role === 1);
   // Get employees not in any team for assignment
   const allTeamMemberIds = dbTeams.flatMap((t: any) => (t.members || []).map((m: any) => m._id || m.id || m));
-  const unassignedEmployees = dbUsers.filter((u: any) => {
+  const unassignedEmployees = allDbUsers.filter((u: any) => {
     const uid = u.id || u._id;
     return u.role === 4 && !allTeamMemberIds.includes(uid);
   });
@@ -356,24 +415,128 @@ export const TeamManagement = () => {
 
       </div>
 
+      {/* Teams List (Cards Grid) */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-bold text-slate-800 text-left">Teams Overview</h3>
+        {dbTeams.length === 0 ? (
+          <div className="bg-white border border-slate-100 rounded-xl p-8 text-center text-slate-400 font-bold">
+            No teams created yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {dbTeams.map((team: any) => {
+              const managerName = team.managerId
+                ? `${team.managerId.firstName || ''} ${team.managerId.lastName || ''}`.trim()
+                : 'Unassigned';
+              return (
+                <div key={team._id} className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm space-y-4 text-left relative hover:shadow-md transition-all duration-300">
+                  {/* Delete Team Button (CEO only) */}
+                  {isCEO && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to delete the team "${team.name}"?`)) {
+                          deleteTeamMutation.mutate(team._id || team.id);
+                        }
+                      }}
+                      className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer border-0 bg-transparent"
+                      title="Delete Team"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
+                  
+                  <div className="space-y-1">
+                    <h4 className="text-base font-extrabold text-slate-800">{team.name}</h4>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
+                      <span>Manager:</span>
+                      <span className="text-slate-600 font-bold">{managerName}</span>
+                    </div>
+                  </div>
+
+                  {/* Members list in team */}
+                  <div className="space-y-2 pt-2 border-t border-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Members ({team.members?.length || 0})
+                    </span>
+                    {(!team.members || team.members.length === 0) ? (
+                      <span className="text-xs text-slate-400 italic">No members assigned yet</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {team.members.map((m: any) => {
+                          const initials = `${m.firstName?.[0] || 'U'}${m.lastName?.[0] || ''}`.toUpperCase();
+                          const fullName = `${m.firstName || ''} ${m.lastName || ''}`.trim();
+                          return (
+                            <div
+                              key={m._id || m.id}
+                              className="inline-flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg pl-1.5 pr-2 py-0.5 text-[10px] font-bold text-slate-600"
+                              title={fullName}
+                            >
+                              <div className="size-4.5 rounded-md bg-[#1e3a8a]/10 text-[#1e3a8a] flex items-center justify-center text-[8px] font-extrabold">
+                                {initials}
+                              </div>
+                              <span>{fullName}</span>
+                              
+                              {/* Remove Member Button */}
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Remove ${fullName} from ${team.name}?`)) {
+                                    removeTeamMemberMutation.mutate({ teamId: team._id || team.id, userId: m._id || m.id });
+                                  }
+                                }}
+                                className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-rose-600 transition-colors border-0 bg-transparent cursor-pointer"
+                              >
+                                <XCircle className="size-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Team Roster Grid/Table Card Container */}
       <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-6">
         
-        {/* Title and Search */}
+        {/* Title, Filter, and Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="text-left">
             <h3 className="text-base sm:text-lg font-bold text-slate-800">Team Members List</h3>
             <p className="text-xs text-slate-400 mt-0.5">Click column headers to sort results dynamically</p>
           </div>
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/60 rounded-xl px-3.5 py-2 w-full sm:max-w-xs focus-within:border-[#1E3A8A] focus-within:bg-white transition-all">
-            <Search className="size-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search team..."
-              value={memberSearch}
-              onChange={(e) => setMemberSearch(e.target.value)}
-              className="text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-full bg-transparent font-semibold"
-            />
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* Role Filter Dropdown */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 w-full sm:w-44 focus-within:border-[#1E3A8A] focus-within:bg-white transition-all">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role:</span>
+              <select
+                value={selectedRoleFilter}
+                onChange={(e) => handleRoleFilterChange(e.target.value)}
+                className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-bold cursor-pointer border-0 p-0"
+              >
+                <option value="all">All</option>
+                <option value="ceo">CEO</option>
+                <option value="manager">Manager</option>
+                <option value="tl">Team Lead</option>
+                <option value="employee">Employee</option>
+              </select>
+            </div>
+
+            {/* Search Bar */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/60 rounded-xl px-3.5 py-2 w-full sm:w-64 focus-within:border-[#1E3A8A] focus-within:bg-white transition-all">
+              <Search className="size-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search team..."
+                value={memberSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-full bg-transparent font-semibold"
+              />
+            </div>
           </div>
         </div>
 
@@ -431,14 +594,14 @@ export const TeamManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sortedMembers.length === 0 ? (
+              {paginatedMembers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400 font-bold">
                     No team members found matching your search.
                   </td>
                 </tr>
               ) : (
-                sortedMembers.map((m) => {
+                paginatedMembers.map((m) => {
                   const progress = getProgressVal(m);
                   return (
                     <tr key={m.id} className="hover:bg-slate-50/40 transition-colors odd:bg-slate-50/10 even:bg-white">
@@ -516,12 +679,12 @@ export const TeamManagement = () => {
 
         {/* Responsive: Table converts to stacked list on Mobile */}
         <div className="grid grid-cols-1 gap-4 md:hidden">
-          {sortedMembers.length === 0 ? (
+          {paginatedMembers.length === 0 ? (
             <div className="py-8 text-center text-slate-400 font-bold">
               No team members found.
             </div>
           ) : (
-            sortedMembers.map((m) => {
+            paginatedMembers.map((m) => {
               const progress = getProgressVal(m);
               return (
                 <div key={m.id} className="bg-slate-50/50 rounded-xl p-4 border border-slate-100 space-y-3.5 text-left">
@@ -577,6 +740,55 @@ export const TeamManagement = () => {
             })
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {backendTotal > 0 && (
+          <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold select-none">
+            <span className="text-slate-400">
+              Showing <strong className="text-slate-700">{backendTotal === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</strong> to{' '}
+              <strong className="text-slate-700">{Math.min(currentPage * itemsPerPage, backendTotal)}</strong> of{' '}
+              <strong className="text-slate-700">{backendTotal}</strong> members
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                className="px-3.5 py-2 border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all font-bold cursor-pointer bg-white"
+              >
+                Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`size-9 flex items-center justify-center rounded-xl transition-all text-xs font-bold cursor-pointer ${
+                      currentPage === page
+                        ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                        : 'border border-transparent hover:border-slate-200 text-slate-500 hover:text-slate-800 bg-white'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                className="px-3.5 py-2 border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all font-bold cursor-pointer bg-white"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -690,11 +902,13 @@ export const TeamManagement = () => {
                   <Shield className="size-3.5 text-slate-400" />
                   <select
                     value={newMember.role}
-                    onChange={(e) => setNewMember(prev => ({ ...prev, role: e.target.value as 'manager' | 'employee' }))}
+                    onChange={(e) => setNewMember(prev => ({ ...prev, role: e.target.value as 'ceo' | 'manager' | 'tl' | 'employee' }))}
                     className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0"
                   >
                     <option value="employee">Employee</option>
+                    <option value="tl">Team Lead (TL)</option>
                     <option value="manager">Manager</option>
+                    <option value="ceo">CEO</option>
                   </select>
                 </div>
               </div>

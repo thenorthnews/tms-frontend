@@ -15,7 +15,7 @@ export type UserBase = {
   firstName: string;
   lastName: string;
   email: string;
-  role: 'ADMIN' | 'USER';
+  role: 'ADMIN' | 'USER' | number;
   teamId: string;
   bio: string;
   fatherName?: string;
