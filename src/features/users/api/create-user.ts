@@ -44,7 +44,6 @@ export const createUser = ({
         number: data.phoneNumber,
       },
       password: data.password,
-      role: data.role,
     },
     UserInfo: {
       firstName: data.firstName,
@@ -58,8 +57,8 @@ export const createUser = ({
     },
   };
 
-  // Route to /admin/managers if role is Manager (1) or CEO (0), else /admin/users
-  const endpoint = (data.role === 1 || data.role === 0) ? '/admin/managers' : '/admin/users';
+  // The server assigns the role based on the selected endpoint; it is never client-controlled.
+  const endpoint = data.role === 1 ? '/admin/managers' : '/admin/users';
   return api.post(endpoint, payload);
 };
 

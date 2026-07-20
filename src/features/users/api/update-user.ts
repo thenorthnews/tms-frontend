@@ -12,7 +12,6 @@ export const updateUserInputSchema = z.object({
   email: z.string().email('Valid email is required'),
   countryCode: z.string().min(1, 'Country code is required'),
   phoneNumber: z.string().min(1, 'Phone number is required'),
-  role: z.coerce.number().optional(),
 
   // UserInfo fields
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
@@ -43,7 +42,6 @@ export const updateUser = ({
         countryCode: data.countryCode,
         number: data.phoneNumber,
       },
-      role: data.role,
     },
     UserInfo: {
       firstName: data.firstName,

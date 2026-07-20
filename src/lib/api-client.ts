@@ -5,8 +5,6 @@ import { env } from '@/config/env';
 import { paths } from '@/config/paths';
 import { User } from '@/types/api';
 
-const ADMIN_ROLES: readonly (number | string)[] = [0, 1, 2, 'SUPERADMIN', 'ADMIN', 'TL'];
-
 export const mapUser = (backendUser: Record<string, any>): User => {
   if (!backendUser) return null as any;
   const userInfo = backendUser.userInfo || {};
@@ -16,7 +14,7 @@ export const mapUser = (backendUser: Record<string, any>): User => {
     email: backendUser.email?.id || backendUser.email || '',
     firstName: userInfo.firstName || backendUser.firstName || '',
     lastName: userInfo.lastName || backendUser.lastName || '',
-    role: backendUser.role ?? (ADMIN_ROLES.includes(backendUser.role) ? 'ADMIN' : 'USER'),
+    role: backendUser.role ?? 'USER',
     teamId: backendUser.teamId || '',
     bio: backendUser.bio || '',
     fatherName: userInfo.fatherName || '',
@@ -41,6 +39,29 @@ function authRequestInterceptor(config: InternalAxiosRequestConfig) {
 export const api = Axios.create({
   baseURL: env.API_URL,
 });
+
+let refreshPromise: Promise<{ access_token: string; refresh_token: string }> | null = null;
+
+const refreshAccessToken = async (refreshToken: string) => {
+  if (!refreshPromise) {
+    refreshPromise = Axios.post(`${env.API_URL}/admin/auth/refresh`, {
+      refresh_token: refreshToken,
+    })
+      .then((response) => {
+        const tokens = response.data?.data;
+        if (!tokens?.access_token || !tokens?.refresh_token) {
+          throw new Error('Invalid refresh-token response');
+        }
+        localStorage.setItem('token', tokens.access_token);
+        localStorage.setItem('refresh_token', tokens.refresh_token);
+        return tokens;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+};
 
 api.interceptors.request.use(authRequestInterceptor);
 api.interceptors.response.use(
@@ -71,22 +92,11 @@ api.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          // Call refresh endpoint directly using Axios to avoid infinite interceptor loops
-          const response = await Axios.post(`${env.API_URL}/admin/auth/refresh`, {
-            refresh_token: refreshToken,
-          });
-
-          if (response.data?.data?.access_token) {
-            const { access_token, refresh_token } = response.data.data;
-            localStorage.setItem('token', access_token);
-            localStorage.setItem('refresh_token', refresh_token);
-
-            // Retry the original request with new token
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${access_token}`;
-            }
-            return api(originalRequest);
+          const { access_token } = await refreshAccessToken(refreshToken);
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${access_token}`;
           }
+          return api(originalRequest);
         } catch (refreshError) {
           // If refresh fails, clear tokens and redirect to login
           localStorage.removeItem('token');
