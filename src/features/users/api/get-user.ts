@@ -1,0 +1,34 @@
+import { useQuery, queryOptions } from '@tanstack/react-query';
+
+import { api } from '@/lib/api-client';
+import { QueryConfig } from '@/lib/react-query';
+
+export const getUser = ({
+  userId,
+}: {
+  userId: string;
+}): Promise<any> => {
+  return api.get(`/admin/users/${userId}`);
+};
+
+export const getUserQueryOptions = (userId: string) => {
+  return queryOptions({
+    queryKey: ['users', userId],
+    queryFn: () => getUser({ userId }),
+  });
+};
+
+type UseUserOptions = {
+  userId: string;
+  queryConfig?: QueryConfig<typeof getUserQueryOptions>;
+};
+
+export const useGetUser = ({
+  userId,
+  queryConfig,
+}: UseUserOptions) => {
+  return useQuery({
+    ...getUserQueryOptions(userId),
+    ...queryConfig,
+  });
+};

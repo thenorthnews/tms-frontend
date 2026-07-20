@@ -1,0 +1,694 @@
+import * as React from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
+import {
+  ArrowLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Paperclip,
+  Send,
+  MessageSquare,
+  Clock,
+  CheckCircle,
+  Calendar,
+  Sparkles,
+  Edit2,
+  Trash2,
+  UserCheck,
+  CheckSquare,
+  AlertCircle
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { useNotifications } from '@/components/ui/notifications';
+import { Spinner } from '@/components/ui/spinner';
+import { paths } from '@/config/paths';
+import { api, mapUser } from '@/lib/api-client';
+
+import { useTask } from '../api/get-task';
+import { useUpdateTask } from '../api/update-task';
+import { useDeleteTask } from '../api/delete-task';
+import { TaskStatus, TaskPriority } from '../types';
+
+type EditTaskProps = {
+  taskId: string;
+};
+
+export const EditTask = ({ taskId }: EditTaskProps) => {
+  const navigate = useNavigate();
+  const { addNotification } = useNotifications();
+
+  // Fetch current task
+  const taskQuery = useTask({ taskId });
+
+  // Fetch active users for reassignment
+  const { data: users = [] } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: async () => {
+      const res = await api.get('/admin/users', { params: { limit: 100 } }) as any;
+      return (res.users || []).map(mapUser);
+    },
+  });
+
+  const updateTaskMutation = useUpdateTask({
+    mutationConfig: {
+      onSuccess: () => {
+        addNotification({
+          type: 'success',
+          title: 'Task details updated',
+        });
+        taskQuery.refetch();
+      },
+    },
+  });
+
+  const deleteTaskMutation = useDeleteTask({
+    mutationConfig: {
+      onSuccess: () => {
+        addNotification({
+          type: 'success',
+          title: 'Task deleted successfully',
+        });
+        navigate(paths.app.tasks.getHref());
+      },
+    },
+  });
+
+  // --- LOCAL INTERACTIVE STATES ---
+  const [commentInput, setCommentInput] = useState('');
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [tempDescription, setTempDescription] = useState('');
+  const [committedDate, setCommittedDate] = useState('2026-07-25');
+  const [showReassignMenu, setShowReassignMenu] = useState(false);
+  const [showActionDropdown, setShowActionDropdown] = useState(false);
+
+  // Sub-task list (Recalculates progress bar dynamically)
+  const [subTasks, setSubTasks] = useState([
+    { id: 'sub-1', title: 'Define userinfo mongoose virtual getter', completed: true },
+    { id: 'sub-2', title: 'Remove old UserInfo controller endpoints', completed: false },
+    { id: 'sub-3', title: 'Verify credentials seeding behavior in main.ts', completed: false }
+  ]);
+
+  // Activity feed
+  const [activities, setActivities] = useState([
+    {
+      id: 'act-1',
+      user: 'Sarah Jenkins',
+      avatarInitials: 'SJ',
+      type: 'system',
+      content: 'created this task',
+      time: 'July 18, 2026, 10:00 AM'
+    },
+    {
+      id: 'act-2',
+      user: 'Sarah Jenkins',
+      avatarInitials: 'SJ',
+      type: 'system',
+      content: 'assigned this task to Alex Rivera',
+      time: 'July 18, 2026, 10:05 AM'
+    },
+    {
+      id: 'act-3',
+      user: 'Alex Rivera',
+      avatarInitials: 'AR',
+      type: 'comment',
+      content: 'I have started review of the userinfo mongoose schema refactoring. I will resolve conflicts by today.',
+      time: 'July 19, 2026, 2:30 PM'
+    }
+  ]);
+
+  const task = taskQuery.data;
+
+  // Initialize temp description
+  useEffect(() => {
+    if (task) {
+      setTempDescription(task.description || '');
+    }
+  }, [task]);
+
+  if (taskQuery.isLoading) {
+    return (
+      <div className="flex h-48 w-full items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!task) {
+    return (
+      <div className="text-center text-red-500 py-12 font-bold flex flex-col items-center gap-2">
+        <AlertCircle className="size-8" />
+        Task not found
+      </div>
+    );
+  }
+
+  // Calculate sub-tasks progress rate
+  const completedSubtasks = subTasks.filter(s => s.completed).length;
+  const progressPercent = Math.round((completedSubtasks / subTasks.length) * 100);
+
+  // Overdue Check
+  const isOverdue = () => {
+    if (task.status === TaskStatus.COMPLETED) return false;
+    if (!task.dueDate) return false;
+    const deadline = new Date(task.dueDate);
+    const today = new Date('2026-07-20');
+    return deadline < today;
+  };
+
+  const getPriorityLabel = (p: number) => {
+    switch (p) {
+      case TaskPriority.HIGH: return 'High';
+      case TaskPriority.MEDIUM: return 'Medium';
+      default: return 'Low';
+    }
+  };
+
+  const getPriorityBadgeStyle = (p: number) => {
+    switch (p) {
+      case TaskPriority.HIGH:
+        return 'bg-red-50 text-red-700 border-red-200';
+      case TaskPriority.MEDIUM:
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      default:
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+    }
+  };
+
+  const getStatusLabel = (status: number) => {
+    switch (status) {
+      case TaskStatus.COMPLETED: return 'Done';
+      case TaskStatus.IN_PROGRESS: return 'In Progress';
+      case TaskStatus.CANCELLED: return 'Blocked';
+      default: return 'To Do';
+    }
+  };
+
+  const getStatusSelectStyle = (s: number) => {
+    switch (s) {
+      case TaskStatus.COMPLETED:
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case TaskStatus.IN_PROGRESS:
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case TaskStatus.CANCELLED:
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+      default:
+        return 'bg-slate-50 text-slate-700 border-slate-200';
+    }
+  };
+
+  // Actions
+  const handleStatusChange = (newStatus: number) => {
+    updateTaskMutation.mutate({
+      taskId,
+      data: { status: newStatus },
+    });
+    
+    // Add system activity
+    const label = getStatusLabel(newStatus);
+    setActivities(prev => [
+      ...prev,
+      {
+        id: `act-${Date.now()}`,
+        user: 'You',
+        avatarInitials: 'YO',
+        type: 'system',
+        content: `changed status to ${label}`,
+        time: 'Just now'
+      }
+    ]);
+  };
+
+  const handleDeadlineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateTaskMutation.mutate({
+      taskId,
+      data: { dueDate: e.target.value },
+    });
+  };
+
+  const handleDescriptionSave = () => {
+    updateTaskMutation.mutate({
+      taskId,
+      data: { description: tempDescription },
+    });
+    setIsEditingDescription(false);
+  };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentInput.trim()) return;
+
+    setActivities(prev => [
+      ...prev,
+      {
+        id: `act-${Date.now()}`,
+        user: 'You',
+        avatarInitials: 'YO',
+        type: 'comment',
+        content: commentInput,
+        time: 'Just now'
+      }
+    ]);
+    setCommentInput('');
+  };
+
+  const handleToggleSubtask = (subId: string) => {
+    setSubTasks(prev =>
+      prev.map(sub =>
+        sub.id === subId ? { ...sub, completed: !sub.completed } : sub
+      )
+    );
+  };
+
+  const handleReassignUser = (userId: string) => {
+    const selectedUser = users.find((u: any) => u.id === userId);
+    const name = selectedUser ? `${selectedUser.firstName} ${selectedUser.lastName}` : 'Unassigned';
+    
+    updateTaskMutation.mutate({
+      taskId,
+      data: { assignedTo: userId },
+    });
+    
+    setShowReassignMenu(false);
+
+    setActivities(prev => [
+      ...prev,
+      {
+        id: `act-${Date.now()}`,
+        user: 'You',
+        avatarInitials: 'YO',
+        type: 'system',
+        content: `reassigned task to ${name}`,
+        time: 'Just now'
+      }
+    ]);
+  };
+
+  return (
+    <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Top Breadcrumb row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 text-xs font-bold text-slate-400">
+          <button
+            onClick={() => navigate(paths.app.tasks.getHref())}
+            className="hover:text-[#1E3A8A] transition-colors"
+          >
+            Tasks
+          </button>
+          <ChevronRight className="size-3.5" />
+          <span className="text-slate-700">Task Detail</span>
+        </div>
+
+        <button
+          onClick={() => navigate(paths.app.tasks.getHref())}
+          className="flex items-center gap-1.5 text-xs font-bold text-[#1E3A8A] hover:text-[#0EA5E9] transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          Back to list
+        </button>
+      </div>
+
+      {/* Main Content: 2 Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 sm:gap-8 items-start">
+        
+        {/* Left Column (65% width) */}
+        <div className="lg:col-span-6.5 space-y-6">
+          
+          {/* Title and Header Card */}
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm relative space-y-4">
+            
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-3">
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
+                  {task.title}
+                </h1>
+                
+                {/* Badges row */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Status Selector Dropdown */}
+                  <select
+                    value={task.status}
+                    onChange={(e) => handleStatusChange(Number(e.target.value))}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getStatusSelectStyle(task.status)}`}
+                  >
+                    <option value={TaskStatus.PENDING}>To Do</option>
+                    <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                    <option value={TaskStatus.COMPLETED}>Done</option>
+                    <option value={TaskStatus.CANCELLED}>Blocked</option>
+                  </select>
+
+                  {/* Priority pill */}
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getPriorityBadgeStyle(task.priority)}`}>
+                    {getPriorityLabel(task.priority)} Priority
+                  </span>
+                </div>
+              </div>
+
+              {/* Three-Dot Actions Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowActionDropdown(!showActionDropdown)}
+                  className="p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
+                >
+                  <MoreHorizontal className="size-5.5" />
+                </button>
+
+                {showActionDropdown && (
+                  <div className="absolute right-0 mt-1.5 w-44 bg-white border border-slate-100 rounded-xl shadow-xl z-20 py-1 animate-in zoom-in-95 duration-100">
+                    <button
+                      onClick={() => {
+                        setShowActionDropdown(false);
+                        setIsEditingDescription(true);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                    >
+                      <Edit2 className="size-4" />
+                      Edit Description
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowActionDropdown(false);
+                        setShowReassignMenu(true);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                    >
+                      <UserCheck className="size-4" />
+                      Reassign Task
+                    </button>
+                    <div className="border-t border-slate-100 my-1" />
+                    <button
+                      onClick={() => {
+                        setShowActionDropdown(false);
+                        if (confirm('Delete this task?')) {
+                          deleteTaskMutation.mutate({ taskId });
+                        }
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50/50 transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 className="size-4" />
+                      Delete Task
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Description Text block */}
+            <div className="border-t border-slate-100 pt-4 space-y-2 text-left">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Description</span>
+              
+              {isEditingDescription ? (
+                <div className="space-y-3 mt-1.5">
+                  <textarea
+                    value={tempDescription}
+                    onChange={(e) => setTempDescription(e.target.value)}
+                    className="w-full text-xs p-3.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A]"
+                    rows={5}
+                    placeholder="Provide detailed description..."
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setIsEditingDescription(false)}
+                      className="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDescriptionSave}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#1E3A8A] text-white text-xs font-bold hover:bg-[#152a63] cursor-pointer"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="group relative">
+                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                    {task.description || 'No description provided. Click the edit description menu to add one.'}
+                  </p>
+                  <button
+                    onClick={() => setIsEditingDescription(true)}
+                    className="absolute right-0 top-0 size-7 items-center justify-center rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors hidden group-hover:flex cursor-pointer"
+                    title="Edit Description"
+                  >
+                    <Edit2 className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Activity & Comments Feed */}
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col h-[400px]">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
+                <MessageSquare className="size-4.5 text-slate-400" />
+                Activity & Comments
+              </h3>
+            </div>
+
+            {/* Scrollable list */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1.5">
+              {activities.map((act) => {
+                const isSystem = act.type === 'system';
+                return (
+                  <div key={act.id} className="flex gap-3 items-start text-xs text-left">
+                    <div className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${
+                      isSystem ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-[#0EA5E9]'
+                    }`}>
+                      {act.avatarInitials}
+                    </div>
+
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800">{act.user}</span>
+                        <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                          <Clock className="size-3" />
+                          {act.time}
+                        </span>
+                      </div>
+
+                      {isSystem ? (
+                        <p className="text-slate-400 italic font-medium">{act.content}</p>
+                      ) : (
+                        <p className="text-slate-600 bg-slate-50/50 border border-slate-100/50 p-2.5 rounded-xl leading-relaxed font-semibold">
+                          {act.content}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Fixed comment input box */}
+            <form onSubmit={handleAddComment} className="border-t border-slate-100 pt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => alert('Simulate file attachments uploading.')}
+                className="p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                title="Attach files"
+              >
+                <Paperclip className="size-4.5" />
+              </button>
+              <input
+                type="text"
+                placeholder="Write a comment, press enter to post..."
+                value={commentInput}
+                onChange={(e) => setCommentInput(e.target.value)}
+                className="flex-1 text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-medium"
+              />
+              <button
+                type="submit"
+                className="p-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white transition-colors"
+              >
+                <Send className="size-4" />
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        {/* Right Column (35% width) - Details card & Sub-tasks */}
+        <div className="lg:col-span-3.5 space-y-6">
+          
+          {/* Details Card */}
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Details Overview</h3>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              
+              {/* Assigned By */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold">Assigned By</span>
+                <div className="flex items-center gap-2">
+                  <div className="size-6.5 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[10px]">
+                    SJ
+                  </div>
+                  <span className="font-semibold text-slate-700">Sarah Jenkins</span>
+                </div>
+              </div>
+
+              {/* Assigned To */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50 relative">
+                <span className="text-slate-400 font-bold">Assigned To</span>
+                
+                {showReassignMenu ? (
+                  <select
+                    onChange={(e) => handleReassignUser(e.target.value)}
+                    onBlur={() => setShowReassignMenu(false)}
+                    defaultValue={task.assignedTo || ''}
+                    className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
+                    autoFocus
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {u.firstName} {u.lastName}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div
+                    onClick={() => setShowReassignMenu(true)}
+                    className="flex items-center gap-2 hover:bg-slate-50 px-2 py-1 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer"
+                  >
+                    {task.assigneeInfo ? (
+                      <>
+                        <div className="size-6.5 rounded-full bg-sky-50 text-[#0EA5E9] font-bold flex items-center justify-center text-[10px]">
+                          {task.assigneeInfo.firstName?.[0]}
+                        </div>
+                        <span className="font-semibold text-slate-700">
+                          {task.assigneeInfo.firstName} {task.assigneeInfo.lastName}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-slate-400 font-medium italic">Unassigned</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Team */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold">Team Department</span>
+                <span className="font-bold text-[#1E3A8A] bg-[#1E3A8A]/5 px-2 py-0.5 rounded-md">
+                  Engineering
+                </span>
+              </div>
+
+              {/* Deadline */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold">Deadline Date</span>
+                <input
+                  type="date"
+                  defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
+                  onChange={handleDeadlineChange}
+                  className={`bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold ${
+                    isOverdue() ? 'text-rose-600 border-rose-300 font-extrabold' : 'text-slate-700'
+                  }`}
+                />
+              </div>
+
+              {/* Committed Date (ETA) */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold">Committed ETA</span>
+                <input
+                  type="date"
+                  value={committedDate}
+                  onChange={(e) => setCommittedDate(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
+                />
+              </div>
+
+              {/* Created Date */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold">Created Date</span>
+                <span className="font-semibold text-slate-600">
+                  {new Date(task.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="space-y-1 pt-1.5">
+                <div className="flex justify-between items-center text-slate-400 font-bold">
+                  <span>Subtask Progression</span>
+                  <span className="text-slate-700">{progressPercent}%</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
+                  <div
+                    className="bg-[#0EA5E9] h-full rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Sub-tasks checklist section */}
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckSquare className="size-4.5 text-slate-400" />
+                Sub-tasks Checklist
+              </h3>
+              <span className="text-[10px] font-bold text-[#0EA5E9] bg-sky-50 px-2 py-0.5 rounded-full">
+                {completedSubtasks}/{subTasks.length}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {subTasks.map((sub) => (
+                <div
+                  key={sub.id}
+                  onClick={() => handleToggleSubtask(sub.id)}
+                  className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={sub.completed}
+                    onChange={() => {}} // toggled on container click
+                    className="mt-0.5 rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 cursor-pointer"
+                  />
+                  <span className={`font-semibold text-slate-700 transition-colors select-none ${
+                    sub.completed ? 'line-through text-slate-400' : ''
+                  }`}>
+                    {sub.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                const title = prompt('Enter subtask title:');
+                if (title?.trim()) {
+                  setSubTasks(prev => [
+                    ...prev,
+                    { id: `sub-${Date.now()}`, title: title.trim(), completed: false }
+                  ]);
+                }
+              }}
+              className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
+            >
+              + Add Subtask Item
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+};

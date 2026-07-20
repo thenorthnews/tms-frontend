@@ -1,0 +1,49 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
+import { api } from '@/lib/api-client';
+import { MutationConfig } from '@/lib/react-query';
+import { Task } from '../types';
+
+export const updateTaskInputSchema = z.object({
+  title: z.string().min(1, 'Title is required').optional(),
+  description: z.string().optional(),
+  status: z.coerce.number().min(0).max(3).optional(),
+  priority: z.coerce.number().min(0).max(2).optional(),
+  dueDate: z.string().optional(),
+  assignedTo: z.string().optional(),
+});
+
+export type UpdateTaskInput = z.infer<typeof updateTaskInputSchema>;
+
+export const updateTask = ({
+  taskId,
+  data,
+}: {
+  taskId: string;
+  data: UpdateTaskInput;
+}): Promise<Task> => {
+  return api.patch(`/tasks/${taskId}`, data);
+};
+
+type UseUpdateTaskOptions = {
+  mutationConfig?: MutationConfig<typeof updateTask>;
+};
+
+export const useUpdateTask = ({ mutationConfig }: UseUpdateTaskOptions = {}) => {
+  const queryClient = useQueryClient();
+  const { onSuccess, ...restConfig } = mutationConfig || {};
+
+  return useMutation({
+    onSuccess: (data, ...args) => {
+      queryClient.invalidateQueries({
+        queryKey: ['tasks'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['tasks', data.id || data._id],
+      });
+      onSuccess?.(data, ...args);
+    },
+    ...restConfig,
+    mutationFn: updateTask,
+  });
+};
