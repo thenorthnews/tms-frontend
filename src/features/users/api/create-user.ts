@@ -36,7 +36,6 @@ export const createUser = ({
     UserDto: {
       email: {
         id: data.email,
-        isVerified: false,
       },
       phoneNumber: {
         countryCode: data.countryCode,

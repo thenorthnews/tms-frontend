@@ -16,7 +16,9 @@ import {
   Trash2,
   UserCheck,
   CheckSquare,
-  AlertCircle
+  AlertCircle,
+  Paperclip,
+  FileText
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -24,10 +26,12 @@ import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
 import { api, mapUser } from '@/lib/api-client';
+import { useUser } from '@/lib/auth';
 
 import { useTask } from '../api/get-task';
 import { useUpdateTask } from '../api/update-task';
 import { useDeleteTask } from '../api/delete-task';
+import { useLogTime } from '../api/log-time';
 import { TaskStatus, TaskPriority } from '../types';
 
 type EditTaskProps = {
@@ -38,6 +42,10 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
 
+  // Get active logged in user
+  const currentUserQuery = useUser();
+  const currentUser = currentUserQuery.data;
+
   // Fetch current task
   const taskQuery = useTask({ taskId });
 
@@ -47,6 +55,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     queryFn: async () => {
       const res = await api.get('/admin/users', { params: { limit: 100 } }) as any;
       return (res.users || []).map(mapUser);
+    },
+  });
+
+  // Fetch teams for the team dropdown
+  const { data: teamsRes = [] } = useQuery({
+    queryKey: ['teams-list'],
+    queryFn: async () => {
+      const res = await api.get('/admin/teams') as any;
+      return res.data || res || [];
     },
   });
 
@@ -74,55 +91,53 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     },
   });
 
+  const logTimeMutation = useLogTime({
+    mutationConfig: {
+      onSuccess: () => {
+        addNotification({
+          type: 'success',
+          title: 'Time logged successfully',
+        });
+        setIsLoggingTime(false);
+        setLogHours(0);
+        setLogMinutes(0);
+        setLogDescription('');
+        taskQuery.refetch();
+      },
+    },
+  });
+
   // --- LOCAL INTERACTIVE STATES ---
+  const [isLoggingTime, setIsLoggingTime] = useState(false);
+  const [logHours, setLogHours] = useState<number>(0);
+  const [logMinutes, setLogMinutes] = useState<number>(0);
+  const [logDescription, setLogDescription] = useState('');
   const [commentInput, setCommentInput] = useState('');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [tempDescription, setTempDescription] = useState('');
   const [committedDate, setCommittedDate] = useState('2026-07-25');
   const [showReassignMenu, setShowReassignMenu] = useState(false);
+  const [showTeamMenu, setShowTeamMenu] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
 
-  // Sub-task list (Recalculates progress bar dynamically)
-  const [subTasks, setSubTasks] = useState([
-    { id: 'sub-1', title: 'Define userinfo mongoose virtual getter', completed: true },
-    { id: 'sub-2', title: 'Remove old UserInfo controller endpoints', completed: false },
-    { id: 'sub-3', title: 'Verify credentials seeding behavior in main.ts', completed: false }
-  ]);
+  // Tags state
+  const [tagsInput, setTagsInput] = useState('');
+  const [isEditingTags, setIsEditingTags] = useState(false);
 
-  // Activity feed
-  const [activities, setActivities] = useState([
-    {
-      id: 'act-1',
-      user: 'Sarah Jenkins',
-      avatarInitials: 'SJ',
-      type: 'system',
-      content: 'created this task',
-      time: 'July 18, 2026, 10:00 AM'
-    },
-    {
-      id: 'act-2',
-      user: 'Sarah Jenkins',
-      avatarInitials: 'SJ',
-      type: 'system',
-      content: 'assigned this task to Alex Rivera',
-      time: 'July 18, 2026, 10:05 AM'
-    },
-    {
-      id: 'act-3',
-      user: 'Alex Rivera',
-      avatarInitials: 'AR',
-      type: 'comment',
-      content: 'I have started review of the userinfo mongoose schema refactoring. I will resolve conflicts by today.',
-      time: 'July 19, 2026, 2:30 PM'
-    }
-  ]);
+  // File upload state
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+  // Sub-task list (connected to task query)
+  const [subTasks, setSubTasks] = useState<any[]>([]);
 
   const task = taskQuery.data;
 
-  // Initialize temp description
+  // Initialize values from fetched task
   useEffect(() => {
     if (task) {
       setTempDescription(task.description || '');
+      setSubTasks(task.subtasks || []);
+      setTagsInput(task.tags?.join(', ') || '');
     }
   }, [task]);
 
@@ -144,8 +159,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   }
 
   // Calculate sub-tasks progress rate
-  const completedSubtasks = subTasks.filter(s => s.completed).length;
-  const progressPercent = Math.round((completedSubtasks / subTasks.length) * 100);
+  const completedSubtasks = subTasks.filter(s => s.isCompleted).length;
+  const progressPercent = subTasks.length > 0
+    ? Math.round((completedSubtasks / subTasks.length) * 100)
+    : 0;
+
+  // Calculate total time logged
+  const totalMinutes = (task.timeLogs || []).reduce((acc, log) => acc + (log.hours * 60) + log.minutes, 0);
+  const displayHours = Math.floor(totalMinutes / 60);
+  const displayMinutes = totalMinutes % 60;
 
   // Overdue Check
   const isOverdue = () => {
@@ -203,20 +225,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       taskId,
       data: { status: newStatus },
     });
-    
-    // Add system activity
-    const label = getStatusLabel(newStatus);
-    setActivities(prev => [
-      ...prev,
-      {
-        id: `act-${Date.now()}`,
-        user: 'You',
-        avatarInitials: 'YO',
-        type: 'system',
-        content: `changed status to ${label}`,
-        time: 'Just now'
-      }
-    ]);
   };
 
   const handleDeadlineChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,54 +242,128 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     setIsEditingDescription(false);
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
+  const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentInput.trim()) return;
 
-    setActivities(prev => [
-      ...prev,
-      {
-        id: `act-${Date.now()}`,
-        user: 'You',
-        avatarInitials: 'YO',
-        type: 'comment',
-        content: commentInput,
-        time: 'Just now'
-      }
-    ]);
-    setCommentInput('');
+    try {
+      await api.post(`/tasks/${taskId}/comments`, { content: commentInput.trim() });
+      setCommentInput('');
+      taskQuery.refetch();
+      addNotification({
+        type: 'success',
+        title: 'Comment added successfully',
+      });
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to add comment',
+      });
+    }
   };
 
   const handleToggleSubtask = (subId: string) => {
-    setSubTasks(prev =>
-      prev.map(sub =>
-        sub.id === subId ? { ...sub, completed: !sub.completed } : sub
-      )
+    const updated = subTasks.map(sub =>
+      (sub._id === subId || sub.id === subId) ? { ...sub, isCompleted: !sub.isCompleted } : sub
     );
+    setSubTasks(updated);
+    updateTaskMutation.mutate({
+      taskId,
+      data: { subtasks: updated },
+    });
   };
 
-  const handleReassignUser = (userId: string) => {
-    const selectedUser = users.find((u: any) => u.id === userId);
-    const name = selectedUser ? `${selectedUser.firstName} ${selectedUser.lastName}` : 'Unassigned';
+  const handleCreateSubtask = () => {
+    const title = prompt('Enter subtask title:');
+    if (title?.trim()) {
+      const updated = [...subTasks, { title: title.trim(), isCompleted: false }];
+      setSubTasks(updated);
+      updateTaskMutation.mutate({
+        taskId,
+        data: { subtasks: updated },
+      });
+    }
+  };
+
+  const handleTagsSave = () => {
+    const parsedTags = tagsInput
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
     
     updateTaskMutation.mutate({
       taskId,
-      data: { assignedTo: userId },
+      data: { tags: parsedTags },
     });
-    
-    setShowReassignMenu(false);
+    setIsEditingTags(false);
+  };
 
-    setActivities(prev => [
-      ...prev,
-      {
-        id: `act-${Date.now()}`,
-        user: 'You',
-        avatarInitials: 'YO',
-        type: 'system',
-        content: `reassigned task to ${name}`,
-        time: 'Just now'
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setIsUploadingFile(true);
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('file', files[i]);
       }
-    ]);
+      
+      const res = await api.post('/file/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }) as any;
+
+      if (res.data) {
+        const newAttachments = [...(task.attachments || []), ...res.data];
+        updateTaskMutation.mutate({
+          taskId,
+          data: { attachments: newAttachments },
+        });
+        addNotification({
+          type: 'success',
+          title: 'File(s) uploaded successfully',
+        });
+      }
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to upload files',
+      });
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
+  const handleDeleteAttachment = (filename: string) => {
+    const newAttachments = (task.attachments || []).filter(
+      (att: any) => att.filename !== filename
+    );
+    updateTaskMutation.mutate({
+      taskId,
+      data: { attachments: newAttachments },
+    });
+    addNotification({
+      type: 'success',
+      title: 'Attachment deleted',
+    });
+  };
+
+  const handleReassignUser = (userId: string) => {
+    updateTaskMutation.mutate({
+      taskId,
+      data: { assignedTo: userId || undefined },
+    });
+    setShowReassignMenu(false);
+  };
+
+  const handleUpdateTeam = (teamId: string) => {
+    updateTaskMutation.mutate({
+      taskId,
+      data: { teamId: teamId || undefined },
+    });
+    setShowTeamMenu(false);
   };
 
   return (
@@ -440,6 +522,72 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
           </div>
 
+          {/* File Attachments Card */}
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Paperclip className="size-4.5 text-slate-400" />
+                Attachments
+              </h3>
+              <label className="text-[10px] font-bold text-[#1E3A8A] hover:text-[#0EA5E9] cursor-pointer flex items-center gap-1">
+                {isUploadingFile ? (
+                  <span>Uploading...</span>
+                ) : (
+                  <>
+                    <span>+ Add File</span>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={isUploadingFile}
+                    />
+                  </>
+                )}
+              </label>
+            </div>
+
+            {task.attachments && task.attachments.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {task.attachments.map((att: any) => (
+                  <div
+                    key={att.filename}
+                    className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl text-left"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileText className="size-5 text-slate-400 shrink-0" />
+                      <div className="min-w-0">
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-bold text-slate-700 hover:text-[#1E3A8A] hover:underline block truncate"
+                          title={att.originalName}
+                        >
+                          {att.originalName}
+                        </a>
+                        <span className="text-[10px] text-slate-400 block font-medium">
+                          {att.size ? `${(att.size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteAttachment(att.filename)}
+                      className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                      title="Delete attachment"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                No attachments uploaded yet
+              </div>
+            )}
+          </div>
+
           {/* Activity & Comments Feed */}
           <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col h-[400px]">
             <div className="border-b border-slate-100 pb-3">
@@ -451,22 +599,27 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
             {/* Scrollable list */}
             <div className="flex-1 overflow-y-auto space-y-4 pr-1.5">
-              {activities.map((act) => {
+              {(task?.activities || []).map((act: any, idx: number) => {
                 const isSystem = act.type === 'system';
                 return (
-                  <div key={act.id} className="flex gap-3 items-start text-xs text-left">
+                  <div key={act._id || idx} className="flex gap-3 items-start text-xs text-left">
                     <div className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${
                       isSystem ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-[#0EA5E9]'
                     }`}>
-                      {act.avatarInitials}
+                      {act.userInitials || 'SO'}
                     </div>
 
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">{act.user}</span>
+                        <span className="font-bold text-slate-800">{act.userName}</span>
                         <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
                           <Clock className="size-3" />
-                          {act.time}
+                          {new Date(act.createdAt).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </span>
                       </div>
 
@@ -566,11 +719,42 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               </div>
 
               {/* Team */}
-              <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-bold">Team Department</span>
-                <span className="font-bold text-[#1E3A8A] bg-[#1E3A8A]/5 px-2 py-0.5 rounded-md">
-                  Engineering
-                </span>
+              <div className="flex items-center justify-between py-1 border-b border-slate-50 relative">
+                <span className="text-slate-400 font-bold">Team</span>
+                
+                {showTeamMenu && (currentUser?.role === 0 || currentUser?.role === 1) ? (
+                  <select
+                    onChange={(e) => handleUpdateTeam(e.target.value)}
+                    onBlur={() => setShowTeamMenu(false)}
+                    defaultValue={task.teamId || ''}
+                    className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
+                    autoFocus
+                  >
+                    <option value="">No Team (Independent)</option>
+                    {teamsRes.map((t: any) => (
+                      <option key={t._id || t.id} value={t._id || t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div
+                    onClick={() => {
+                      if (currentUser?.role === 0 || currentUser?.role === 1) {
+                        setShowTeamMenu(true);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-2 py-1 rounded-lg border border-transparent transition-colors ${
+                      (currentUser?.role === 0 || currentUser?.role === 1)
+                        ? 'hover:bg-slate-50 hover:border-slate-100 cursor-pointer'
+                        : ''
+                    }`}
+                  >
+                    <span className="font-bold text-[#1E3A8A] bg-[#1E3A8A]/5 px-2 py-0.5 rounded-md">
+                      {task.teamInfo?.name || 'No Team'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Deadline */}
@@ -609,6 +793,64 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 </span>
               </div>
 
+              {/* Tags / Labels */}
+              <div className="flex flex-col gap-2 py-2 border-b border-slate-50">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-bold">Tags / Labels</span>
+                  {isEditingTags ? (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={handleTagsSave}
+                        className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                      >
+                        Save
+                      </button>
+                      <span className="text-slate-300">|</span>
+                      <button
+                        onClick={() => {
+                          setIsEditingTags(false);
+                          setTagsInput(task.tags?.join(', ') || '');
+                        }}
+                        className="text-[10px] font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditingTags(true)}
+                      className="text-[10px] font-bold text-[#1E3A8A] hover:text-[#0EA5E9] cursor-pointer"
+                    >
+                      Edit Tags
+                    </button>
+                  )}
+                </div>
+                {isEditingTags ? (
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. Bug, Feature, Design (comma separated)"
+                    className="w-full text-[11px] p-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700"
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {task.tags && task.tags.length > 0 ? (
+                      task.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-150"
+                        >
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-slate-400 italic font-medium">No tags</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Progress bar */}
               <div className="space-y-1 pt-1.5">
                 <div className="flex justify-between items-center text-slate-400 font-bold">
@@ -639,41 +881,151 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             </div>
 
             <div className="space-y-3">
-              {subTasks.map((sub) => (
-                <div
-                  key={sub.id}
-                  onClick={() => handleToggleSubtask(sub.id)}
-                  className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer text-xs"
-                >
-                  <input
-                    type="checkbox"
-                    checked={sub.completed}
-                    onChange={() => {}} // toggled on container click
-                    className="mt-0.5 rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 cursor-pointer"
-                  />
-                  <span className={`font-semibold text-slate-700 transition-colors select-none ${
-                    sub.completed ? 'line-through text-slate-400' : ''
-                  }`}>
-                    {sub.title}
-                  </span>
-                </div>
-              ))}
+              {subTasks.map((sub) => {
+                const subId = sub._id || sub.id;
+                return (
+                  <div
+                    key={subId}
+                    onClick={() => handleToggleSubtask(subId)}
+                    className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sub.isCompleted}
+                      onChange={() => {}} // toggled on container click
+                      className="mt-0.5 rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 cursor-pointer"
+                    />
+                    <span className={`font-semibold text-slate-700 transition-colors select-none ${
+                      sub.isCompleted ? 'line-through text-slate-400' : ''
+                    }`}>
+                      {sub.title}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             <button
-              onClick={() => {
-                const title = prompt('Enter subtask title:');
-                if (title?.trim()) {
-                  setSubTasks(prev => [
-                    ...prev,
-                    { id: `sub-${Date.now()}`, title: title.trim(), completed: false }
-                  ]);
-                }
-              }}
+              onClick={handleCreateSubtask}
               className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
             >
               + Add Subtask Item
             </button>
+          </div>
+
+          {/* Time Tracking Card */}
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="size-4.5 text-slate-400" />
+                Time Tracking
+              </h3>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
+                Total: {displayHours}h {displayMinutes}m
+              </span>
+            </div>
+
+            {/* List of Time Logs */}
+            {task.timeLogs && task.timeLogs.length > 0 ? (
+              <div className="space-y-3 max-h-40 overflow-y-auto pr-1">
+                {task.timeLogs.map((log: any, idx: number) => (
+                  <div key={log._id || idx} className="flex justify-between items-start text-xs border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-800">{log.userName}</span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                      {log.description && (
+                        <p className="text-slate-500 italic font-medium">{log.description}</p>
+                      )}
+                    </div>
+                    <span className="font-extrabold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+                      {log.hours}h {log.minutes}m
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-2 text-slate-400 text-xs font-medium">
+                No time logged yet
+              </div>
+            )}
+
+            {/* Log Time Form */}
+            {isLoggingTime ? (
+              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3 mt-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Hours</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={logHours}
+                      onChange={(e) => setLogHours(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-bold text-slate-700"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Minutes</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={logMinutes}
+                      onChange={(e) => setLogMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-bold text-slate-700"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Notes / Description</label>
+                  <input
+                    type="text"
+                    placeholder="What did you work on?"
+                    value={logDescription}
+                    onChange={(e) => setLogDescription(e.target.value)}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-medium text-slate-700"
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsLoggingTime(false)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[10px] font-bold hover:bg-slate-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={logTimeMutation.isPending || (logHours === 0 && logMinutes === 0)}
+                    onClick={() => {
+                      logTimeMutation.mutate({
+                        taskId,
+                        data: {
+                          hours: logHours,
+                          minutes: logMinutes,
+                          description: logDescription.trim() || undefined,
+                        },
+                      });
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white text-[10px] font-bold hover:bg-[#152a63] cursor-pointer"
+                  >
+                    {logTimeMutation.isPending ? 'Saving...' : 'Save Log'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsLoggingTime(true)}
+                className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
+              >
+                + Log Work Time
+              </button>
+            )}
           </div>
 
         </div>

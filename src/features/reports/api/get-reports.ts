@@ -29,6 +29,7 @@ export type EmployeePerformance = {
   completed: number;
   rate: number;
   avgTime: string;
+  loggedTime?: string;
 };
 
 export type ReportsData = {

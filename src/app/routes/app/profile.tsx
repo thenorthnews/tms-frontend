@@ -288,7 +288,7 @@ const ProfileRoute = () => {
                         type="button"
                         onClick={handlePhotoClick}
                         disabled={uploadFileMutation.isPending}
-                        className="inline-flex items-center gap-1.5 px-4.5 py-2 border border-slate-200 hover:border-slate-300 rounded-xl bg-white text-[11px] font-bold text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50"
+                        className="inline-flex items-center gap-1.5 px-5 py-2 border border-slate-200 hover:border-slate-300 rounded-xl bg-white text-[11px] font-bold text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50"
                       >
                         <Upload className="size-3.5" />
                         Change Photo

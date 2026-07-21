@@ -66,10 +66,10 @@ export const ReportsDashboard = () => {
     csvContent += `Generated On: ${new Date().toLocaleDateString()}\n`;
     csvContent += `Date Scope: ${dateRange.toUpperCase()}\n`;
     csvContent += `Priority Filter: ${priorityFilter.toUpperCase()}\n\n`;
-    
-    csvContent += 'Employee Name,Role,Tasks Assigned,Tasks Completed,Completion Rate %,Avg. Days to Complete\n';
+
+    csvContent += 'Employee Name,Role,Tasks Assigned,Tasks Completed,Completion Rate %,Avg. Days to Complete,Total Logged Time\n';
     employeePerformance.forEach((e) => {
-      csvContent += `"${e.name}","${e.role}",${e.assigned},${e.completed},${e.rate}%,${e.avgTime} days\n`;
+      csvContent += `"${e.name}","${e.role}",${e.assigned},${e.completed},${e.rate}%,${e.avgTime} days,"${e.loggedTime || '0h 0m'}"\n`;
     });
 
     const encodedUri = encodeURI(csvContent);
@@ -100,7 +100,7 @@ export const ReportsDashboard = () => {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Top Banner and Filter Control bar */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-gradient-to-r from-[#1E3A8A] via-[#10348a] to-[#0A192F] rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden border border-slate-700/20">
         <div className="absolute right-0 top-0 size-80 bg-[#0EA5E9]/10 rounded-full blur-3xl pointer-events-none" />
@@ -117,30 +117,27 @@ export const ReportsDashboard = () => {
 
         {/* Filters and Download Options */}
         <div className="flex flex-wrap items-center gap-3 z-10 mt-2 xl:mt-0">
-          
+
           {/* Scope Filters */}
           <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/5 text-xs font-semibold">
             <button
               onClick={() => setDateRange('week')}
-              className={`px-3 py-1.5 rounded-lg transition-all border-0 cursor-pointer ${
-                dateRange === 'week' ? 'bg-[#0EA5E9] text-white shadow-sm' : 'text-slate-300 hover:text-white bg-transparent'
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition-all border-0 cursor-pointer ${dateRange === 'week' ? 'bg-[#0EA5E9] text-white shadow-sm' : 'text-slate-300 hover:text-white bg-transparent'
+                }`}
             >
               Weekly
             </button>
             <button
               onClick={() => setDateRange('month')}
-              className={`px-3 py-1.5 rounded-lg transition-all border-0 cursor-pointer ${
-                dateRange === 'month' ? 'bg-[#0EA5E9] text-white shadow-sm' : 'text-slate-300 hover:text-white bg-transparent'
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition-all border-0 cursor-pointer ${dateRange === 'month' ? 'bg-[#0EA5E9] text-white shadow-sm' : 'text-slate-300 hover:text-white bg-transparent'
+                }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setDateRange('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all border-0 cursor-pointer ${
-                dateRange === 'all' ? 'bg-[#0EA5E9] text-white shadow-sm' : 'text-slate-300 hover:text-white bg-transparent'
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition-all border-0 cursor-pointer ${dateRange === 'all' ? 'bg-[#0EA5E9] text-white shadow-sm' : 'text-slate-300 hover:text-white bg-transparent'
+                }`}
             >
               All Time
             </button>
@@ -164,7 +161,7 @@ export const ReportsDashboard = () => {
           {/* Export Report */}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 rounded-xl bg-[#10B981] hover:bg-[#10B981]/90 text-white px-4.5 py-2.5 text-xs font-bold transition-all shadow-md shadow-emerald-500/20 cursor-pointer border-0"
+            className="flex items-center gap-2 rounded-xl bg-[#10B981] hover:bg-[#10B981]/90 text-white px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-emerald-500/20 cursor-pointer border-0"
           >
             <Download className="size-4" />
             Export CSV
@@ -174,7 +171,7 @@ export const ReportsDashboard = () => {
 
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        
+
         {/* Total scope tasks */}
         <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm flex items-center justify-between hover:shadow-md transition-all duration-300">
           <div className="space-y-1.5 text-left">
@@ -243,19 +240,19 @@ export const ReportsDashboard = () => {
 
       {/* Analytics Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Donut Chart: Completion Status */}
         <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm flex flex-col text-left">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
             <PieIcon className="size-4.5 text-[#0EA5E9]" />
             <h3 className="text-base font-bold text-slate-800">Task Completion Overview</h3>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-4">
             <div className="relative size-36 shrink-0">
               <svg className="size-full rotate-[-90deg]" viewBox="0 0 120 120">
                 <circle cx="60" cy="60" r={radius} className="stroke-slate-100 fill-none" strokeWidth="12" />
-                
+
                 {/* Completed slice */}
                 <circle
                   cx="60"
@@ -328,9 +325,9 @@ export const ReportsDashboard = () => {
             <BarChart3 className="size-4.5 text-[#0EA5E9]" />
             <h3 className="text-base font-bold text-slate-800">Priority Volume distribution</h3>
           </div>
-          
+
           <div className="flex-1 flex flex-col justify-around py-2">
-            
+
             {/* Low Priority bar */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-xs">
@@ -396,12 +393,13 @@ export const ReportsDashboard = () => {
                 <th className="py-3 px-2">Completed</th>
                 <th className="py-3 px-2">Completion Rate</th>
                 <th className="py-3 px-2">Avg. Completion Time</th>
+                <th className="py-3 px-2">Total Logged Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {employeePerformance.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400 font-bold">
+                  <td colSpan={7} className="py-6 text-center text-slate-400 font-bold">
                     No records found in database registry.
                   </td>
                 </tr>
@@ -435,6 +433,9 @@ export const ReportsDashboard = () => {
                       <div className="inline-flex items-center gap-1 font-bold text-slate-700">
                         {emp.avgTime} days
                       </div>
+                    </td>
+                    <td className="py-3.5 px-2 font-bold text-slate-700">
+                      {emp.loggedTime || '0h 0m'}
                     </td>
                   </tr>
                 ))

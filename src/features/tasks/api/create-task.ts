@@ -11,6 +11,20 @@ export const createTaskInputSchema = z.object({
   priority: z.coerce.number().min(0).max(2).optional(),
   dueDate: z.string().optional(),
   assignedTo: z.string().optional(),
+  subtasks: z.array(z.object({
+    title: z.string().min(1),
+    isCompleted: z.boolean().default(false),
+  })).optional(),
+  tags: z.array(z.string()).optional(),
+  attachments: z.array(z.object({
+    originalName: z.string(),
+    filename: z.string(),
+    mimetype: z.string().optional(),
+    size: z.number().optional(),
+    path: z.string(),
+    url: z.string(),
+  })).optional(),
+  teamId: z.string().optional(),
 });
 
 export type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
