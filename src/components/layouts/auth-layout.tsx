@@ -42,9 +42,9 @@ export const AuthLayout = ({ children, title }: LayoutProps) => {
           </div>
           
           <div className="relative z-10 px-12 text-center mt-[-100px]">
-            <p className="text-gray-400 text-sm mb-12">Streamlined admin dashboard — manage your agency effortlessly.</p>
+            <p className="text-gray-400 text-sm mb-12">Streamlined task management dashboard — manage your workflow effortlessly.</p>
             <h1 className="text-5xl font-medium tracking-tight text-white leading-tight drop-shadow-sm">
-              Manage your<br />agency
+              Manage your<br />tasks
             </h1>
             
             <div className="mt-16 relative mx-auto w-64 h-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border-[4px] border-gray-800">
@@ -73,7 +73,7 @@ export const AuthLayout = ({ children, title }: LayoutProps) => {
                   <Sparkles className="size-4 text-pink-500" />
                 </div>
               </div>
-              <span className="text-xl font-medium tracking-tight">Made Agency</span>
+              <span className="text-xl font-medium tracking-tight">TaskFlow</span>
             </Link>
           </div>
 
@@ -90,7 +90,7 @@ export const AuthLayout = ({ children, title }: LayoutProps) => {
 
           {/* Footer Area inside right panel */}
           <div className="flex justify-between items-center w-full text-xs text-gray-400 font-medium">
-            <p>&copy; {new Date().getFullYear()} Made Agency Inc.</p>
+            <p>&copy; {new Date().getFullYear()} TaskFlow Inc.</p>
           </div>
         </div>
       </div>

@@ -128,7 +128,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-[#F5F6FA] font-sans antialiased">
       <Progress />
-      
+
       {/* Sidebar (Desktop & Tablet) */}
       <aside className="fixed inset-y-0 left-0 z-20 hidden flex-col bg-white border-r border-slate-100 shadow-sm sm:flex sm:w-20 lg:w-60 transition-all duration-300">
         <div className="flex h-20 shrink-0 items-center justify-center lg:justify-start lg:px-6">
@@ -150,8 +150,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 cn(
                   'group flex items-center justify-center lg:justify-start rounded-xl p-3 lg:px-4 lg:py-3.5 text-sm font-semibold transition-all duration-200',
-                  isActive 
-                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/15' 
+                  isActive
+                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/15'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
                 )
               }
@@ -179,10 +179,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Wrapper */}
       <div className="flex w-full flex-col sm:pl-20 lg:pl-60 transition-all duration-300">
-        
+
         {/* Top Header */}
         <header className="sticky top-0 z-10 flex h-20 items-center justify-between gap-4 px-4 sm:px-8 bg-[#F5F6FA]/90 backdrop-blur-md border-b border-slate-100">
-          
+
           {/* Mobile Menu Trigger */}
           <Drawer>
             <DrawerTrigger asChild>
@@ -295,34 +295,24 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     <span className="text-sm font-bold text-slate-900 leading-tight">
                       {user.data?.firstName} {user.data?.lastName}
                     </span>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold mt-0.5 uppercase tracking-wide ${
-                      isCEO 
-                        ? 'bg-[#1E3A8A]/10 text-[#1E3A8A]' 
-                        : isManager 
-                          ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]' 
-                          : 'bg-emerald-50/15 text-emerald-600'
-                    }`}>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold mt-0.5 uppercase tracking-wide ${isCEO
+                      ? 'bg-[#1E3A8A]/10 text-[#1E3A8A]'
+                      : isManager
+                        ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]'
+                        : 'bg-emerald-50/15 text-emerald-600'
+                      }`}>
                       {roleView}
                     </span>
                   </div>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-xl border-slate-100 py-1 z-30">
-                <div className="px-4 py-2 border-b border-slate-100">
-                  <p className="text-xs text-slate-400 font-semibold">Logged in as</p>
-                  <p className="text-sm font-bold text-slate-800 truncate">{user.data?.email}</p>
-                </div>
+
                 <DropdownMenuItem
                   onClick={() => navigate(paths.app.profile.getHref())}
                   className="cursor-pointer font-semibold py-2.5 text-slate-700 focus:bg-slate-50"
                 >
                   Your Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => navigate(paths.app.changePassword.getHref())}
-                  className="cursor-pointer font-semibold py-2.5 text-slate-700 focus:bg-slate-50"
-                >
-                  Change Password
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
