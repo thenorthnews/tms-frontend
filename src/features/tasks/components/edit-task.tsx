@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   ChevronRight,
   MoreHorizontal,
-  Paperclip,
   Send,
   MessageSquare,
   Clock,
@@ -486,14 +485,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
             {/* Fixed comment input box */}
             <form onSubmit={handleAddComment} className="border-t border-slate-100 pt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => alert('Simulate file attachments uploading.')}
-                className="p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-                title="Attach files"
-              >
-                <Paperclip className="size-4.5" />
-              </button>
               <input
                 type="text"
                 placeholder="Write a comment, press enter to post..."

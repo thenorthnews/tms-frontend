@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Mail, Lock, User as UserIcon, ChevronDown, Check, Sparkles, Chrome, KanbanSquare } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Sparkles, KanbanSquare } from 'lucide-react';
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -30,28 +30,11 @@ const LoginRoute = () => {
     },
   });
 
-  // Tab State: 'login' | 'signup'
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
-
   // Input states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Signup specific states
-  const [fullName, setFullName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [role, setRole] = useState<'CEO' | 'Manager' | 'Employee'>('Manager');
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [signupSuccess, setSignupSuccess] = useState(false);
-
-  // Clear errors on tab switch
-  useEffect(() => {
-    setErrors({});
-    setSignupSuccess(false);
-  }, [activeTab]);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,50 +66,9 @@ const LoginRoute = () => {
     });
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newErrors: Record<string, string> = {};
-
-    if (!fullName) {
-      newErrors.fullName = 'Full Name is required';
-    }
-
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Invalid email address';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    // Simulate successful registration
-    setSignupSuccess(true);
-    setFullName('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setTimeout(() => {
-      setSignupSuccess(false);
-      setActiveTab('login');
-    }, 4500);
-  };
-
   return (
     <>
-      <Head title={activeTab === 'login' ? 'Login - TaskFlow' : 'Sign Up - TaskFlow'} />
+      <Head title="Login - TaskFlow" />
       
       <div className="flex min-h-screen bg-[#F8FAFC] font-sans antialiased">
         
@@ -203,7 +145,7 @@ const LoginRoute = () => {
           </div>
         </div>
 
-        {/* Right Half (40%): Login / Signup Form Container */}
+        {/* Right Half (40%): Login Form Container */}
         <div className="w-full lg:w-2/5 flex flex-col justify-center items-center px-6 sm:px-12 md:px-20 py-12 bg-white relative">
           
           {/* Logo representation on Mobile/Tablet screens */}
@@ -228,22 +170,9 @@ const LoginRoute = () => {
                 Welcome to TaskFlow
               </h2>
               <p className="text-sm text-slate-500">
-                {activeTab === 'login' 
-                  ? 'Sign in to access your administrative workspace.' 
-                  : 'Register a team member to invite them to the organization.'
-                }
+                Sign in to access your administrative workspace.
               </p>
             </div>
-
-            {/* Notification Messages */}
-            {signupSuccess && (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-4 text-sm animate-fadeIn shadow-sm">
-                <p className="font-semibold mb-1">🎉 Registration Request Submitted!</p>
-                <p className="text-xs text-emerald-700">
-                  Account has been registered successfully. You are being redirected to Login.
-                </p>
-              </div>
-            )}
 
             {errors.api && (
               <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-4 text-sm shadow-sm">
@@ -252,284 +181,88 @@ const LoginRoute = () => {
               </div>
             )}
 
-            {/* Tab Switcher */}
-            <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200/50">
-              <button
-                type="button"
-                onClick={() => setActiveTab('login')}
-                className={`flex-1 text-center py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  activeTab === 'login'
-                    ? 'bg-white text-[#1E3A8A] shadow-md shadow-slate-200/50'
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('signup')}
-                className={`flex-1 text-center py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  activeTab === 'signup'
-                    ? 'bg-white text-[#1E3A8A] shadow-md shadow-slate-200/50'
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                Sign Up
-              </button>
-            </div>
-
-            {/* FORMS */}
-            {activeTab === 'login' ? (
-              // LOGIN FORM
-              <form onSubmit={handleLoginSubmit} className="space-y-5">
-                
-                {/* Email Input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Mail className="size-4" />
-                    </span>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (errors.email) setErrors(prev => { const { email, ...rest } = prev; return rest; });
-                      }}
-                      placeholder="name@company.com"
-                      className={`w-full h-11 pl-10 pr-4 bg-white border ${
-                        errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
-                    />
-                  </div>
-                  {errors.email && <p className="text-xs text-rose-500">{errors.email}</p>}
+            {/* LOGIN FORM */}
+            <form onSubmit={handleLoginSubmit} className="space-y-5">
+              
+              {/* Email Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                    <Mail className="size-4" />
+                  </span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) setErrors(prev => { const { email, ...rest } = prev; return rest; });
+                    }}
+                    placeholder="name@company.com"
+                    className={`w-full h-11 pl-10 pr-4 bg-white border ${
+                      errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
+                    } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
+                  />
                 </div>
+                {errors.email && <p className="text-xs text-rose-500">{errors.email}</p>}
+              </div>
 
-                {/* Password Input */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
-                    <a 
-                      href="#forgot" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        alert('Password reset instructions have been simulated to your email.');
-                      }}
-                      className="text-xs font-semibold text-[#0EA5E9] hover:underline"
-                    >
-                      Forgot Password?
-                    </a>
-                  </div>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Lock className="size-4" />
-                    </span>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (errors.password) setErrors(prev => { const { password, ...rest } = prev; return rest; });
-                      }}
-                      placeholder="••••••••"
-                      className={`w-full h-11 pl-10 pr-10 bg-white border ${
-                        errors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-xs text-rose-500">{errors.password}</p>}
+              {/* Password Input */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
+                  <a 
+                    href="#forgot" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      alert('Password reset instructions have been simulated to your email.');
+                    }}
+                    className="text-xs font-semibold text-[#0EA5E9] hover:underline"
+                  >
+                    Forgot Password?
+                  </a>
                 </div>
-
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  disabled={login.isPending}
-                  className="w-full h-11 bg-[#1E3A8A] hover:bg-[#152a63] text-white font-semibold rounded-[10px] text-sm shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                  {login.isPending ? (
-                    <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                  ) : (
-                    'Login'
-                  )}
-                </button>
-
-                {/* Divider */}
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-slate-200"></div>
-                  <span className="flex-shrink mx-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">OR</span>
-                  <div className="flex-grow border-t border-slate-200"></div>
-                </div>
-
-                {/* Google SSO Button */}
-                <button
-                  type="button"
-                  onClick={() => alert('Google authentication is currently simulated.')}
-                  className="w-full h-11 bg-white hover:bg-slate-50 text-slate-700 font-semibold border border-slate-200 rounded-[10px] text-sm transition-colors flex items-center justify-center gap-2.5 shadow-sm"
-                >
-                  <Chrome className="size-4 text-red-500" />
-                  Continue with Google
-                </button>
-
-              </form>
-            ) : (
-              // SIGNUP FORM
-              <form onSubmit={handleSignupSubmit} className="space-y-4">
-                
-                {/* Full Name Input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Full Name</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <UserIcon className="size-4" />
-                    </span>
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => {
-                        setFullName(e.target.value);
-                        if (errors.fullName) setErrors(prev => { const { fullName, ...rest } = prev; return rest; });
-                      }}
-                      placeholder="John Doe"
-                      className={`w-full h-11 pl-10 pr-4 bg-white border ${
-                        errors.fullName ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
-                    />
-                  </div>
-                  {errors.fullName && <p className="text-xs text-rose-500">{errors.fullName}</p>}
-                </div>
-
-                {/* Email Input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Work Email</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Mail className="size-4" />
-                    </span>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (errors.email) setErrors(prev => { const { email, ...rest } = prev; return rest; });
-                      }}
-                      placeholder="name@company.com"
-                      className={`w-full h-11 pl-10 pr-4 bg-white border ${
-                        errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
-                    />
-                  </div>
-                  {errors.email && <p className="text-xs text-rose-500">{errors.email}</p>}
-                </div>
-
-                {/* Role dropdown */}
-                <div className="space-y-1.5 relative">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Organizational Role</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                    <Lock className="size-4" />
+                  </span>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errors.password) setErrors(prev => { const { password, ...rest } = prev; return rest; });
+                    }}
+                    placeholder="••••••••"
+                    className={`w-full h-11 pl-10 pr-10 bg-white border ${
+                      errors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
+                    } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
+                  />
                   <button
                     type="button"
-                    onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                    className="w-full h-11 px-4 bg-white border border-slate-200 rounded-[10px] text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-sky-100 focus:border-[#1E3A8A] transition-all flex items-center justify-between"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
                   >
-                    <span>{role}</span>
-                    <ChevronDown className="size-4 text-slate-400" />
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>
-                  {showRoleDropdown && (
-                    <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-[10px] shadow-xl z-20 overflow-hidden py-1 animate-fadeIn">
-                      {(['CEO', 'Manager', 'Employee'] as const).map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            setRole(r);
-                            setShowRoleDropdown(false);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 flex items-center justify-between font-medium"
-                        >
-                          <span>{r}</span>
-                          {role === r && <Check className="size-4 text-[#0EA5E9]" />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
+                {errors.password && <p className="text-xs text-rose-500">{errors.password}</p>}
+              </div>
 
-                {/* Password Input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Lock className="size-4" />
-                    </span>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (errors.password) setErrors(prev => { const { password, ...rest } = prev; return rest; });
-                      }}
-                      placeholder="••••••••"
-                      className={`w-full h-11 pl-10 pr-10 bg-white border ${
-                        errors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-xs text-rose-500">{errors.password}</p>}
-                </div>
+              {/* Submit button */}
+              <button
+                type="submit"
+                disabled={login.isPending}
+                className="w-full h-11 bg-[#1E3A8A] hover:bg-[#152a63] text-white font-semibold rounded-[10px] text-sm shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              >
+                {login.isPending ? (
+                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                ) : (
+                  'Login'
+                )}
+              </button>
 
-                {/* Confirm Password Input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Confirm Password</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                      <Lock className="size-4" />
-                    </span>
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
-                        if (errors.confirmPassword) setErrors(prev => { const { confirmPassword, ...rest } = prev; return rest; });
-                      }}
-                      placeholder="••••••••"
-                      className={`w-full h-11 pl-10 pr-10 bg-white border ${
-                        errors.confirmPassword ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && <p className="text-xs text-rose-500">{errors.confirmPassword}</p>}
-                </div>
-
-                {/* Create Account Button */}
-                <button
-                  type="submit"
-                  className="w-full h-11 mt-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white font-semibold rounded-[10px] text-sm shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                  Create Account
-                </button>
-
-              </form>
-            )}
+            </form>
 
           </div>
 

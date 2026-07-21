@@ -152,7 +152,6 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
             motherName: userInfo.motherName || '',
             age: userInfo.age ?? ('' as unknown as number),
             gender: userInfo.gender ?? 0,
-            salary: userInfo.salary ?? ('' as unknown as number),
             image: userInfo.image || '',
             role: userData.role ?? 4,
           } as UpdateUserInput,
@@ -196,12 +195,6 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                       type="number"
                       error={formState.errors['age']}
                       registration={register('age')}
-                    />
-                    <Input
-                      label="Salary"
-                      type="number"
-                      error={formState.errors['salary']}
-                      registration={register('salary')}
                     />
                   </div>
                   

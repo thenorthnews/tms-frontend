@@ -3,15 +3,11 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import {
   User,
-  Bell,
-  Users,
   Lock,
   Info,
   LogOut,
   Upload,
   Check,
-  ToggleLeft,
-  ToggleRight,
   AlertCircle,
   ShieldAlert
 } from 'lucide-react';
@@ -31,7 +27,7 @@ const ProfileRoute = () => {
   const { addNotification } = useNotifications();
 
   // --- ACTIVE TAB ---
-  const [activeTab, setActiveTab] = useState<'account' | 'notifications' | 'team' | 'security' | 'about'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'about'>('account');
 
   // --- MUTATIONS ---
   const updateProfileMutation = useUpdateProfile({
@@ -102,20 +98,6 @@ const ProfileRoute = () => {
     oldPassword: '',
     newPassword: '',
     confirmPassword: '',
-  });
-
-  // Notifications Toggles
-  const [notifSettings, setNotifSettings] = useState({
-    emailNotif: true,
-    pushNotif: false,
-    deadlineReminders: true,
-  });
-
-  // Team settings toggles
-  const [teamSettings, setTeamSettings] = useState({
-    allowReassignment: true,
-    weeklyReports: false,
-    departmentAlerts: true,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -233,33 +215,7 @@ const ProfileRoute = () => {
                   Account Profile
                 </button>
 
-                {/* Notifications tab */}
-                <button
-                  onClick={() => setActiveTab('notifications')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'notifications'
-                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                  }`}
-                >
-                  <Bell className="size-4" />
-                  Notifications
-                </button>
 
-                {/* Team settings tab (CEO/Manager only) */}
-                {!isEmployee && (
-                  <button
-                    onClick={() => setActiveTab('team')}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                      activeTab === 'team'
-                        ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                    }`}
-                  >
-                    <Users className="size-4" />
-                    Team Settings
-                  </button>
-                )}
 
                 {/* Security tab */}
                 <button
@@ -436,155 +392,7 @@ const ProfileRoute = () => {
               </form>
             )}
 
-            {/* NOTIFICATIONS TAB PANEL */}
-            {activeTab === 'notifications' && (
-              <div className="space-y-6">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-lg font-bold text-slate-800">Notification Channels</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Control where you want to receive alerts and reminders</p>
-                </div>
 
-                <div className="space-y-4">
-                  {/* Email Notifications */}
-                  <div
-                    onClick={() => {
-                      setNotifSettings(prev => ({ ...prev, emailNotif: !prev.emailNotif }));
-                      addNotification({ type: 'success', title: 'Email alert preference toggled' });
-                    }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer select-none"
-                  >
-                    <div className="space-y-1 text-left">
-                      <h4 className="text-xs font-bold text-slate-800">Email Digest Notifications</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">Receive daily update summaries of assigned backlogs</p>
-                    </div>
-                    <div>
-                      {notifSettings.emailNotif ? (
-                        <ToggleRight className="size-8 text-[#0EA5E9] cursor-pointer" />
-                      ) : (
-                        <ToggleLeft className="size-8 text-slate-300 cursor-pointer" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Push Notifications */}
-                  <div
-                    onClick={() => {
-                      setNotifSettings(prev => ({ ...prev, pushNotif: !prev.pushNotif }));
-                      addNotification({ type: 'success', title: 'Desktop push preference toggled' });
-                    }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer select-none"
-                  >
-                    <div className="space-y-1 text-left">
-                      <h4 className="text-xs font-bold text-slate-800">Browser Push Notifications</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">Receive real-time desktop alerts on status alterations</p>
-                    </div>
-                    <div>
-                      {notifSettings.pushNotif ? (
-                        <ToggleRight className="size-8 text-[#0EA5E9] cursor-pointer" />
-                      ) : (
-                        <ToggleLeft className="size-8 text-slate-300 cursor-pointer" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Deadline Reminders */}
-                  <div
-                    onClick={() => {
-                      setNotifSettings(prev => ({ ...prev, deadlineReminders: !prev.deadlineReminders }));
-                      addNotification({ type: 'success', title: 'Deadline reminder preference toggled' });
-                    }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer select-none"
-                  >
-                    <div className="space-y-1 text-left">
-                      <h4 className="text-xs font-bold text-slate-800">Milestone Deadline Reminders</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">Get alerted when task target dates are close</p>
-                    </div>
-                    <div>
-                      {notifSettings.deadlineReminders ? (
-                        <ToggleRight className="size-8 text-[#0EA5E9] cursor-pointer" />
-                      ) : (
-                        <ToggleLeft className="size-8 text-slate-300 cursor-pointer" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TEAM TAB PANEL (CEO/Manager only) */}
-            {activeTab === 'team' && !isEmployee && (
-              <div className="space-y-6">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-lg font-bold text-slate-800">Department Preferences</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Control team-level permissions and notification summaries</p>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Allow Reassignment */}
-                  <div
-                    onClick={() => {
-                      setTeamSettings(prev => ({ ...prev, allowReassignment: !prev.allowReassignment }));
-                      addNotification({ type: 'success', title: 'Team task delegation preference toggled' });
-                    }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer select-none"
-                  >
-                    <div className="space-y-1 text-left">
-                      <h4 className="text-xs font-bold text-slate-800">Task Delegation</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">Allow members to reassign tasks to peer developers</p>
-                    </div>
-                    <div>
-                      {teamSettings.allowReassignment ? (
-                        <ToggleRight className="size-8 text-[#0EA5E9] cursor-pointer" />
-                      ) : (
-                        <ToggleLeft className="size-8 text-slate-300 cursor-pointer" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Weekly Progress Digest */}
-                  <div
-                    onClick={() => {
-                      setTeamSettings(prev => ({ ...prev, weeklyReports: !prev.weeklyReports }));
-                      addNotification({ type: 'success', title: 'Weekly progress reports digest preference toggled' });
-                    }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer select-none"
-                  >
-                    <div className="space-y-1 text-left">
-                      <h4 className="text-xs font-bold text-slate-800">Weekly Progress Digest</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">Compile automatic weekly metrics logs for the department</p>
-                    </div>
-                    <div>
-                      {teamSettings.weeklyReports ? (
-                        <ToggleRight className="size-8 text-[#0EA5E9] cursor-pointer" />
-                      ) : (
-                        <ToggleLeft className="size-8 text-slate-300 cursor-pointer" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Department Alerts */}
-                  <div
-                    onClick={() => {
-                      setTeamSettings(prev => ({ ...prev, departmentAlerts: !prev.departmentAlerts }));
-                      addNotification({ type: 'success', title: 'Department priority alert alerts preference toggled' });
-                    }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors cursor-pointer select-none"
-                  >
-                    <div className="space-y-1 text-left">
-                      <h4 className="text-xs font-bold text-slate-800">Department Alerts</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold">Broad alert broadcasts when task milestones fail</p>
-                    </div>
-                    <div>
-                      {teamSettings.departmentAlerts ? (
-                        <ToggleRight className="size-8 text-[#0EA5E9] cursor-pointer" />
-                      ) : (
-                        <ToggleLeft className="size-8 text-slate-300 cursor-pointer" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* SECURITY TAB PANEL */}
             {activeTab === 'security' && (

@@ -54,10 +54,7 @@ export const paths = {
       path: 'reports',
       getHref: () => '/app/reports',
     },
-    notifications: {
-      path: 'notifications',
-      getHref: () => '/app/notifications',
-    },
+
     profile: {
       path: 'profile',
       getHref: () => '/app/profile',

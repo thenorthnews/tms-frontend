@@ -279,7 +279,6 @@ export const TeamManagement = () => {
         motherName: 'Not Provided',
         age: 30,
         gender: 0,
-        salary: 60000,
         image: '',
         role: newMember.role === 'ceo' ? 0 : newMember.role === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
       }

@@ -345,9 +345,9 @@ export const TasksList = () => {
 
         <Button
           onClick={() => navigate(paths.app.createTask.getHref())}
-          className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center gap-1.5 px-6 py-2 shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0"
+          icon={<Plus className="size-4" />}
+          className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0 h-10 px-6"
         >
-          <Plus className="size-4" />
           Create Task
         </Button>
       </div>

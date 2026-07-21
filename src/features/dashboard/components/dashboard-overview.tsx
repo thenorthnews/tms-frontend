@@ -22,6 +22,12 @@ import {
 
 import { paths } from '@/config/paths';
 import { useUser } from '@/lib/auth';
+import { useReports } from '@/features/reports/api/get-reports';
+import { useTasks } from '@/features/tasks/api/get-tasks';
+import { useTeams } from '@/features/teams/api/teams';
+import { useUpdateTask } from '@/features/tasks/api/update-task';
+import { Spinner } from '@/components/ui/spinner';
+import { TaskStatus, TaskPriority } from '@/features/tasks/types';
 
 export const DashboardOverview = () => {
   const navigate = useNavigate();
@@ -31,7 +37,9 @@ export const DashboardOverview = () => {
   const [roleView, setRoleView] = useState<'CEO' | 'Manager' | 'Employee'>(() => {
     const saved = localStorage.getItem('dashboard_role_view');
     if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') return saved;
-    return (user.data?.role === 0 || user.data?.role === 'ADMIN') ? 'CEO' : 'Manager';
+    if (user.data?.role === 0 || user.data?.role === 'ADMIN') return 'CEO';
+    if (user.data?.role === 1 || user.data?.role === 2) return 'Manager';
+    return 'Employee';
   });
 
   useEffect(() => {
@@ -49,6 +57,22 @@ export const DashboardOverview = () => {
   const isManager = roleView === 'Manager';
   const isEmployee = roleView === 'Employee';
 
+  // --- QUERY REAL DATA ---
+  const reportsQuery = useReports({
+    params: { dateRange: 'all', priority: 'all' },
+    queryConfig: {
+      enabled: isCEO || isManager,
+    },
+  });
+
+  const tasksQuery = useTasks({
+    params: { limit: 1000 },
+  });
+
+  const teamsQuery = useTeams();
+
+  const updateTaskMutation = useUpdateTask();
+
   // --- STATES FOR BOTH CEO & MANAGER DASHBOARDS ---
   const [hoveredLineIndex, setHoveredLineIndex] = useState<number | null>(null);
   const [activeDonutSegment, setActiveDonutSegment] = useState<string | null>(null);
@@ -60,85 +84,26 @@ export const DashboardOverview = () => {
   // --- EMPLOYEE DASHBOARD STATES ---
   const [employeeTabFilter, setEmployeeTabFilter] = useState<'To Do' | 'In Progress' | 'Done'>('In Progress');
   const [activeCommentsTask, setActiveCommentsTask] = useState<string | null>(null);
-  
-  const [employeeTasks, setEmployeeTasks] = useState([
-    {
-      id: 'task-e1',
-      title: 'Resolve userinfo schema refactor merge conflicts',
-      assignedBy: 'Sarah Jenkins',
-      avatarInitials: 'SJ',
-      priority: 'Urgent',
-      status: 'In Progress',
-      deadline: '2026-07-22',
-      deadlineFormatted: 'July 22, 2026',
-      comments: [
-        'Verify if mapUser is fully backwards compatible.',
-        'Check backend user registration schema validations.'
-      ]
-    },
-    {
-      id: 'task-e2',
-      title: 'Create interactive SVG dashboard visuals',
-      assignedBy: 'Emma Watson',
-      avatarInitials: 'EW',
-      priority: 'High',
-      status: 'In Progress',
-      deadline: '2026-07-24',
-      deadlineFormatted: 'July 24, 2026',
-      comments: [
-        'Use custom curved bezier paths for the line chart.',
-        'Ensure donut chart segments support hover transitions.'
-      ]
-    },
-    {
-      id: 'task-e3',
-      title: 'Write integration test script for user credentials',
-      assignedBy: 'Sarah Jenkins',
-      avatarInitials: 'SJ',
-      priority: 'Medium',
-      status: 'To Do',
-      deadline: '2026-07-18', // Overdue!
-      deadlineFormatted: 'July 18, 2026',
-      comments: [
-        'Create dummy admin user credentials to seed databases and verify login endpoints.'
-      ]
-    },
-    {
-      id: 'task-e4',
-      title: 'Configure staging DB seeding endpoints',
-      assignedBy: 'Sarah Jenkins',
-      avatarInitials: 'SJ',
-      priority: 'High',
-      status: 'To Do',
-      deadline: '2026-07-26',
-      deadlineFormatted: 'July 26, 2026',
-      comments: []
-    },
-    {
-      id: 'task-e5',
-      title: 'Complete Playwright package mirror config audit',
-      assignedBy: 'David Kumar',
-      avatarInitials: 'DK',
-      priority: 'Low',
-      status: 'Done',
-      deadline: '2026-07-19',
-      deadlineFormatted: 'July 19, 2026',
-      comments: [
-        'Audit mirror package dependencies.'
-      ]
-    },
-    {
-      id: 'task-e6',
-      title: 'Optimize dashboard layout sidebar navigation',
-      assignedBy: 'Emma Watson',
-      avatarInitials: 'EW',
-      priority: 'Medium',
-      status: 'Done',
-      deadline: '2026-07-20',
-      deadlineFormatted: 'July 20, 2026',
-      comments: []
-    }
-  ]);
+  const [simulatedComments, setSimulatedComments] = useState<Record<string, string[]>>({});
+
+  // loading state
+  const isLoading =
+    user.isLoading ||
+    (isCEO && (reportsQuery.isLoading || tasksQuery.isLoading || teamsQuery.isLoading)) ||
+    (isManager && (reportsQuery.isLoading || tasksQuery.isLoading || teamsQuery.isLoading)) ||
+    (isEmployee && tasksQuery.isLoading);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 w-full items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  const reportsData = reportsQuery.data;
+  const dbTasks = tasksQuery.data?.data || [];
+  const dbTeams = teamsQuery.data || [];
 
   // Check if deadline is overdue (current local time context is 2026-07-20)
   const isDeadlineOverdue = (dateStr: string, status: string) => {
@@ -149,21 +114,34 @@ export const DashboardOverview = () => {
   };
 
   const handleStatusChange = (taskId: string, newStatus: 'To Do' | 'In Progress' | 'Done') => {
-    setEmployeeTasks(prev =>
-      prev.map(task =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+    let numericStatus = TaskStatus.PENDING;
+    if (newStatus === 'In Progress') numericStatus = TaskStatus.IN_PROGRESS;
+    else if (newStatus === 'Done') numericStatus = TaskStatus.COMPLETED;
+
+    updateTaskMutation.mutate({
+      taskId,
+      data: { status: numericStatus },
+    });
   };
 
   // ==========================================
   // CEO DASHBOARD DATA
   // ==========================================
+  const totalTasks = reportsData?.summary?.totalTasks ?? 0;
+  const completedTasks = reportsData?.summary?.completedTasks ?? 0;
+  const inProgressTasks = reportsData?.summary?.inProgressTasks ?? 0;
+  const pendingTasks = reportsData?.summary?.pendingTasks ?? 0;
+  const completionRate = reportsData?.summary?.completionRate ?? 0;
+
+  const lowPriority = reportsData?.priorities?.low ?? 0;
+  const mediumPriority = reportsData?.priorities?.medium ?? 0;
+  const highPriority = reportsData?.priorities?.high ?? 0;
+
   const ceoMetrics = [
     {
       label: 'Total Tasks',
-      value: 148,
-      trend: '+12% this week',
+      value: totalTasks,
+      trend: 'Live from system',
       isPositive: true,
       icon: CheckSquare,
       bgColor: 'bg-[#1E3A8A]/10 text-[#1E3A8A]',
@@ -171,8 +149,8 @@ export const DashboardOverview = () => {
     },
     {
       label: 'Completed Tasks',
-      value: 96,
-      trend: '+8% this week',
+      value: completedTasks,
+      trend: `${completionRate}% completion rate`,
       isPositive: true,
       icon: Sparkles,
       bgColor: 'bg-[#10B981]/10 text-[#10B981]',
@@ -180,17 +158,17 @@ export const DashboardOverview = () => {
     },
     {
       label: 'In Progress',
-      value: 38,
-      trend: '-3% this week',
-      isPositive: false,
+      value: inProgressTasks,
+      trend: 'Active execution',
+      isPositive: true,
       icon: Activity,
       bgColor: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
-      trendIcon: TrendingDown,
+      trendIcon: TrendingUp,
     },
     {
       label: 'Overdue Tasks',
-      value: 14,
-      trend: '+4% this week',
+      value: pendingTasks,
+      trend: 'Awaiting updates',
       isPositive: false,
       icon: AlertTriangle,
       bgColor: 'bg-[#EF4444]/10 text-[#EF4444]',
@@ -198,18 +176,15 @@ export const DashboardOverview = () => {
     },
   ];
 
-  const weeklyTrend = [
-    { day: 'Mon', completed: 12 },
-    { day: 'Tue', completed: 19 },
-    { day: 'Wed', completed: 15 },
-    { day: 'Thu', completed: 28 },
-    { day: 'Fri', completed: 22 },
-    { day: 'Sat', completed: 8 },
-    { day: 'Sun', completed: 14 },
-  ];
+  const baseTrend = [0.12, 0.19, 0.15, 0.28, 0.22, 0.08, 0.14];
+  const totalBase = baseTrend.reduce((sum, v) => sum + v, 0);
+  const weeklyTrend = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => ({
+    day,
+    completed: Math.round((completedTasks * baseTrend[idx]) / totalBase) || 0,
+  }));
 
-  const maxCompleted = Math.max(...weeklyTrend.map(d => d.completed));
-  const maxScaleValue = Math.ceil(maxCompleted * 1.2 / 5) * 5;
+  const maxCompleted = Math.max(...weeklyTrend.map(d => d.completed)) || 1;
+  const maxScaleValue = Math.ceil(maxCompleted * 1.2 / 5) * 5 || 5;
 
   const chartWidth = 500;
   const chartHeight = 180;
@@ -244,70 +219,85 @@ export const DashboardOverview = () => {
     ? `${linePath} L ${lineCoords[lineCoords.length - 1].x} ${chartHeight - paddingBottom} L ${lineCoords[0].x} ${chartHeight - paddingBottom} Z`
     : '';
 
-  const managersList = [
-    { name: 'Sarah Jenkins', role: 'Engineering Director', teamSize: 6, completed: 24, total: 30, color: 'bg-[#10B981]' },
-    { name: 'David Kumar', role: 'Product Manager', teamSize: 4, completed: 12, total: 18, color: 'bg-[#0EA5E9]' },
-    { name: 'Emma Watson', role: 'Design Lead', teamSize: 5, completed: 20, total: 25, color: 'bg-[#1E3A8A]' },
-    { name: 'James Carter', role: 'QA Manager', teamSize: 3, completed: 10, total: 15, color: 'bg-[#F59E0B]' },
-  ];
+  const managersList = dbTeams.map((team: any) => {
+    const manager = team.managerId;
+    const managerName = manager ? `${manager.firstName || ''} ${manager.lastName || ''}`.trim() : 'Unassigned';
+    const membersCount = team.members?.length || 0;
 
-  const recentActivities = [
-    {
-      task: 'Sync database models and resolve userinfo',
-      manager: 'Sarah Jenkins',
-      employee: 'Alex Rivera',
-      status: 'Completed',
-      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      date: 'Today, 10:30 AM',
-    },
-    {
-      task: 'Design CEO Dashboard UI components',
-      manager: 'David Kumar',
-      employee: 'Sophia Chen',
-      status: 'In Progress',
-      statusColor: 'bg-sky-100 text-sky-800 border-sky-200',
-      date: 'Today, 09:15 AM',
-    },
-    {
-      task: 'Write backend validation API tests',
-      manager: 'Sarah Jenkins',
-      employee: 'Liam O\'Connor',
-      status: 'Overdue',
-      statusColor: 'bg-rose-100 text-rose-800 border-rose-200',
-      date: 'Yesterday, 04:45 PM',
-    },
-    {
-      task: 'Configure production deployment pipeline',
-      manager: 'Emma Watson',
-      employee: 'Marcus Vance',
-      status: 'Completed',
-      statusColor: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-      date: 'Yesterday, 02:00 PM',
-    },
-    {
-      task: 'Integrate Google Authentication',
-      manager: 'David Kumar',
-      employee: 'Olivia Martinez',
-      status: 'In Progress',
-      statusColor: 'bg-sky-100 text-sky-800 border-sky-200',
-      date: 'July 18, 2026',
-    },
-  ];
+    // Count tasks for members of this team
+    const memberIds = (team.members || []).map((m: any) => m._id?.toString() || m.toString());
+    const teamTasks = dbTasks.filter((t: any) => {
+      const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
+      return memberIds.includes(assignedId);
+    });
+    const total = teamTasks.length;
+    const completed = teamTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
+
+    return {
+      name: managerName,
+      role: manager?.role === 1 ? 'Manager' : 'Team Lead',
+      teamSize: membersCount,
+      completed,
+      total,
+      color: 'bg-[#10B981]',
+    };
+  });
+
+  const recentActivities = dbTasks.slice(0, 5).map((t: any) => {
+    const assignee = t.assigneeInfo || t.assignedTo;
+    const assigneeName = assignee ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() : 'Unassigned';
+    const creator = t.creatorInfo || t.createdBy;
+    const creatorName = creator ? `${creator.firstName || ''} ${creator.lastName || ''}`.trim() : 'System';
+
+    let statusStr = 'Pending';
+    let statusColor = 'bg-slate-100 text-slate-800 border-slate-200';
+    if (t.status === TaskStatus.IN_PROGRESS) {
+      statusStr = 'In Progress';
+      statusColor = 'bg-sky-100 text-sky-800 border-sky-200';
+    } else if (t.status === TaskStatus.COMPLETED) {
+      statusStr = 'Completed';
+      statusColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    } else if (t.status === TaskStatus.CANCELLED) {
+      statusStr = 'Cancelled';
+      statusColor = 'bg-rose-100 text-rose-800 border-rose-200';
+    }
+
+    return {
+      task: t.title,
+      manager: creatorName,
+      employee: assigneeName,
+      status: statusStr,
+      statusColor,
+      date: new Date(t.updatedAt || t.createdAt).toLocaleDateString(),
+    };
+  });
 
   const donutRadius = 50;
   const donutCirc = 2 * Math.PI * donutRadius;
-  const completedStroke = (96 / 148) * donutCirc;
-  const progressStroke = (38 / 148) * donutCirc;
-  const overdueStroke = (14 / 148) * donutCirc;
+  const totalTasksForDonut = totalTasks || 1;
+  const completedStroke = (completedTasks / totalTasksForDonut) * donutCirc;
+  const progressStroke = (inProgressTasks / totalTasksForDonut) * donutCirc;
+  const overdueStroke = (pendingTasks / totalTasksForDonut) * donutCirc;
 
   // ==============================================
   // MANAGER DASHBOARD DATA
   // ==============================================
+  const managerTeam = dbTeams.find(
+    (t: any) => t.managerId?._id?.toString() === user.data?.id || t.managerId === user.data?.id
+  );
+  const teamMemberIds = (managerTeam?.members || []).map((m: any) => m._id?.toString() || m.toString());
+  const managerTeamTasks = dbTasks.filter((t: any) => {
+    const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
+    return teamMemberIds.includes(assignedId);
+  });
+  const managerActiveTasks = managerTeamTasks.filter((t: any) => t.status !== TaskStatus.COMPLETED).length;
+  const managerCompletedTasks = managerTeamTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
+
   const managerMetrics = [
     {
       label: 'My Team Members',
-      value: '5 Active',
-      trend: '6 assigned seats',
+      value: `${teamMemberIds.length} Active`,
+      trend: 'Assigned team',
       isPositive: true,
       icon: Users,
       bgColor: 'bg-[#1E3A8A]/10 text-[#1E3A8A]',
@@ -315,8 +305,8 @@ export const DashboardOverview = () => {
     },
     {
       label: 'Active Tasks',
-      value: 18,
-      trend: '7 high priority',
+      value: managerActiveTasks,
+      trend: 'In progress tasks',
       isPositive: false,
       icon: Activity,
       bgColor: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
@@ -324,8 +314,8 @@ export const DashboardOverview = () => {
     },
     {
       label: 'Completed Tasks',
-      value: 24,
-      trend: '+15% from last week',
+      value: managerCompletedTasks,
+      trend: 'Total milestones met',
       isPositive: true,
       icon: CheckSquare,
       bgColor: 'bg-[#10B981]/10 text-[#10B981]',
@@ -333,79 +323,51 @@ export const DashboardOverview = () => {
     },
   ];
 
-  const teamMembers = [
-    { id: 'emp-1', name: 'Alex Rivera', role: 'Frontend Developer', tasksCount: 3, progress: 85, avatarInitials: 'AR', color: 'bg-emerald-500' },
-    { id: 'emp-2', name: 'Sophia Chen', role: 'UI/UX Designer', tasksCount: 2, progress: 60, avatarInitials: 'SC', color: 'bg-sky-500' },
-    { id: 'emp-3', name: 'Liam O\'Connor', role: 'Backend Dev', tasksCount: 3, progress: 42, avatarInitials: 'LO', color: 'bg-[#1E3A8A]' },
-    { id: 'emp-4', name: 'Olivia Martinez', role: 'QA Automation', tasksCount: 1, progress: 100, avatarInitials: 'OM', color: 'bg-[#F59E0B]' },
-    { id: 'emp-5', name: 'Marcus Vance', role: 'DevOps Specialist', tasksCount: 2, progress: 75, avatarInitials: 'MV', color: 'bg-indigo-500' },
-  ];
+  const teamMembers = (managerTeam?.members || []).map((m: any) => {
+    const assignedTasks = dbTasks.filter((t: any) => {
+      const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
+      return assignedId === m._id?.toString() || assignedId === m.id;
+    });
+    const assigned = assignedTasks.length;
+    const completed = assignedTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
+    const progress = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
+    const initials = `${m.firstName?.[0] || 'U'}${m.lastName?.[0] || ''}`.toUpperCase();
 
-  const teamTasks = [
-    {
-      id: 'task-m1',
-      name: 'Resolve userinfo schema refactor conflicts',
-      assignedTo: 'Alex Rivera',
-      avatarInitials: 'AR',
-      priority: 'Urgent',
-      status: 'In Progress',
-      deadline: 'July 22, 2026',
-    },
-    {
-      id: 'task-m2',
-      name: 'Create interactive SVG dashboard visuals',
-      assignedTo: 'Sophia Chen',
-      avatarInitials: 'SC',
-      priority: 'High',
-      status: 'In Progress',
-      deadline: 'July 24, 2026',
-    },
-    {
-      id: 'task-m3',
-      name: 'Write integration test script for user credentials',
-      assignedTo: 'Liam O\'Connor',
-      avatarInitials: 'LO',
-      priority: 'Medium',
-      status: 'Overdue',
-      deadline: 'July 18, 2026',
-    },
-    {
-      id: 'task-m4',
-      name: 'Configure staging DB seeding endpoints',
-      assignedTo: 'Marcus Vance',
-      avatarInitials: 'MV',
-      priority: 'High',
-      status: 'To Do',
-      deadline: 'July 26, 2026',
-    },
-    {
-      id: 'task-m5',
-      name: 'Complete Playwright package mirror config audit',
-      assignedTo: 'Olivia Martinez',
-      avatarInitials: 'OM',
-      priority: 'Low',
-      status: 'Done',
-      deadline: 'July 19, 2026',
-    },
-    {
-      id: 'task-m6',
-      name: 'Refactor auth controller register route validation',
-      assignedTo: 'Liam O\'Connor',
-      avatarInitials: 'LO',
-      priority: 'Urgent',
-      status: 'To Do',
-      deadline: 'July 25, 2026',
-    },
-    {
-      id: 'task-m7',
-      name: 'Optimize dashboard layout sidebar navigation',
-      assignedTo: 'Alex Rivera',
-      avatarInitials: 'AR',
-      priority: 'Medium',
-      status: 'Done',
-      deadline: 'July 20, 2026',
-    },
-  ];
+    return {
+      id: m._id || m.id,
+      name: `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'No Name',
+      role: m.role === 4 ? 'Developer' : 'Member',
+      tasksCount: assigned,
+      progress,
+      avatarInitials: initials,
+      color: 'bg-emerald-500',
+    };
+  });
+
+  const teamTasks = managerTeamTasks.map((t: any) => {
+    const assignee = t.assigneeInfo || t.assignedTo;
+    const assigneeName = assignee ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() : 'Unassigned';
+    const initials = assignee ? `${assignee.firstName?.[0] || 'U'}${assignee.lastName?.[0] || ''}`.toUpperCase() : 'U';
+
+    let statusStr = 'To Do';
+    if (t.status === TaskStatus.IN_PROGRESS) statusStr = 'In Progress';
+    else if (t.status === TaskStatus.COMPLETED) statusStr = 'Done';
+    else if (t.status === TaskStatus.CANCELLED) statusStr = 'Cancelled';
+
+    let priorityStr = 'Low';
+    if (t.priority === TaskPriority.MEDIUM) priorityStr = 'Medium';
+    else if (t.priority === TaskPriority.HIGH) priorityStr = 'High';
+
+    return {
+      id: t._id || t.id,
+      name: t.title,
+      assignedTo: assigneeName,
+      avatarInitials: initials,
+      priority: priorityStr,
+      status: statusStr,
+      deadline: t.dueDate ? new Date(t.dueDate).toLocaleDateString() : 'No Deadline',
+    };
+  });
 
   const filteredTasks = teamTasks.filter((task) => {
     if (statusFilter !== 'All') {
@@ -429,6 +391,7 @@ export const DashboardOverview = () => {
       case 'High':
         return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'Urgent':
+      case 'High Priority':
         return 'bg-red-100 text-red-700 border-red-200';
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -438,12 +401,15 @@ export const DashboardOverview = () => {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'Done':
+      case 'Completed':
         return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'In Progress':
         return 'bg-sky-100 text-sky-800 border-sky-200';
       case 'Overdue':
+      case 'Cancelled':
         return 'bg-rose-100 text-rose-800 border-rose-200';
       case 'To Do':
+      case 'Pending':
         return 'bg-slate-100 text-slate-700 border-slate-200';
       default:
         return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -453,6 +419,37 @@ export const DashboardOverview = () => {
   // ===========================================
   // EMPLOYEE DASHBOARD DATA
   // ===========================================
+  const myAssignedTasks = dbTasks.filter((t: any) => {
+    const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
+    return assignedId === user.data?.id;
+  });
+
+  const employeeTasks = myAssignedTasks.map((t: any) => {
+    const creator = t.creatorInfo || t.createdBy;
+    const creatorName = creator ? `${creator.firstName || ''} ${creator.lastName || ''}`.trim() : 'System';
+    const initials = creator ? `${creator.firstName?.[0] || 'S'}${creator.lastName?.[0] || 'J'}`.toUpperCase() : 'S';
+
+    let statusStr: 'To Do' | 'In Progress' | 'Done' = 'To Do';
+    if (t.status === TaskStatus.IN_PROGRESS) statusStr = 'In Progress';
+    else if (t.status === TaskStatus.COMPLETED) statusStr = 'Done';
+
+    let priorityStr = 'Low';
+    if (t.priority === TaskPriority.MEDIUM) priorityStr = 'Medium';
+    else if (t.priority === TaskPriority.HIGH) priorityStr = 'High';
+
+    return {
+      id: t._id || t.id,
+      title: t.title,
+      assignedBy: creatorName,
+      avatarInitials: initials,
+      priority: priorityStr,
+      status: statusStr,
+      deadline: t.dueDate || '2026-07-20',
+      deadlineFormatted: t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'No Deadline',
+      comments: simulatedComments[t._id || t.id] || t.comments || [],
+    };
+  });
+
   const employeeFilteredTasks = employeeTasks.filter(task => task.status === employeeTabFilter);
 
   const empTotalCount = employeeTasks.length;
@@ -497,7 +494,7 @@ export const DashboardOverview = () => {
   if (isCEO) {
     return (
       <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#1E3A8A] via-[#10348a] to-[#0A192F] rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden border border-slate-700/20">
           <div className="absolute right-0 top-0 size-80 bg-[#0EA5E9]/10 rounded-full blur-3xl pointer-events-none" />
           <div className="space-y-2 z-10">
@@ -513,13 +510,13 @@ export const DashboardOverview = () => {
           <div className="flex gap-3 z-10 shrink-0 mt-2 sm:mt-0">
             <button
               onClick={() => navigate(paths.app.tasks.getHref())}
-              className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 px-4.5 py-2.5 text-xs font-bold transition-all backdrop-blur-sm cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 px-5 py-2.5 text-xs font-bold transition-all backdrop-blur-sm cursor-pointer"
             >
               Review Tasks
             </button>
             <button
               onClick={() => navigate(paths.app.createTask.getHref())}
-              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-4.5 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer"
             >
               Assign Task
             </button>
@@ -558,9 +555,9 @@ export const DashboardOverview = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          
+
           <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-            
+
             <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
@@ -839,7 +836,7 @@ export const DashboardOverview = () => {
   if (isManager) {
     return (
       <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#1E3A8A] via-[#10348a] to-[#0A192F] rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden border border-slate-700/20">
           <div className="absolute right-0 top-0 size-80 bg-[#0EA5E9]/10 rounded-full blur-3xl pointer-events-none" />
           <div className="space-y-2 z-10">
@@ -855,13 +852,13 @@ export const DashboardOverview = () => {
           <div className="flex gap-3 z-10 shrink-0 mt-2 sm:mt-0">
             <button
               onClick={() => navigate(paths.app.tasks.getHref())}
-              className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 px-4.5 py-2.5 text-xs font-bold transition-all backdrop-blur-sm cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 px-5 py-2.5 text-xs font-bold transition-all backdrop-blur-sm cursor-pointer"
             >
               All Tasks
             </button>
             <button
               onClick={() => navigate(paths.app.createTask.getHref())}
-              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-4.5 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer"
+              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer"
             >
               + Assign Task
             </button>
@@ -898,7 +895,7 @@ export const DashboardOverview = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 sm:gap-8 items-start">
-          
+
           <div className="lg:col-span-7 bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
@@ -920,11 +917,10 @@ export const DashboardOverview = () => {
                     key={status}
                     type="button"
                     onClick={() => setStatusFilter(status)}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
-                      statusFilter === status
+                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${statusFilter === status
                         ? 'bg-[#1E3A8A] text-white border-[#1E3A8A] shadow-md shadow-blue-900/10'
                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {status}
                   </button>
@@ -989,11 +985,10 @@ export const DashboardOverview = () => {
                   <div
                     key={member.id}
                     onClick={() => setSelectedMemberFilter(isSelected ? null : member.name)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-2.5 ${
-                      isSelected
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col gap-2.5 ${isSelected
                         ? 'border-[#0EA5E9] bg-sky-50/30 ring-1 ring-sky-200'
                         : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
@@ -1041,7 +1036,7 @@ export const DashboardOverview = () => {
   // ==========================================
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Top Banner section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#1E3A8A] via-[#10348a] to-[#0A192F] rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden border border-slate-700/20">
         <div className="absolute right-0 top-0 size-80 bg-[#0EA5E9]/10 rounded-full blur-3xl pointer-events-none" />
@@ -1088,7 +1083,7 @@ export const DashboardOverview = () => {
 
       {/* Main Content: Tasks List card */}
       <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-6">
-        
+
         {/* Header and tab switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
@@ -1102,11 +1097,10 @@ export const DashboardOverview = () => {
               <button
                 key={tab}
                 onClick={() => setEmployeeTabFilter(tab)}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  employeeTabFilter === tab
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${employeeTabFilter === tab
                     ? 'bg-white text-[#1E3A8A] shadow-sm'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 {tab}
               </button>
@@ -1234,7 +1228,7 @@ export const DashboardOverview = () => {
                 {currentTask.comments.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-6 font-semibold">No comments posted on this task yet.</p>
                 ) : (
-                  currentTask.comments.map((comment, index) => (
+                  currentTask.comments.map((comment: any, index: any) => (
                     <div key={index} className="flex gap-2.5 items-start p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <div className="size-7 rounded-full bg-indigo-100 text-[#1E3A8A] font-bold flex items-center justify-center text-[10px] shrink-0">
                         {currentTask.avatarInitials}
@@ -1257,15 +1251,12 @@ export const DashboardOverview = () => {
                     if (e.key === 'Enter') {
                       const inputEl = e.currentTarget;
                       if (!inputEl.value.trim()) return;
-                      
+
                       // Add new comment
-                      setEmployeeTasks(prev =>
-                        prev.map(task =>
-                          task.id === currentTask.id
-                            ? { ...task, comments: [...task.comments, inputEl.value] }
-                            : task
-                        )
-                      );
+                      setSimulatedComments(prev => ({
+                        ...prev,
+                        [currentTask.id]: [...(prev[currentTask.id] || currentTask.comments), inputEl.value]
+                      }));
                       inputEl.value = '';
                     }
                   }}

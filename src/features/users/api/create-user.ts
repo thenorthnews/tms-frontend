@@ -20,7 +20,6 @@ export const createUserInputSchema = z.object({
   motherName: z.string().min(2, 'Mother name must be at least 2 characters'),
   age: z.coerce.number().min(1, 'Age must be at least 1').max(100, 'Age must be at most 100'),
   gender: z.coerce.number().min(0).max(2),
-  salary: z.coerce.number().min(0, 'Salary must be at least 0').max(1000000, 'Salary must be at most 1000000'),
   image: z.string().min(1, 'Image is required'),
   role: z.coerce.number().optional(),
 });
@@ -52,7 +51,6 @@ export const createUser = ({
       motherName: data.motherName,
       age: data.age,
       gender: data.gender,
-      salary: data.salary,
       image: data.image,
     },
   };

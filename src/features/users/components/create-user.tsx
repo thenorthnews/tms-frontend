@@ -77,7 +77,6 @@ export const CreateUserForm = () => {
           motherName: '',
           age: '' as unknown as number,
           gender: Gender.MALE,
-          salary: '' as unknown as number,
           image: '',
           role: 4,
         },
@@ -99,7 +98,6 @@ export const CreateUserForm = () => {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
                   <Input label="Age" type="number" error={formState.errors['age']} registration={register('age')} />
-                  <Input label="Salary" type="number" error={formState.errors['salary']} registration={register('salary')} />
                 </div>
                 <div>
                   <Select

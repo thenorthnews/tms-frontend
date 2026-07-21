@@ -68,10 +68,7 @@ export const createAppRouter = (queryClient: QueryClient) =>
           path: paths.app.reports.path,
           lazy: () => import('./routes/app/reports').then(convert(queryClient)),
         },
-        {
-          path: paths.app.notifications.path,
-          lazy: () => import('./routes/app/notifications').then(convert(queryClient)),
-        },
+
         {
           path: paths.app.createTask.path,
           lazy: () => import('./routes/app/create-task').then(convert(queryClient)),

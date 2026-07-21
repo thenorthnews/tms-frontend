@@ -1,4 +1,4 @@
-import { Home, PanelLeft, Users, Sparkles, Search, Bell, Settings, Sun, User2, MessageSquare, Calendar, CheckSquare, HelpCircle, FileText, LogOut, ChevronDown } from 'lucide-react';
+import { Home, PanelLeft, Users, Sparkles, Search, Settings, Sun, User2, MessageSquare, Calendar, CheckSquare, HelpCircle, FileText, LogOut, ChevronDown, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useNavigation, useLocation } from 'react-router';
 
@@ -122,7 +122,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     },
     !isEmployee && { name: 'Teams', to: paths.app.teams.getHref(), icon: Users },
     isCEO && { name: 'Reports', to: paths.app.reports.getHref(), icon: FileText },
-    // { name: 'Notifications', to: paths.app.notifications.getHref(), icon: Bell },
     { name: 'Profile/Settings', to: paths.app.profile.getHref(), icon: Settings },
   ].filter(Boolean) as SideNavigationItem[];
 
@@ -273,24 +272,17 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* "+ Assign Task" button for Managers */}
             {!isEmployee && (
               <button
                 onClick={() => navigate(paths.app.createTask.getHref())}
-                className="hidden sm:flex items-center gap-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer"
+                className="hidden sm:flex items-center gap-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer"
               >
-                + Assign Task
+                <Plus className="size-4" />
+                Assign Task
               </button>
             )}
 
-            {/* Notification Bell */}
-            <button
-              onClick={() => navigate(paths.app.notifications.getHref())}
-              className="relative p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/50 shadow-sm text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-            >
-              <Bell className="size-4.5" />
-              <span className="absolute top-1.5 right-1.5 size-2 bg-rose-500 rounded-full"></span>
-            </button>
+
 
             {/* User Dropdown */}
             <DropdownMenu>

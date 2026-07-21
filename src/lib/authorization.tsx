@@ -1,6 +1,13 @@
 import * as React from 'react';
 import { useUser } from './auth';
 
+export enum UserRole {
+  CEO = 0,
+  MANAGER = 1,
+  TL = 2,
+  EMPLOYEE = 4,
+}
+
 export enum ROLES {
   ADMIN = 'ADMIN',
   USER = 'USER',
@@ -22,10 +29,13 @@ export const useAuthorization = () => {
         const numericRole = typeof userRole === 'string' ? parseInt(userRole, 10) : userRole;
         return allowedRoles.some(allowedRole => {
           if (allowedRole === 'ADMIN') {
-            return [0, 1, 2, 'CEO', 'MANAGER', 'TL'].includes(numericRole) || userRole === 'ADMIN';
+            return (
+              [UserRole.CEO, UserRole.MANAGER, UserRole.TL, 'CEO', 'MANAGER', 'TL'].includes(numericRole as any) ||
+              userRole === 'ADMIN'
+            );
           }
           if (allowedRole === 'USER') {
-            return numericRole === 4 || userRole === 'USER';
+            return numericRole === UserRole.EMPLOYEE || userRole === 'USER';
           }
           return false;
         });
