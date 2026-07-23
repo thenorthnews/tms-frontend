@@ -72,12 +72,20 @@ const ProfileRoute = () => {
     }
   });
 
+  const getPhoneStr = (p: any) => {
+    if (!p) return '';
+    if (typeof p === 'string') return p;
+    if (typeof p === 'object') {
+      return p.number || (p.countryCode ? `${p.countryCode} ${p.number || ''}` : '');
+    }
+    return String(p);
+  };
+
   // --- LOCAL FORMS STATE ---
   const [profileData, setProfileData] = useState({
     firstName: user.data?.firstName || '',
     lastName: user.data?.lastName || '',
-    fatherName: user.data?.fatherName || '',
-    motherName: user.data?.motherName || '',
+    phoneNumber: getPhoneStr(user.data?.phoneNumber),
     image: user.data?.image || '',
   });
 
@@ -87,8 +95,7 @@ const ProfileRoute = () => {
       setProfileData({
         firstName: user.data.firstName || '',
         lastName: user.data.lastName || '',
-        fatherName: user.data.fatherName || '',
-        motherName: user.data.motherName || '',
+        phoneNumber: getPhoneStr(user.data.phoneNumber),
         image: user.data.image || '',
       });
     }
@@ -183,9 +190,7 @@ const ProfileRoute = () => {
 
   // Logout trigger
   const handleLogoutClick = () => {
-    if (confirm('Are you sure you want to log out of your session?')) {
-      logout.mutate(undefined);
-    }
+    logout.mutate(undefined);
   };
 
   return (
@@ -334,24 +339,14 @@ const ProfileRoute = () => {
                     />
                   </div>
 
-                  {/* Father Name */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">Father's Name</label>
+                  {/* Phone Number */}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 pl-1">Phone Number</label>
                     <input
                       type="text"
-                      value={profileData.fatherName}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, fatherName: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                    />
-                  </div>
-
-                  {/* Mother Name */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">Mother's Name</label>
-                    <input
-                      type="text"
-                      value={profileData.motherName}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, motherName: e.target.value }))}
+                      placeholder="e.g. +1 1234567890"
+                      value={profileData.phoneNumber}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                       className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
                     />
                   </div>

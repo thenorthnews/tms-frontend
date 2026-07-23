@@ -4,6 +4,7 @@ import { NavLink, useNavigate, useNavigation, useLocation } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
+import { useNotifications } from '@/components/ui/notifications';
 import { paths } from '@/config/paths';
 import { useLogout, useUser } from '@/lib/auth';
 import { cn } from '@/utils/cn';
@@ -81,37 +82,22 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUser();
+  const { addNotification } = useNotifications();
   const logout = useLogout({
     onSuccess: () => navigate(paths.auth.login.getHref(location.pathname)),
   });
 
-  // Dynamic Perspective Switcher (stores view in localStorage)
-  const [roleView, setRoleView] = useState<'CEO' | 'Manager' | 'Employee'>(() => {
-    const saved = localStorage.getItem('dashboard_role_view');
-    if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') return saved;
-    return (user.data?.role === 0 || user.data?.role === 'ADMIN') ? 'CEO' : 'Manager';
-  });
+  const userRole = user.data?.role as any;
+  const isEmployee = userRole === 4 || userRole === 'Employee';
+  const isManagerOrAbove = userRole === 0 || userRole === 1 || userRole === 2 || userRole === 'CEO' || userRole === 'Manager' || userRole === 'Team Lead' || userRole === 'ADMIN';
 
-  useEffect(() => {
-    const handleViewChange = () => {
-      const saved = localStorage.getItem('dashboard_role_view');
-      if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') {
-        setRoleView(saved);
-      }
-    };
-    window.addEventListener('dashboard-view-changed', handleViewChange);
-    return () => window.removeEventListener('dashboard-view-changed', handleViewChange);
-  }, []);
-
-  const changeRoleView = (view: 'CEO' | 'Manager' | 'Employee') => {
-    localStorage.setItem('dashboard_role_view', view);
-    setRoleView(view);
-    window.dispatchEvent(new Event('dashboard-view-changed'));
-  };
-
-  const isCEO = roleView === 'CEO';
-  const isManager = roleView === 'Manager';
-  const isEmployee = roleView === 'Employee';
+  const actualRoleString = (() => {
+    if (userRole === 0 || userRole === 'CEO' || userRole === 'ADMIN') return 'CEO';
+    if (userRole === 1 || userRole === 'Manager') return 'Manager';
+    if (userRole === 2 || userRole === 'Team Lead') return 'Team Lead';
+    if (userRole === 4 || userRole === 'Employee' || userRole === 'USER') return 'Employee';
+    return 'User';
+  })();
 
   const navigation = [
     { name: 'Dashboard', to: paths.app.dashboard.getHref(), icon: Home },
@@ -121,7 +107,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       icon: CheckSquare
     },
     !isEmployee && { name: 'Teams', to: paths.app.teams.getHref(), icon: Users },
-    isCEO && { name: 'Reports', to: paths.app.reports.getHref(), icon: FileText },
+    isManagerOrAbove && { name: 'Reports', to: paths.app.reports.getHref(), icon: FileText },
     { name: 'Profile/Settings', to: paths.app.profile.getHref(), icon: Settings },
   ].filter(Boolean) as SideNavigationItem[];
 
@@ -144,7 +130,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               onClick={(e) => {
                 if (item.to.startsWith('#')) {
                   e.preventDefault();
-                  alert(`${item.name} module is simulated in this B2B dashboard.`);
+                  addNotification({ type: 'info', title: item.name, message: `${item.name} module is active.` });
                 }
               }}
               className={({ isActive }) =>
@@ -204,7 +190,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     onClick={(e) => {
                       if (item.to.startsWith('#')) {
                         e.preventDefault();
-                        alert(`${item.name} module is simulated in this B2B dashboard.`);
+                        addNotification({ type: 'info', title: item.name, message: `${item.name} module is active.` });
                       }
                     }}
                     className={({ isActive }) =>
@@ -248,29 +234,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right Action Icons & Profile */}
           <div className="flex items-center gap-3 ml-auto">
-            {/* Quick Perspective Selector for preview/evaluation */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition-colors border border-slate-200/40 cursor-pointer">
-                  <span>View: <strong className="text-[#1E3A8A]">{roleView}</strong></span>
-                  <ChevronDown className="size-3.5 text-slate-500" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 rounded-xl shadow-xl border-slate-100 py-1 z-30">
-                <div className="px-3 py-1.5 border-b border-slate-100">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Select Dashboard perspective</p>
-                </div>
-                <DropdownMenuItem onClick={() => changeRoleView('CEO')} className="cursor-pointer font-semibold py-2.5 text-slate-700 focus:bg-slate-50">
-                  CEO Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => changeRoleView('Manager')} className="cursor-pointer font-semibold py-2.5 text-slate-700 focus:bg-slate-50">
-                  Manager Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => changeRoleView('Employee')} className="cursor-pointer font-semibold py-2.5 text-slate-700 focus:bg-slate-50">
-                  Employee Dashboard
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
 
             {!isEmployee && (
               <button
@@ -295,13 +258,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     <span className="text-sm font-bold text-slate-900 leading-tight">
                       {user.data?.firstName} {user.data?.lastName}
                     </span>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold mt-0.5 uppercase tracking-wide ${isCEO
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold mt-0.5 uppercase tracking-wide ${actualRoleString === 'CEO'
                       ? 'bg-[#1E3A8A]/10 text-[#1E3A8A]'
-                      : isManager
+                      : actualRoleString === 'Manager' || actualRoleString === 'Team Lead'
                         ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]'
                         : 'bg-emerald-50/15 text-emerald-600'
                       }`}>
-                      {roleView}
+                      {actualRoleString}
                     </span>
                   </div>
                 </button>

@@ -33,29 +33,14 @@ export const DashboardOverview = () => {
   const navigate = useNavigate();
   const user = useUser();
 
-  // Dynamic Perspective Switcher (stores view in localStorage)
-  const [roleView, setRoleView] = useState<'CEO' | 'Manager' | 'Employee'>(() => {
-    const saved = localStorage.getItem('dashboard_role_view');
-    if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') return saved;
-    if (user.data?.role === 0 || user.data?.role === 'ADMIN') return 'CEO';
-    if (user.data?.role === 1 || user.data?.role === 2) return 'Manager';
-    return 'Employee';
-  });
+  const userRole = user.data?.role as any;
+  const isEmployee = userRole === 4 || userRole === 'Employee';
+  const isManager = userRole === 1 || userRole === 2 || userRole === 'Manager' || userRole === 'Team Lead';
+  const isCEO = userRole === 0 || userRole === 'CEO' || userRole === 'ADMIN';
 
-  useEffect(() => {
-    const handleViewChange = () => {
-      const saved = localStorage.getItem('dashboard_role_view');
-      if (saved === 'CEO' || saved === 'Manager' || saved === 'Employee') {
-        setRoleView(saved);
-      }
-    };
-    window.addEventListener('dashboard-view-changed', handleViewChange);
-    return () => window.removeEventListener('dashboard-view-changed', handleViewChange);
-  }, []);
-
-  const isCEO = roleView === 'CEO';
-  const isManager = roleView === 'Manager';
-  const isEmployee = roleView === 'Employee';
+  // --- CEO DASHBOARD DATE FILTER STATE ---
+  const [ceoDateFilter, setCeoDateFilter] = useState<'today' | 'week' | 'month' | 'all' | 'custom'>('all');
+  const [ceoCustomDate, setCeoCustomDate] = useState<string>('');
 
   // --- QUERY REAL DATA ---
   const reportsQuery = useReports({
@@ -66,7 +51,12 @@ export const DashboardOverview = () => {
   });
 
   const tasksQuery = useTasks({
-    params: { limit: 1000 },
+    params: {
+      limit: 1000,
+      dateFilter: ceoDateFilter !== 'all' && ceoDateFilter !== 'custom' ? ceoDateFilter : undefined,
+      startDate: ceoDateFilter === 'custom' && ceoCustomDate ? ceoCustomDate : undefined,
+      endDate: ceoDateFilter === 'custom' && ceoCustomDate ? ceoCustomDate : undefined,
+    },
   });
 
   const teamsQuery = useTeams();
@@ -219,27 +209,107 @@ export const DashboardOverview = () => {
     ? `${linePath} L ${lineCoords[lineCoords.length - 1].x} ${chartHeight - paddingBottom} L ${lineCoords[0].x} ${chartHeight - paddingBottom} Z`
     : '';
 
-  const managersList = dbTeams.map((team: any) => {
-    const manager = team.managerId;
-    const managerName = manager ? `${manager.firstName || ''} ${manager.lastName || ''}`.trim() : 'Unassigned';
-    const membersCount = team.members?.length || 0;
 
-    // Count tasks for members of this team
-    const memberIds = (team.members || []).map((m: any) => m._id?.toString() || m.toString());
+
+  const isTaskInDateRange = (task: any, filter: 'today' | 'week' | 'month' | 'all' | 'custom', customDateStr: string) => {
+    if (filter === 'all') return true;
+
+    const rawDate = task.dueDate || task.createdAt;
+    if (!rawDate) return false;
+    const taskDate = new Date(rawDate);
+    const now = new Date();
+
+    if (filter === 'today') {
+      return (
+        taskDate.getFullYear() === now.getFullYear() &&
+        taskDate.getMonth() === now.getMonth() &&
+        taskDate.getDate() === now.getDate()
+      );
+    }
+
+    if (filter === 'week') {
+      const dayOfWeek = now.getDay();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      return taskDate >= startOfWeek && taskDate <= endOfWeek;
+    }
+
+    if (filter === 'month') {
+      return (
+        taskDate.getFullYear() === now.getFullYear() &&
+        taskDate.getMonth() === now.getMonth()
+      );
+    }
+
+    if (filter === 'custom' && customDateStr) {
+      const cDate = new Date(customDateStr);
+      return (
+        taskDate.getFullYear() === cDate.getFullYear() &&
+        taskDate.getMonth() === cDate.getMonth() &&
+        taskDate.getDate() === cDate.getDate()
+      );
+    }
+
+    return true;
+  };
+
+  const teamsTaskBreakdown = dbTeams.map((team: any) => {
+    const teamIdStr = (team._id || team.id)?.toString();
+    const manager = team.managerId;
+    const managerName = manager
+      ? `${manager.firstName || ''} ${manager.lastName || ''}`.trim()
+      : 'Unassigned';
+    const memberIds = (team.members || []).map((m: any) =>
+      (m._id || m.id || m)?.toString(),
+    );
+
     const teamTasks = dbTasks.filter((t: any) => {
-      const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
-      return memberIds.includes(assignedId);
+      const taskTeamId = (t.teamId || t.teamInfo?._id || t.teamInfo?.id)?.toString();
+      let matchesTeam = false;
+      if (taskTeamId && teamIdStr) {
+        matchesTeam = taskTeamId === teamIdStr;
+      } else {
+        const assignedId = (t.assignedTo?._id || t.assignedTo?.id || t.assignedTo)?.toString();
+        matchesTeam = !!(assignedId && memberIds.includes(assignedId));
+      }
+      if (!matchesTeam) return false;
+
+      return isTaskInDateRange(t, ceoDateFilter, ceoCustomDate);
     });
+
     const total = teamTasks.length;
-    const completed = teamTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
+    const pending = teamTasks.filter(
+      (t: any) => t.status === TaskStatus.PENDING,
+    ).length;
+    const inProgress = teamTasks.filter(
+      (t: any) => t.status === TaskStatus.IN_PROGRESS,
+    ).length;
+    const completed = teamTasks.filter(
+      (t: any) => t.status === TaskStatus.COMPLETED,
+    ).length;
+    const cancelled = teamTasks.filter(
+      (t: any) => t.status === TaskStatus.CANCELLED,
+    ).length;
+    const completionPercent =
+      total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return {
-      name: managerName,
-      role: manager?.role === 1 ? 'Manager' : 'Team Lead',
-      teamSize: membersCount,
-      completed,
+      id: teamIdStr,
+      teamName: team.name,
+      managerName,
+      membersCount: memberIds.length,
       total,
-      color: 'bg-[#10B981]',
+      pending,
+      inProgress,
+      completed,
+      cancelled,
+      completionPercent,
     };
   });
 
@@ -739,43 +809,162 @@ export const DashboardOverview = () => {
           </div>
 
           <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm flex flex-col">
-            <div className="border-b border-slate-100 pb-4 mb-4">
-              <h3 className="text-base sm:text-lg font-bold text-slate-800">Manager-wise Breakdown</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Assigned teams workload and output rates</p>
+            <div className="border-b border-slate-100 pb-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-800">
+                  Team Task Statistics
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Filter tasks by date for each team
+                </p>
+              </div>
+              
+              {/* Date Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setCeoDateFilter('today')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                    ceoDateFilter === 'today'
+                      ? 'bg-[#1E3A8A] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCeoDateFilter('week')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                    ceoDateFilter === 'week'
+                      ? 'bg-[#1E3A8A] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCeoDateFilter('month')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                    ceoDateFilter === 'month'
+                      ? 'bg-[#1E3A8A] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCeoDateFilter('all')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                    ceoDateFilter === 'all'
+                      ? 'bg-[#1E3A8A] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCeoDateFilter('custom')}
+                  className={`px-2 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                    ceoDateFilter === 'custom'
+                      ? 'bg-[#1E3A8A] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Date
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-4 flex-1">
-              {managersList.map((m) => {
-                const completionPercent = Math.round((m.completed / m.total) * 100);
-                return (
-                  <div key={m.name} className="space-y-2 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+            {/* Custom Date Picker Input */}
+            {ceoDateFilter === 'custom' && (
+              <div className="flex items-center justify-between gap-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <Calendar className="size-4 text-[#0EA5E9]" />
+                  <span>Select Date:</span>
+                </div>
+                <input
+                  type="date"
+                  value={ceoCustomDate}
+                  onChange={(e) => setCeoCustomDate(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                />
+              </div>
+            )}
+
+            <div className="space-y-4 flex-1 overflow-y-auto max-h-[480px] pr-1">
+              {teamsTaskBreakdown.length === 0 ? (
+                <div className="text-center text-slate-400 font-bold py-8 text-xs">
+                  No team tasks found
+                </div>
+              ) : (
+                teamsTaskBreakdown.map((t) => (
+                  <div
+                    key={t.id || t.teamName}
+                    className="p-3.5 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/40 space-y-3 transition-all"
+                  >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="text-sm font-bold text-slate-800">{m.name}</h4>
-                        <p className="text-[10px] text-slate-400 font-semibold">{m.role} &bull; {m.teamSize} members</p>
+                        <h4 className="text-sm font-extrabold text-slate-800">
+                          {t.teamName}
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-semibold">
+                          Manager: {t.managerName} &bull; {t.membersCount} members
+                        </p>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{m.completed}/{m.total} Tasks</span>
+                      <span className="text-[11px] font-extrabold text-[#1E3A8A] bg-white border border-slate-200 px-2.5 py-0.5 rounded-full shadow-2xs">
+                        {t.total} Total Tasks
+                      </span>
                     </div>
 
-                    <div className="space-y-1">
-                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
-                        <div className={`h-full rounded-full transition-all duration-500 ${m.color}`} style={{ width: `${completionPercent}%` }}></div>
+                    {/* Status Pill Badges Grid */}
+                    <div className="grid grid-cols-4 gap-1.5 text-center text-[10px]">
+                      <div className="bg-amber-50 border border-amber-200 text-amber-700 p-1.5 rounded-lg">
+                        <span className="block font-bold">To Do</span>
+                        <span className="font-extrabold text-xs">{t.pending}</span>
+                      </div>
+                      <div className="bg-sky-50 border border-sky-200 text-sky-700 p-1.5 rounded-lg">
+                        <span className="block font-bold">In Progress</span>
+                        <span className="font-extrabold text-xs">{t.inProgress}</span>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-1.5 rounded-lg">
+                        <span className="block font-bold">Completed</span>
+                        <span className="font-extrabold text-xs">{t.completed}</span>
+                      </div>
+                      <div className="bg-rose-50 border border-rose-200 text-rose-700 p-1.5 rounded-lg">
+                        <span className="block font-bold">Blocked</span>
+                        <span className="font-extrabold text-xs">{t.cancelled}</span>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-1 pt-1">
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden flex">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                          style={{ width: `${t.completionPercent}%` }}
+                        />
                       </div>
                       <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                        <span>Progress rate</span>
-                        <span className="text-slate-700">{completionPercent}%</span>
+                        <span>Completion Rate</span>
+                        <span className="text-slate-700 font-extrabold">
+                          {t.completionPercent}%
+                        </span>
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
 
             <button
-              onClick={() => alert('Invite new managers or review team structures.')}
-              className="w-full h-10 mt-6 bg-[#1E3A8A]/5 hover:bg-[#1E3A8A]/10 text-[#1E3A8A] font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              onClick={() => navigate(paths.app.teams.getHref())}
+              className="w-full h-10 mt-4 bg-[#1E3A8A]/5 hover:bg-[#1E3A8A]/10 text-[#1E3A8A] font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border-0"
             >
-              Manage Organizations Teams
+              Manage Organization Teams
               <ArrowRight className="size-3.5" />
             </button>
           </div>
@@ -961,7 +1150,7 @@ export const DashboardOverview = () => {
                         <td className="py-4 px-2 text-right">
                           <div className="flex items-center justify-end gap-2.5">
                             <button onClick={() => navigate(paths.app.tasks.getHref())} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#1E3A8A] transition-colors"><Edit className="size-4" /></button>
-                            <button onClick={() => alert('Reassign action initiated for: ' + task.name)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#0EA5E9] transition-colors"><UserPlus className="size-4" /></button>
+                            <button onClick={() => navigate(paths.app.tasks.getHref())} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#0EA5E9] transition-colors"><UserPlus className="size-4" /></button>
                           </div>
                         </td>
                       </tr>
@@ -1262,8 +1451,17 @@ export const DashboardOverview = () => {
                   }}
                 />
                 <button
-                  onClick={() => alert('Reply comment simulated.')}
-                  className="px-4 py-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                  onClick={(e) => {
+                    const inputEl = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                    if (inputEl && inputEl.value.trim()) {
+                      setSimulatedComments(prev => ({
+                        ...prev,
+                        [currentTask.id]: [...(prev[currentTask.id] || currentTask.comments), inputEl.value.trim()]
+                      }));
+                      inputEl.value = '';
+                    }
+                  }}
+                  className="px-4 py-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
                 >
                   Send
                 </button>

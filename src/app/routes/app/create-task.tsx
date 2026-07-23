@@ -1,12 +1,18 @@
 import { ContentLayout } from '@/components/layouts';
 import { CreateTask } from '@/features/tasks/components/create-task';
+import { Authorization, ROLES } from '@/lib/authorization';
 
 const CreateTaskRoute = () => {
   return (
     <ContentLayout title="Create Task">
-      <div className="mt-4 animate-in fade-in duration-300">
-        <CreateTask />
-      </div>
+      <Authorization
+        forbiddenFallback={<div>You do not have permission to create tasks.</div>}
+        allowedRoles={[ROLES.ADMIN]}
+      >
+        <div className="mt-4 animate-in fade-in duration-300">
+          <CreateTask />
+        </div>
+      </Authorization>
     </ContentLayout>
   );
 };

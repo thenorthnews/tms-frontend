@@ -17,6 +17,7 @@ export const mapUser = (backendUser: Record<string, any>): User => {
     role: backendUser.role ?? 'USER',
     teamId: backendUser.teamId || '',
     bio: backendUser.bio || '',
+    phoneNumber: backendUser.phoneNumber || userInfo.phoneNumber || '',
     fatherName: userInfo.fatherName || '',
     motherName: userInfo.motherName || '',
     image: userInfo.image || '',
@@ -77,8 +78,8 @@ api.interceptors.response.use(
     const isLoginRequest = originalRequest?.url?.includes('/admin/auth/login');
     const isRefreshRequest = originalRequest?.url?.includes('/admin/auth/refresh');
 
-    // Display notification for non-401 errors, or 401s during login
-    if (error.response?.status !== 401 || isLoginRequest) {
+    // Display notification for non-401 and non-409 errors, or 401s during login
+    if ((error.response?.status !== 401 && error.response?.status !== 409) || isLoginRequest) {
       useNotifications.getState().addNotification({
         type: 'error',
         title: 'Error',

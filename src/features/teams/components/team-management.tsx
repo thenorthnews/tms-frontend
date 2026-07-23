@@ -22,6 +22,8 @@ import {
   Layers
 } from 'lucide-react';
 
+import { z } from 'zod';
+
 import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
@@ -31,6 +33,45 @@ import { useDeleteUser } from '@/features/users/api/delete-user';
 import { useCreateUser } from '@/features/users/api/create-user';
 import { useTasks } from '@/features/tasks/api/get-tasks';
 import { useTeams, useCreateTeam, useDeleteTeam, useAddTeamMember, useRemoveTeamMember } from '../api/teams';
+
+const createMemberSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(1, 'First name is required')
+    .min(2, 'First name must be at least 2 characters'),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Last name is required')
+    .min(2, 'Last name must be at least 2 characters'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address'),
+  password: z
+    .string()
+    .trim()
+    .min(1, 'Password is required')
+    .min(6, 'Password must be at least 6 characters long'),
+  phoneNumber: z.string().optional(),
+  role: z.enum(['manager', 'tl', 'employee']),
+});
+
+const createTeamSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Team name is required')
+    .min(2, 'Team name must be at least 2 characters long'),
+  managerId: z.string().min(1, 'Please select a Team Leader or Manager'),
+});
+
+const assignMemberSchema = z.object({
+  teamId: z.string().min(1, 'Please select a team'),
+  userId: z.string().min(1, 'Please select an employee to assign'),
+});
 
 export const TeamManagement = () => {
   const navigate = useNavigate();
@@ -45,6 +86,14 @@ export const TeamManagement = () => {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
+
+  const handleTeamFilterChange = (val: string) => {
+    setSelectedTeamFilter(val);
+    setCurrentPage(1);
+  };
+
+
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10;
 
@@ -69,12 +118,13 @@ export const TeamManagement = () => {
     ? 2
     : 4; // employee
 
-  // Query 1: For the paginated table (using backend page, limit, search, role)
+  // Query 1: For the paginated table (using backend page, limit, search, role, teamId)
   const usersQuery = useUsers({
     page: currentPage,
     limit: 10,
     search: memberSearch,
     role: roleVal,
+    teamId: selectedTeamFilter === 'all' ? undefined : selectedTeamFilter,
     queryConfig: {
       placeholderData: keepPreviousData,
     }
@@ -104,10 +154,17 @@ export const TeamManagement = () => {
         addNotification({ type: 'success', title: 'New member registered successfully' });
         setIsAddModalOpen(false);
         setNewMember({ firstName: '', lastName: '', email: '', password: '', phoneNumber: '', role: 'employee' });
+        setMemberErrors({});
       },
       onError: (err: any) => {
-        addNotification({ type: 'error', title: 'Failed to add member', message: err.message || 'Validation error check fields.' });
-      }
+        const backendMsg = err.response?.data?.message || err.message || '';
+        if (backendMsg.toLowerCase().includes('email') || err.response?.status === 409) {
+          setMemberErrors((prev) => ({
+            ...prev,
+            email: 'Email already exists',
+          }));
+        }
+      },
     },
   });
 
@@ -145,7 +202,7 @@ export const TeamManagement = () => {
     email: '',
     password: '',
     phoneNumber: '',
-    role: 'employee' as 'ceo' | 'manager' | 'tl' | 'employee',
+    role: 'employee' as 'manager' | 'tl' | 'employee',
   });
 
   // Create team form state
@@ -157,6 +214,14 @@ export const TeamManagement = () => {
 
   // Assign member to team handler
   const [assignUserId, setAssignUserId] = useState('');
+
+  // Form error states
+  const [memberErrors, setMemberErrors] = useState<Record<string, string>>({});
+  const [teamErrors, setTeamErrors] = useState<Record<string, string>>({});
+  const [assignErrors, setAssignErrors] = useState<Record<string, string>>({});
+
+  // Inline confirmation state for remove member
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   if (usersQuery.isLoading || allUsersQuery.isLoading || tasksQuery.isLoading || teamsQuery.isLoading) {
     return (
@@ -197,9 +262,28 @@ export const TeamManagement = () => {
     };
   });
 
-  // Filter based on search box input & role dropdown filter
-  // Since backend already filters by role and search, searchedMembers is a direct pass-through
-  const searchedMembers = teamMembers;
+  // Filter based on search box input, role dropdown filter, and team dropdown filter
+  const searchedMembers = teamMembers.filter((m) => {
+    if (selectedTeamFilter === 'all') return true;
+
+    const targetTeam = dbTeams.find(
+      (t: any) => (t._id || t.id)?.toString() === selectedTeamFilter,
+    );
+    if (!targetTeam) return true;
+
+    const managerIdStr = (
+      targetTeam.managerId?._id ||
+      targetTeam.managerId?.id ||
+      targetTeam.managerId
+    )?.toString();
+
+    const memberIds = (targetTeam.members || []).map((mb: any) =>
+      (mb._id || mb.id || mb)?.toString(),
+    );
+
+    const mIdStr = m.id?.toString();
+    return mIdStr === managerIdStr || memberIds.includes(mIdStr);
+  });
 
   // Sorting Handler
   const handleSort = (key: 'name' | 'role' | 'assigned' | 'completed' | 'progress') => {
@@ -262,13 +346,23 @@ export const TeamManagement = () => {
       )
     : 0;
 
-  // Add Member form submit (with role)
+
+
+  // Add Member form submit (with Zod validation)
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMember.firstName || !newMember.lastName || !newMember.email || !newMember.password) {
-      addNotification({ type: 'error', title: 'Validation failed', message: 'Please fill in all required fields.' });
+    const result = createMemberSchema.safeParse(newMember);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0].toString()] = err.message;
+        }
+      });
+      setMemberErrors(errors);
       return;
     }
+    setMemberErrors({});
 
     createUserMutation.mutate({
       data: {
@@ -280,37 +374,62 @@ export const TeamManagement = () => {
         age: 30,
         gender: 0,
         image: '',
-        role: newMember.role === 'ceo' ? 0 : newMember.role === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
+        role: (newMember.role as string) === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
       }
     });
   };
 
-  // Create Team handler
+  // Create Team handler (with Zod validation)
   const handleCreateTeam = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTeam.name || !newTeam.managerId) {
-      addNotification({ type: 'error', title: 'Please fill team name and select a manager' });
+    const result = createTeamSchema.safeParse(newTeam);
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0].toString()] = err.message;
+        }
+      });
+      setTeamErrors(errors);
       return;
     }
+    setTeamErrors({});
     createTeamMutation.mutate({ name: newTeam.name, managerId: newTeam.managerId });
   };
 
+  // Assign Member to Team handler (with Zod validation)
   const handleAssignMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTeamId || !assignUserId) return;
+    const result = assignMemberSchema.safeParse({ teamId: selectedTeamId, userId: assignUserId });
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0].toString()] = err.message;
+        }
+      });
+      setAssignErrors(errors);
+      return;
+    }
+    setAssignErrors({});
     addTeamMemberMutation.mutate({ teamId: selectedTeamId, userId: assignUserId });
     setAssignUserId('');
   };
 
-  // Remove Member
-  const handleRemoveMember = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to remove ${name} from your team?`)) {
-      deleteUserMutation.mutate({ userId: id });
+  // Remove Member (inline confirmation)
+  const handleRemoveMember = (id: string) => {
+    setConfirmRemoveId(id);
+  };
+
+  const confirmRemoveMember = () => {
+    if (confirmRemoveId) {
+      deleteUserMutation.mutate({ userId: confirmRemoveId });
+      setConfirmRemoveId(null);
     }
   };
 
-  // Get managers list for team creation dropdown
-  const managers = allDbUsers.filter((u: any) => u.role === 1);
+  // Get managers and team leads list for team creation dropdown
+  const managers = allDbUsers.filter((u: any) => u.role === 1 || u.role === 2);
   // Get employees not in any team for assignment
   const allTeamMemberIds = dbTeams.flatMap((t: any) => (t.members || []).map((m: any) => m._id || m.id || m));
   const unassignedEmployees = allDbUsers.filter((u: any) => {
@@ -344,20 +463,24 @@ export const TeamManagement = () => {
               + Create Team
             </button>
           )}
-          <button
-            onClick={() => setIsAssignMemberOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-white/20 hover:bg-white/30 text-white px-4 py-2.5 text-xs font-bold transition-all cursor-pointer border border-white/10"
-          >
-            <Layers className="size-4" />
-            Assign to Team
-          </button>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer border-0"
-          >
-            <UserPlus className="size-4" />
-            + Add Member
-          </button>
+          {isCEO && (
+            <button
+              onClick={() => setIsAssignMemberOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-white/20 hover:bg-white/30 text-white px-4 py-2.5 text-xs font-bold transition-all cursor-pointer border border-white/10"
+            >
+              <Layers className="size-4" />
+              Assign to Team
+            </button>
+          )}
+          {isCEO && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer border-0"
+            >
+              <UserPlus className="size-4" />
+              + Add Member
+            </button>
+          )}
         </div>
       </div>
 
@@ -427,6 +550,26 @@ export const TeamManagement = () => {
               const managerName = team.managerId
                 ? `${team.managerId.firstName || ''} ${team.managerId.lastName || ''}`.trim()
                 : 'Unassigned';
+
+              const teamIdStr = (team._id || team.id)?.toString();
+              const memberIds = (team.members || []).map((m: any) =>
+                (m._id || m.id || m)?.toString(),
+              );
+
+              const teamTasks = dbTasks.filter((t: any) => {
+                const taskTeamId = (t.teamId || t.teamInfo?._id || t.teamInfo?.id)?.toString();
+                if (taskTeamId && teamIdStr) {
+                  return taskTeamId === teamIdStr;
+                }
+                const assignedId = (t.assignedTo?._id || t.assignedTo?.id || t.assignedTo)?.toString();
+                return assignedId && memberIds.includes(assignedId);
+              });
+
+              const totalTasksCount = teamTasks.length;
+              const pendingCount = teamTasks.filter((t: any) => t.status === 0).length;
+              const inProgressCount = teamTasks.filter((t: any) => t.status === 1).length;
+              const completedCount = teamTasks.filter((t: any) => t.status === 2).length;
+
               return (
                 <div key={team._id} className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm space-y-4 text-left relative hover:shadow-md transition-all duration-300">
                   {/* Delete Team Button (CEO only) */}
@@ -449,6 +592,27 @@ export const TeamManagement = () => {
                     <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
                       <span>Manager:</span>
                       <span className="text-slate-600 font-bold">{managerName}</span>
+                    </div>
+                  </div>
+
+                  {/* Task Summary Badges */}
+                  <div className="space-y-1.5 pt-2 border-t border-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Tasks Breakdown ({totalTasksCount} Total)
+                    </span>
+                    <div className="grid grid-cols-3 gap-1 text-center text-[9px] font-bold">
+                      <div className="bg-amber-50 text-amber-700 p-1 rounded-md border border-amber-100">
+                        <span>To Do: </span>
+                        <strong>{pendingCount}</strong>
+                      </div>
+                      <div className="bg-sky-50 text-sky-700 p-1 rounded-md border border-sky-100">
+                        <span>In Prog: </span>
+                        <strong>{inProgressCount}</strong>
+                      </div>
+                      <div className="bg-emerald-50 text-emerald-700 p-1 rounded-md border border-emerald-100">
+                        <span>Done: </span>
+                        <strong>{completedCount}</strong>
+                      </div>
                     </div>
                   </div>
 
@@ -509,6 +673,23 @@ export const TeamManagement = () => {
             <p className="text-xs text-slate-400 mt-0.5">Click column headers to sort results dynamically</p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* Team Filter Dropdown */}
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 w-full sm:w-48 focus-within:border-[#1E3A8A] focus-within:bg-white transition-all">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Team:</span>
+              <select
+                value={selectedTeamFilter}
+                onChange={(e) => handleTeamFilterChange(e.target.value)}
+                className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-bold cursor-pointer border-0 p-0"
+              >
+                <option value="all">All Teams</option>
+                {dbTeams.map((team: any) => (
+                  <option key={team._id || team.id} value={team._id || team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Role Filter Dropdown */}
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 w-full sm:w-44 focus-within:border-[#1E3A8A] focus-within:bg-white transition-all">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Role:</span>
@@ -658,14 +839,16 @@ export const TeamManagement = () => {
                           >
                             <Eye className="size-4" />
                           </button>
-                          <button
-                            onClick={() => handleRemoveMember(m.id, m.name)}
-                            disabled={deleteUserMutation.isPending}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer border-0 bg-transparent"
-                            title="Remove Member"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                          {isCEO && (
+                            <button
+                              onClick={() => handleRemoveMember(m.id)}
+                              disabled={deleteUserMutation.isPending}
+                              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer border-0 bg-transparent"
+                              title="Remove Member"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -705,12 +888,14 @@ export const TeamManagement = () => {
                       >
                         <Eye className="size-3.5" />
                       </button>
-                      <button
-                        onClick={() => handleRemoveMember(m.id, m.name)}
-                        className="p-1.5 rounded-lg bg-white border border-slate-200 text-rose-500 hover:bg-rose-50/50"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      {isCEO && (
+                        <button
+                          onClick={() => handleRemoveMember(m.id)}
+                          className="p-1.5 rounded-lg bg-white border border-slate-200 text-rose-500 hover:bg-rose-50/50"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -819,7 +1004,7 @@ export const TeamManagement = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-400 uppercase">First Name</label>
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                  <div className={`flex items-center gap-2 bg-slate-50 border ${memberErrors.firstName ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                     <UserIcon className="size-3.5 text-slate-400" />
                     <input
                       type="text"
@@ -827,13 +1012,15 @@ export const TeamManagement = () => {
                       value={newMember.firstName}
                       onChange={(e) => setNewMember(prev => ({ ...prev, firstName: e.target.value }))}
                       className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium"
-                      required
                     />
                   </div>
+                  {memberErrors.firstName && (
+                    <p className="text-[11px] font-semibold text-rose-500 mt-1">{memberErrors.firstName}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-400 uppercase">Last Name</label>
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                  <div className={`flex items-center gap-2 bg-slate-50 border ${memberErrors.lastName ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                     <UserIcon className="size-3.5 text-slate-400" />
                     <input
                       type="text"
@@ -841,16 +1028,18 @@ export const TeamManagement = () => {
                       value={newMember.lastName}
                       onChange={(e) => setNewMember(prev => ({ ...prev, lastName: e.target.value }))}
                       className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium"
-                      required
                     />
                   </div>
+                  {memberErrors.lastName && (
+                    <p className="text-[11px] font-semibold text-rose-500 mt-1">{memberErrors.lastName}</p>
+                  )}
                 </div>
               </div>
 
               {/* Email */}
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase">Email Address</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <div className={`flex items-center gap-2 bg-slate-50 border ${memberErrors.email ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <Mail className="size-3.5 text-slate-400" />
                   <input
                     type="email"
@@ -858,15 +1047,17 @@ export const TeamManagement = () => {
                     value={newMember.email}
                     onChange={(e) => setNewMember(prev => ({ ...prev, email: e.target.value }))}
                     className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium"
-                    required
                   />
                 </div>
+                {memberErrors.email && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{memberErrors.email}</p>
+                )}
               </div>
 
               {/* Password */}
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase">Password</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <div className={`flex items-center gap-2 bg-slate-50 border ${memberErrors.password ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <Lock className="size-3.5 text-slate-400" />
                   <input
                     type="password"
@@ -874,9 +1065,11 @@ export const TeamManagement = () => {
                     value={newMember.password}
                     onChange={(e) => setNewMember(prev => ({ ...prev, password: e.target.value }))}
                     className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium"
-                    required
                   />
                 </div>
+                {memberErrors.password && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{memberErrors.password}</p>
+                )}
               </div>
 
               {/* Phone Number */}
@@ -901,13 +1094,12 @@ export const TeamManagement = () => {
                   <Shield className="size-3.5 text-slate-400" />
                   <select
                     value={newMember.role}
-                    onChange={(e) => setNewMember(prev => ({ ...prev, role: e.target.value as 'ceo' | 'manager' | 'tl' | 'employee' }))}
+                    onChange={(e) => setNewMember(prev => ({ ...prev, role: e.target.value as 'manager' | 'tl' | 'employee' }))}
                     className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0"
                   >
                     <option value="employee">Employee</option>
                     <option value="tl">Team Lead (TL)</option>
                     <option value="manager">Manager</option>
-                    <option value="ceo">CEO</option>
                   </select>
                 </div>
               </div>
@@ -952,22 +1144,28 @@ export const TeamManagement = () => {
             <form onSubmit={handleCreateTeam} className="p-5 space-y-4 text-left">
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase">Team Name</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <div className={`flex items-center gap-2 bg-slate-50 border ${teamErrors.name ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <FolderPlus className="size-3.5 text-slate-400" />
-                  <input type="text" placeholder="e.g. Alpha Engineering" value={newTeam.name} onChange={(e) => setNewTeam(p => ({ ...p, name: e.target.value }))} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium" required />
+                  <input type="text" placeholder="e.g. Alpha Engineering" value={newTeam.name} onChange={(e) => setNewTeam(p => ({ ...p, name: e.target.value }))} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium" />
                 </div>
+                {teamErrors.name && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{teamErrors.name}</p>
+                )}
               </div>
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase">Assign Manager</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase">Assign Team Leader / Manager</label>
+                <div className={`flex items-center gap-2 bg-slate-50 border ${teamErrors.managerId ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <Shield className="size-3.5 text-slate-400" />
-                  <select value={newTeam.managerId} onChange={(e) => setNewTeam(p => ({ ...p, managerId: e.target.value }))} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0" required>
-                    <option value="">Select a manager...</option>
+                  <select value={newTeam.managerId} onChange={(e) => setNewTeam(p => ({ ...p, managerId: e.target.value }))} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0">
+                    <option value="">Select a manager or team lead...</option>
                     {managers.map((m: any) => (
-                      <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.email})</option>
+                      <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.role === 1 ? 'Manager' : 'Team Lead'})</option>
                     ))}
                   </select>
                 </div>
+                {teamErrors.managerId && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{teamErrors.managerId}</p>
+                )}
               </div>
               <div className="pt-4 flex gap-2 justify-end">
                 <button type="button" onClick={() => setIsCreateTeamOpen(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer bg-white">Cancel</button>
@@ -996,35 +1194,73 @@ export const TeamManagement = () => {
             <form onSubmit={handleAssignMember} className="p-5 space-y-4 text-left">
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase">Select Team</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <div className={`flex items-center gap-2 bg-slate-50 border ${assignErrors.teamId ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <Layers className="size-3.5 text-slate-400" />
-                  <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0" required>
+                  <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0">
                     <option value="">Select a team...</option>
                     {dbTeams.map((t: any) => (
                       <option key={t._id || t.id} value={t._id || t.id}>{t.name}</option>
                     ))}
                   </select>
                 </div>
+                {assignErrors.teamId && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{assignErrors.teamId}</p>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase">Select Employee</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <div className={`flex items-center gap-2 bg-slate-50 border ${assignErrors.userId ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <UserIcon className="size-3.5 text-slate-400" />
-                  <select value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0" required>
+                  <select value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0">
                     <option value="">Select an employee...</option>
                     {unassignedEmployees.map((u: any) => (
                       <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</option>
                     ))}
                   </select>
                 </div>
+                {assignErrors.userId && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{assignErrors.userId}</p>
+                )}
               </div>
               <div className="pt-4 flex gap-2 justify-end">
-                <button type="button" onClick={() => setIsAssignMemberOpen(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer bg-white">Cancel</button>
+                <button type="button" onClick={() => { setIsAssignMemberOpen(false); setAssignErrors({}); }} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer bg-white">Cancel</button>
                 <button type="submit" disabled={addTeamMemberMutation.isPending} className="px-5 py-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer border-0">
                   {addTeamMemberMutation.isPending ? 'Assigning...' : 'Assign to Team'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Remove Member */}
+      {confirmRemoveId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="size-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="size-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold text-slate-800">Remove Member?</h3>
+              <p className="text-xs text-slate-500 font-medium">Are you sure you want to remove this member from the team roster?</p>
+            </div>
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmRemoveId(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 cursor-pointer bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveMember}
+                disabled={deleteUserMutation.isPending}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer border-0"
+              >
+                {deleteUserMutation.isPending ? 'Removing...' : 'Yes, Remove'}
+              </button>
+            </div>
           </div>
         </div>
       )}

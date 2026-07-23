@@ -5,31 +5,55 @@ import { MutationConfig } from '@/lib/react-query';
 import { Task } from '../types';
 
 export const createTaskInputSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
+  title: z.string().trim().min(1, 'Title is required'),
   description: z.string().optional(),
   status: z.coerce.number().min(0).max(3).optional(),
   priority: z.coerce.number().min(0).max(2).optional(),
-  dueDate: z.string().optional(),
+  dueDate: z
+    .string()
+    .min(1, 'Due date is required')
+    .refine(
+      (val) => {
+        if (!val) return false;
+        const selectedDate = new Date(val);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return selectedDate >= today;
+      },
+      { message: 'Due date cannot be in the past' },
+    ),
   assignedTo: z.string().optional(),
-  subtasks: z.array(z.object({
-    title: z.string().min(1),
-    isCompleted: z.boolean().default(false),
-  })).optional(),
-  tags: z.array(z.string()).optional(),
-  attachments: z.array(z.object({
-    originalName: z.string(),
-    filename: z.string(),
-    mimetype: z.string().optional(),
-    size: z.number().optional(),
-    path: z.string(),
-    url: z.string(),
-  })).optional(),
   teamId: z.string().optional(),
+  subtasks: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        isCompleted: z.boolean().default(false),
+      }),
+    )
+    .optional(),
+  tags: z.array(z.string()).optional(),
+  attachments: z
+    .array(
+      z.object({
+        originalName: z.string(),
+        filename: z.string(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        path: z.string(),
+        url: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 
-export const createTask = ({ data }: { data: CreateTaskInput }): Promise<Task> => {
+export const createTask = ({
+  data,
+}: {
+  data: CreateTaskInput;
+}): Promise<Task> => {
   return api.post('/tasks', data);
 };
 
@@ -37,7 +61,9 @@ type UseCreateTaskOptions = {
   mutationConfig?: MutationConfig<typeof createTask>;
 };
 
-export const useCreateTask = ({ mutationConfig }: UseCreateTaskOptions = {}) => {
+export const useCreateTask = ({
+  mutationConfig,
+}: UseCreateTaskOptions = {}) => {
   const queryClient = useQueryClient();
   const { onSuccess, ...restConfig } = mutationConfig || {};
 

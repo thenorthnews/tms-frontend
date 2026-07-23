@@ -6,11 +6,12 @@ import { useUser } from '@/lib/auth';
 import { MutationConfig } from '@/lib/react-query';
 
 export const updateProfileInputSchema = z.object({
-  firstName: z.string().min(1, 'Required'),
-  lastName: z.string().min(1, 'Required'),
-  fatherName: z.string().min(1, 'Required'),
-  motherName: z.string().min(1, 'Required'),
-  image: z.string().min(1, 'Required'),
+  firstName: z.string().trim().min(1, 'First name is required'),
+  lastName: z.string().trim().min(1, 'Last name is required'),
+  phoneNumber: z.string().trim().optional(),
+  fatherName: z.string().trim().optional(),
+  motherName: z.string().trim().optional(),
+  image: z.string().optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>;

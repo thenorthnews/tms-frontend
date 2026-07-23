@@ -8,19 +8,19 @@ import { getUsersQueryOptions } from './get-users';
 
 export const createUserInputSchema = z.object({
   // User credentials
-  email: z.string().email('Valid email is required'),
+  email: z.string().trim().email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-  countryCode: z.string().min(1, 'Country code is required'),
-  phoneNumber: z.string().min(1, 'Phone number is required'),
+  countryCode: z.string().trim().min(1, 'Country code is required'),
+  phoneNumber: z.string().trim().min(1, 'Phone number is required'),
 
   // User info
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  fatherName: z.string().min(2, 'Father name must be at least 2 characters'),
-  motherName: z.string().min(2, 'Mother name must be at least 2 characters'),
-  age: z.coerce.number().min(1, 'Age must be at least 1').max(100, 'Age must be at most 100'),
-  gender: z.coerce.number().min(0).max(2),
-  image: z.string().min(1, 'Image is required'),
+  firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().trim().min(2, 'Last name must be at least 2 characters'),
+  fatherName: z.string().trim().optional(),
+  motherName: z.string().trim().optional(),
+  age: z.coerce.number().min(1).max(100).optional(),
+  gender: z.coerce.number().min(0).max(2).optional(),
+  image: z.string().optional(),
   role: z.coerce.number().optional(),
 });
 

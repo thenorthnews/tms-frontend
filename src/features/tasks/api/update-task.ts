@@ -11,20 +11,28 @@ export const updateTaskInputSchema = z.object({
   priority: z.coerce.number().min(0).max(2).optional(),
   dueDate: z.string().optional(),
   assignedTo: z.string().optional(),
-  subtasks: z.array(z.object({
-    _id: z.string().optional(),
-    title: z.string().min(1),
-    isCompleted: z.boolean(),
-  })).optional(),
+  subtasks: z
+    .array(
+      z.object({
+        _id: z.string().optional(),
+        title: z.string().min(1),
+        isCompleted: z.boolean(),
+      }),
+    )
+    .optional(),
   tags: z.array(z.string()).optional(),
-  attachments: z.array(z.object({
-    originalName: z.string(),
-    filename: z.string(),
-    mimetype: z.string().optional(),
-    size: z.number().optional(),
-    path: z.string(),
-    url: z.string(),
-  })).optional(),
+  attachments: z
+    .array(
+      z.object({
+        originalName: z.string(),
+        filename: z.string(),
+        mimetype: z.string().optional(),
+        size: z.number().optional(),
+        path: z.string(),
+        url: z.string(),
+      }),
+    )
+    .optional(),
   teamId: z.string().optional(),
 });
 
@@ -44,7 +52,9 @@ type UseUpdateTaskOptions = {
   mutationConfig?: MutationConfig<typeof updateTask>;
 };
 
-export const useUpdateTask = ({ mutationConfig }: UseUpdateTaskOptions = {}) => {
+export const useUpdateTask = ({
+  mutationConfig,
+}: UseUpdateTaskOptions = {}) => {
   const queryClient = useQueryClient();
   const { onSuccess, ...restConfig } = mutationConfig || {};
 

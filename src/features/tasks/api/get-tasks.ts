@@ -10,8 +10,15 @@ export type GetTasksParams = {
   status?: number;
   priority?: number;
   assignedTo?: string;
+  createdBy?: string;
+  teamId?: string;
+  dateFilter?: string;
+  startDate?: string;
+  endDate?: string;
 };
-export const getTasks = async (params?: GetTasksParams): Promise<{ data: Task[]; total: number; page: number; limit: number }> => {
+export const getTasks = async (
+  params?: GetTasksParams,
+): Promise<{ data: Task[]; total: number; page: number; limit: number }> => {
   return api.get('/tasks', { params });
 };
 

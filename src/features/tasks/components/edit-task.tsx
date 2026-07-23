@@ -129,6 +129,9 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   // Sub-task list (connected to task query)
   const [subTasks, setSubTasks] = useState<any[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const task = taskQuery.data;
 
@@ -274,14 +277,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   };
 
   const handleCreateSubtask = () => {
-    const title = prompt('Enter subtask title:');
-    if (title?.trim()) {
-      const updated = [...subTasks, { title: title.trim(), isCompleted: false }];
+    if (newSubtaskTitle.trim()) {
+      const updated = [...subTasks, { title: newSubtaskTitle.trim(), isCompleted: false }];
       setSubTasks(updated);
       updateTaskMutation.mutate({
         taskId,
         data: { subtasks: updated },
       });
+      setNewSubtaskTitle('');
+      setIsAddingSubtask(false);
     }
   };
 
@@ -315,16 +319,19 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         },
       }) as any;
 
-      if (res.data) {
-        const newAttachments = [...(task.attachments || []), ...res.data];
-        updateTaskMutation.mutate({
-          taskId,
-          data: { attachments: newAttachments },
-        });
-        addNotification({
-          type: 'success',
-          title: 'File(s) uploaded successfully',
-        });
+      const uploadedFiles = Array.isArray(res) ? res : (res?.data || []);
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        const rawAttachments = [...(task.attachments || []), ...uploadedFiles];
+        const newAttachments = rawAttachments.map((att: any) => ({
+          originalName: att.originalName,
+          filename: att.filename,
+          mimetype: att.mimetype,
+          size: att.size,
+          path: att.path,
+          url: att.url,
+        }));
+        await api.patch(`/tasks/${taskId}`, { attachments: newAttachments });
+        taskQuery.refetch();
       }
     } catch (err) {
       addNotification({
@@ -336,18 +343,27 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   };
 
-  const handleDeleteAttachment = (filename: string) => {
-    const newAttachments = (task.attachments || []).filter(
-      (att: any) => att.filename !== filename
-    );
-    updateTaskMutation.mutate({
-      taskId,
-      data: { attachments: newAttachments },
-    });
-    addNotification({
-      type: 'success',
-      title: 'Attachment deleted',
-    });
+  const handleDeleteAttachment = async (filename: string) => {
+    try {
+      const rawAttachments = (task.attachments || []).filter(
+        (att: any) => att.filename !== filename
+      );
+      const newAttachments = rawAttachments.map((att: any) => ({
+        originalName: att.originalName,
+        filename: att.filename,
+        mimetype: att.mimetype,
+        size: att.size,
+        path: att.path,
+        url: att.url,
+      }));
+      await api.patch(`/tasks/${taskId}`, { attachments: newAttachments });
+      taskQuery.refetch();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Failed to delete attachment',
+      });
+    }
   };
 
   const handleReassignUser = (userId: string) => {
@@ -448,29 +464,31 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       <Edit2 className="size-4" />
                       Edit Description
                     </button>
-                    <button
-                      onClick={() => {
-                        setShowActionDropdown(false);
-                        setShowReassignMenu(true);
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
-                    >
-                      <UserCheck className="size-4" />
-                      Reassign Task
-                    </button>
-                    <div className="border-t border-slate-100 my-1" />
-                    <button
-                      onClick={() => {
-                        setShowActionDropdown(false);
-                        if (confirm('Delete this task?')) {
-                          deleteTaskMutation.mutate({ taskId });
-                        }
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50/50 transition-colors flex items-center gap-2"
-                    >
-                      <Trash2 className="size-4" />
-                      Delete Task
-                    </button>
+                    {currentUser?.role !== 4 && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setShowActionDropdown(false);
+                            setShowReassignMenu(true);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                        >
+                          <UserCheck className="size-4" />
+                          Reassign Task
+                        </button>
+                        <div className="border-t border-slate-100 my-1" />
+                        <button
+                          onClick={() => {
+                            setShowActionDropdown(false);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50/50 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 className="size-4" />
+                          Delete Task
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -672,9 +690,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 <span className="text-slate-400 font-bold">Assigned By</span>
                 <div className="flex items-center gap-2">
                   <div className="size-6.5 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[10px]">
-                    SJ
+                    {task.creatorInfo
+                      ? `${task.creatorInfo.firstName?.[0] || ''}${task.creatorInfo.lastName?.[0] || ''}`.toUpperCase()
+                      : 'SO'}
                   </div>
-                  <span className="font-semibold text-slate-700">Sarah Jenkins</span>
+                  <span className="font-semibold text-slate-700">
+                    {task.creatorInfo
+                      ? `${task.creatorInfo.firstName} ${task.creatorInfo.lastName}`
+                      : 'System'}
+                  </span>
                 </div>
               </div>
 
@@ -905,12 +929,48 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               })}
             </div>
 
-            <button
-              onClick={handleCreateSubtask}
-              className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
-            >
-              + Add Subtask Item
-            </button>
+            {isAddingSubtask ? (
+              <div className="flex gap-2 pt-1">
+                <input
+                  type="text"
+                  placeholder="Enter subtask title..."
+                  value={newSubtaskTitle}
+                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleCreateSubtask();
+                    }
+                  }}
+                  className="flex-1 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateSubtask}
+                  className="px-3 py-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingSubtask(false);
+                    setNewSubtaskTitle('');
+                  }}
+                  className="px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-100 cursor-pointer bg-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAddingSubtask(true)}
+                className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
+              >
+                + Add Subtask Item
+              </button>
+            )}
           </div>
 
           {/* Time Tracking Card */}
@@ -1031,6 +1091,41 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         </div>
 
       </div>
+
+      {/* Delete Task Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="size-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="size-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold text-slate-800">Delete Task?</h3>
+              <p className="text-xs text-slate-500 font-medium">Are you sure you want to permanently delete this task?</p>
+            </div>
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 cursor-pointer bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  deleteTaskMutation.mutate({ taskId });
+                }}
+                disabled={deleteTaskMutation.isPending}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer border-0"
+              >
+                {deleteTaskMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

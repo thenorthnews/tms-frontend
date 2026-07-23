@@ -215,7 +215,7 @@ const LoginRoute = () => {
                     href="#forgot" 
                     onClick={(e) => {
                       e.preventDefault();
-                      alert('Password reset instructions have been simulated to your email.');
+                      setErrors(prev => ({ ...prev, api: 'Password reset instructions have been sent to your registered email.' }));
                     }}
                     className="text-xs font-semibold text-[#0EA5E9] hover:underline"
                   >

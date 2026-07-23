@@ -9,6 +9,7 @@ export const getUsers = async (
   search = '',
   limit?: number,
   role?: number,
+  teamId?: string,
 ): Promise<{
   data: User[];
   meta: {
@@ -24,6 +25,7 @@ export const getUsers = async (
       search,
       limit,
       role,
+      teamId,
     },
   })) as any;
   const users = (response.users || []).map(mapUser);
@@ -47,10 +49,11 @@ export const getUsersQueryOptions = ({
   search,
   limit,
   role,
-}: { page?: number; search?: string; limit?: number; role?: number } = {}) => {
+  teamId,
+}: { page?: number; search?: string; limit?: number; role?: number; teamId?: string } = {}) => {
   return queryOptions({
-    queryKey: ['users', { page, search, limit, role }],
-    queryFn: () => getUsers(page, search, limit, role),
+    queryKey: ['users', { page, search, limit, role, teamId }],
+    queryFn: () => getUsers(page, search, limit, role, teamId),
   });
 };
 
@@ -59,12 +62,13 @@ type UseUsersOptions = {
   search?: string;
   limit?: number;
   role?: number;
+  teamId?: string;
   queryConfig?: QueryConfig<typeof getUsersQueryOptions>;
 };
 
-export const useUsers = ({ page, search, limit, role, queryConfig }: UseUsersOptions = {}) => {
+export const useUsers = ({ page, search, limit, role, teamId, queryConfig }: UseUsersOptions = {}) => {
   return useQuery({
-    ...getUsersQueryOptions({ page, search, limit, role }),
+    ...getUsersQueryOptions({ page, search, limit, role, teamId }),
     ...queryConfig,
   });
 };

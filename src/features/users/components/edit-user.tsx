@@ -235,7 +235,6 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                       { label: 'Employee', value: '4' },
                       { label: 'Team Lead', value: '2' },
                       { label: 'Manager', value: '1' },
-                      { label: 'CEO', value: '0' },
                     ]}
                   />
                 </div>

@@ -26,7 +26,7 @@ import { Table, TableColumn } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { paths } from '@/config/paths';
 import { formatDate } from '@/utils/format';
-
+import { useUser } from '@/lib/auth';
 import { useTasks } from '../api/get-tasks';
 import { useUpdateTask } from '../api/update-task';
 import { useDeleteTask } from '../api/delete-task';
@@ -48,17 +48,23 @@ const getFirstDayOfMonth = (year: number, month: number) => {
 export const TasksList = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  const currentUserQuery = useUser();
+  const currentUser = currentUserQuery.data;
+  const isEmployee = currentUser?.role === 4;
+
   const [searchParams, setSearchParams] = useSearchParams();
   
   const page = +(searchParams.get('page') || 1);
   const search = searchParams.get('search') || '';
   const statusFilter = searchParams.get('status');
   const priorityFilter = searchParams.get('priority');
+  const dateFilterParam = searchParams.get('dateFilter');
   const currentView = searchParams.get('view') || 'list';
 
   const [searchVal, setSearchVal] = useState(search);
   const [statusVal, setStatusVal] = useState(statusFilter || '');
   const [priorityVal, setPriorityVal] = useState(priorityFilter || '');
+  const [dateVal, setDateVal] = useState(dateFilterParam || (currentView === 'kanban' ? 'today' : ''));
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
@@ -84,8 +90,11 @@ export const TasksList = () => {
     },
   });
 
-  // Sync state with URL search param
+  // Sync state with URL search param only when user types in search
   useEffect(() => {
+    const currentSearchInUrl = searchParams.get('search') || '';
+    if (searchVal === currentSearchInUrl) return;
+
     const handler = setTimeout(() => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
@@ -100,7 +109,7 @@ export const TasksList = () => {
     }, 400);
 
     return () => clearTimeout(handler);
-  }, [searchVal, setSearchParams]);
+  }, [searchVal, searchParams, setSearchParams]);
 
   const handleStatusFilterChange = (val: string) => {
     setStatusVal(val);
@@ -130,6 +139,20 @@ export const TasksList = () => {
     });
   };
 
+  const handleDateFilterChange = (val: string) => {
+    setDateVal(val);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (val && val !== 'all') {
+        next.set('dateFilter', val);
+      } else {
+        next.delete('dateFilter');
+      }
+      next.set('page', '1');
+      return next;
+    });
+  };
+
   const handleViewChange = (view: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -140,15 +163,30 @@ export const TasksList = () => {
   };
 
   const queryParams = useMemo(() => {
-    const params: Record<string, any> = { page, search };
+    const params: Record<string, any> = { search };
     if (statusVal) params.status = Number(statusVal);
     if (priorityVal) params.priority = Number(priorityVal);
-    if (currentView !== 'list') {
+
+    if (currentView === 'kanban') {
       params.limit = 100;
       params.page = 1;
+      params.dateFilter = dateVal || 'today';
+    } else if (currentView === 'calendar') {
+      params.limit = 300;
+      params.page = 1;
+      const start = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+      const end = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+      params.startDate = start.toISOString();
+      params.endDate = end.toISOString();
+    } else {
+      params.limit = 10;
+      params.page = page;
+      if (dateVal && dateVal !== 'all') {
+        params.dateFilter = dateVal;
+      }
     }
     return params;
-  }, [page, search, statusVal, priorityVal, currentView]);
+  }, [page, search, statusVal, priorityVal, currentView, dateVal, currentMonth, currentYear]);
 
   const tasksQuery = useTasks({ params: queryParams });
 
@@ -680,15 +718,31 @@ export const TasksList = () => {
             <option value={TaskPriority.MEDIUM}>Medium Priority</option>
             <option value={TaskPriority.HIGH}>High Priority</option>
           </select>
+
+          {/* Date Filter (only visible for List and Kanban view) */}
+          {currentView !== 'calendar' && (
+            <select
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+              value={currentView === 'kanban' ? (dateVal || 'today') : (dateVal || 'all')}
+              onChange={(e) => handleDateFilterChange(e.target.value)}
+            >
+              <option value="today">Today's Tasks</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="all">All Dates</option>
+            </select>
+          )}
         </div>
 
-        <Button
-          onClick={() => navigate(paths.app.createTask.getHref())}
-          icon={<Plus className="size-4" />}
-          className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0 h-10 px-6"
-        >
-          Create Task
-        </Button>
+          {!isEmployee && (
+            <Button
+              onClick={() => navigate(paths.app.createTask.getHref())}
+              icon={<Plus className="size-4" />}
+              className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0 h-10 px-6"
+            >
+              Create Task
+            </Button>
+          )}
       </div>
 
       {/* View tabs */}

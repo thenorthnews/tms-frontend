@@ -18,6 +18,7 @@ export type UserBase = {
   role: 'ADMIN' | 'USER' | number;
   teamId: string;
   bio: string;
+  phoneNumber?: any;
   fatherName?: string;
   motherName?: string;
   image?: string;

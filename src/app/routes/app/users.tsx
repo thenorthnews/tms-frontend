@@ -8,6 +8,7 @@ import { paths } from '@/config/paths';
 import { getUsersQueryOptions } from '@/features/users/api/get-users';
 import { UsersList } from '@/features/users/components/users-list';
 import { Authorization, ROLES } from '@/lib/authorization';
+import { useUser } from '@/lib/auth';
 
 export const clientLoader =
   (queryClient: QueryClient) =>
@@ -32,21 +33,26 @@ export const clientLoader =
 
 const UsersRoute = () => {
   const navigate = useNavigate();
+  const user = useUser();
+  const isCEO = user.data?.role === 0 || user.data?.role === 'CEO' || (user.data as any)?.role === 'ADMIN';
+
   return (
     <ContentLayout title="Users">
       <Authorization
         forbiddenFallback={<div>Only admin can view this.</div>}
         allowedRoles={[ROLES.ADMIN]}
       >
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            icon={<Plus className="size-4" />}
-            onClick={() => navigate(paths.app.createUser.getHref())}
-          >
-            Create User
-          </Button>
-        </div>
+        {isCEO && (
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              icon={<Plus className="size-4" />}
+              onClick={() => navigate(paths.app.createUser.getHref())}
+            >
+              Create User
+            </Button>
+          </div>
+        )}
         <div className="mt-4">
           <UsersList />
         </div>

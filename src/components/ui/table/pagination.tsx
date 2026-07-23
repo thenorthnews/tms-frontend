@@ -127,10 +127,12 @@ export {
   PaginationEllipsis,
 };
 
+import { useLocation } from 'react-router';
+
 export type TablePaginationProps = {
   totalPages: number;
   currentPage: number;
-  rootUrl: string;
+  rootUrl?: string;
 };
 
 export const TablePagination = ({
@@ -138,10 +140,17 @@ export const TablePagination = ({
   currentPage,
   rootUrl,
 }: TablePaginationProps) => {
-  const createHref = (page: number) => `${rootUrl}?page=${page}`;
+  const location = useLocation();
+
+  const createHref = (pageNumber: number) => {
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set('page', pageNumber.toString());
+    const basePath = rootUrl || location.pathname;
+    return `${basePath}?${searchParams.toString()}`;
+  };
 
   return (
-    <Pagination className="justify-end py-8">
+    <Pagination className="justify-end py-8 select-none">
       <PaginationContent>
         {currentPage > 1 && (
           <PaginationItem>
@@ -160,7 +169,7 @@ export const TablePagination = ({
             </PaginationLink>
           </PaginationItem>
         )}
-        <PaginationItem className="rounded-sm bg-gray-200">
+        <PaginationItem className="rounded-sm bg-slate-200 font-bold">
           <PaginationLink href={createHref(currentPage)}>
             {currentPage}
           </PaginationLink>
@@ -179,7 +188,7 @@ export const TablePagination = ({
         )}
         {currentPage < totalPages && (
           <PaginationItem>
-            <PaginationNext href={createHref(totalPages)} />
+            <PaginationNext href={createHref(currentPage + 1)} />
           </PaginationItem>
         )}
       </PaginationContent>
