@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -18,7 +18,8 @@ import {
   CheckSquare,
   AlertCircle,
   Paperclip,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,17 @@ import { useTask } from '../api/get-task';
 import { useUpdateTask } from '../api/update-task';
 import { useDeleteTask } from '../api/delete-task';
 import { useLogTime } from '../api/log-time';
-import { TaskStatus, TaskPriority } from '../types';
+import { TaskStatus, TaskPriority, Subtask } from '../types';
+import {
+  getPriorityLabel,
+  getPriorityBadgeStyle,
+  getStatusLabel,
+  getStatusBadgeStyle,
+  getStatusSelectStyle,
+  getUserInitials,
+  isTaskOverdue,
+  formatTimeLogged,
+} from '../utils/task-utils';
 
 type EditTaskProps = {
   taskId: string;
@@ -41,6 +52,7 @@ type EditTaskProps = {
 export const EditTask = ({ taskId }: EditTaskProps) => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  const activityEndRef = useRef<HTMLDivElement>(null);
 
   // Get active logged in user
   const currentUserQuery = useUser();
@@ -113,9 +125,10 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const [logMinutes, setLogMinutes] = useState<number>(0);
   const [logDescription, setLogDescription] = useState('');
   const [commentInput, setCommentInput] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [tempDescription, setTempDescription] = useState('');
-  const [committedDate, setCommittedDate] = useState('2026-07-25');
+  const [committedDate, setCommittedDate] = useState('');
   const [showReassignMenu, setShowReassignMenu] = useState(false);
   const [showTeamMenu, setShowTeamMenu] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
@@ -128,10 +141,13 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   // Sub-task list (connected to task query)
-  const [subTasks, setSubTasks] = useState<any[]>([]);
+  const [subTasks, setSubTasks] = useState<Subtask[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Refs for outside click detection
+  const actionDropdownRef = useRef<HTMLDivElement>(null);
 
   const task = taskQuery.data;
 
@@ -141,8 +157,38 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       setTempDescription(task.description || '');
       setSubTasks(task.subtasks || []);
       setTagsInput(task.tags?.join(', ') || '');
+      // Initialize committed date from task data or reasonable default
+      if (task.dueDate) {
+        const dueDate = new Date(task.dueDate);
+        dueDate.setDate(dueDate.getDate() + 1);
+        setCommittedDate(dueDate.toISOString().split('T')[0]);
+      }
     }
   }, [task]);
+
+  // Close action dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        actionDropdownRef.current &&
+        !actionDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowActionDropdown(false);
+      }
+    };
+
+    if (showActionDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActionDropdown]);
+
+  // Auto-scroll to newest activity after posting comment
+  const scrollToLatestActivity = useCallback(() => {
+    activityEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
   if (taskQuery.isLoading) {
     return (
@@ -168,65 +214,23 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     : 0;
 
   // Calculate total time logged
-  const totalMinutes = (task.timeLogs || []).reduce((acc, log) => acc + (log.hours * 60) + log.minutes, 0);
-  const displayHours = Math.floor(totalMinutes / 60);
-  const displayMinutes = totalMinutes % 60;
+  const timeDisplay = formatTimeLogged(task.timeLogs || []);
 
-  // Overdue Check
-  const isOverdue = () => {
-    if (task.status === TaskStatus.COMPLETED) return false;
-    if (!task.dueDate) return false;
-    const deadline = new Date(task.dueDate);
-    const today = new Date('2026-07-20');
-    return deadline < today;
-  };
-
-  const getPriorityLabel = (p: number) => {
-    switch (p) {
-      case TaskPriority.HIGH: return 'High';
-      case TaskPriority.MEDIUM: return 'Medium';
-      default: return 'Low';
-    }
-  };
-
-  const getPriorityBadgeStyle = (p: number) => {
-    switch (p) {
-      case TaskPriority.HIGH:
-        return 'bg-red-50 text-red-700 border-red-200';
-      case TaskPriority.MEDIUM:
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      default:
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-    }
-  };
-
-  const getStatusLabel = (status: number) => {
-    switch (status) {
-      case TaskStatus.COMPLETED: return 'Done';
-      case TaskStatus.IN_PROGRESS: return 'In Progress';
-      case TaskStatus.CANCELLED: return 'Blocked';
-      default: return 'To Do';
-    }
-  };
-
-  const getStatusSelectStyle = (s: number) => {
-    switch (s) {
-      case TaskStatus.COMPLETED:
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case TaskStatus.IN_PROGRESS:
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case TaskStatus.CANCELLED:
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      default:
-        return 'bg-slate-50 text-slate-700 border-slate-200';
-    }
-  };
+  // Overdue Check — uses live date instead of hardcoded value
+  const overdue = isTaskOverdue(task.status, task.dueDate);
 
   // Actions
   const handleStatusChange = (newStatus: number) => {
     updateTaskMutation.mutate({
       taskId,
       data: { status: newStatus },
+    });
+  };
+
+  const handlePriorityChange = (newPriority: number) => {
+    updateTaskMutation.mutate({
+      taskId,
+      data: { priority: newPriority },
     });
   };
 
@@ -247,27 +251,33 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentInput.trim()) return;
+    if (!commentInput.trim() || isSubmittingComment) return;
 
+    setIsSubmittingComment(true);
     try {
       await api.post(`/tasks/${taskId}/comments`, { content: commentInput.trim() });
       setCommentInput('');
-      taskQuery.refetch();
+      await taskQuery.refetch();
       addNotification({
         type: 'success',
         title: 'Comment added successfully',
       });
+      // Scroll to the latest comment
+      setTimeout(scrollToLatestActivity, 100);
     } catch (err) {
       addNotification({
         type: 'error',
         title: 'Failed to add comment',
       });
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
-  const handleToggleSubtask = (subId: string) => {
-    const updated = subTasks.map(sub =>
-      (sub._id === subId || sub.id === subId) ? { ...sub, isCompleted: !sub.isCompleted } : sub
+  const handleToggleSubtask = (subId: string, index: number) => {
+    const id = subId || `subtask-${index}`;
+    const updated = subTasks.map((sub, idx) =>
+      (sub._id === id || idx === index) ? { ...sub, isCompleted: !sub.isCompleted } : sub
     );
     setSubTasks(updated);
     updateTaskMutation.mutate({
@@ -287,6 +297,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       setNewSubtaskTitle('');
       setIsAddingSubtask(false);
     }
+  };
+
+  const handleDeleteSubtask = (index: number) => {
+    const updated = subTasks.filter((_, idx) => idx !== index);
+    setSubTasks(updated);
+    updateTaskMutation.mutate({
+      taskId,
+      data: { subtasks: updated },
+    });
   };
 
   const handleTagsSave = () => {
@@ -414,7 +433,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         <div className="lg:col-span-7 space-y-6">
           
           {/* Title and Header Card */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm relative space-y-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm relative space-y-4 animate-card-enter">
             
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-3">
@@ -436,15 +455,29 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     <option value={TaskStatus.CANCELLED}>Blocked</option>
                   </select>
 
-                  {/* Priority pill */}
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getPriorityBadgeStyle(task.priority)}`}>
-                    {getPriorityLabel(task.priority)} Priority
-                  </span>
+                  {/* Priority Selector Dropdown */}
+                  <select
+                    value={task.priority}
+                    onChange={(e) => handlePriorityChange(Number(e.target.value))}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getPriorityBadgeStyle(task.priority)}`}
+                  >
+                    <option value={TaskPriority.LOW}>Low Priority</option>
+                    <option value={TaskPriority.MEDIUM}>Medium Priority</option>
+                    <option value={TaskPriority.HIGH}>High Priority</option>
+                  </select>
+
+                  {/* Overdue indicator */}
+                  {overdue && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 animate-pulse">
+                      <AlertCircle className="size-3" />
+                      Overdue
+                    </span>
+                  )}
                 </div>
               </div>
 
               {/* Three-Dot Actions Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={actionDropdownRef}>
                 <button
                   onClick={() => setShowActionDropdown(!showActionDropdown)}
                   className="p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
@@ -503,7 +536,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   <textarea
                     value={tempDescription}
                     onChange={(e) => setTempDescription(e.target.value)}
-                    className="w-full text-xs p-3.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A]"
+                    className="w-full text-xs p-3.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 transition-all"
                     rows={5}
                     placeholder="Provide detailed description..."
                   />
@@ -541,15 +574,23 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
           </div>
 
           {/* File Attachments Card */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 animate-card-enter">
             <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Paperclip className="size-4.5 text-slate-400" />
                 Attachments
+                {task.attachments && task.attachments.length > 0 && (
+                  <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-extrabold ml-1">
+                    {task.attachments.length}
+                  </span>
+                )}
               </h3>
               <label className="text-[10px] font-bold text-[#1E3A8A] hover:text-[#0EA5E9] cursor-pointer flex items-center gap-1">
                 {isUploadingFile ? (
-                  <span>Uploading...</span>
+                  <span className="flex items-center gap-1">
+                    <Spinner size="sm" />
+                    Uploading...
+                  </span>
                 ) : (
                   <>
                     <span>+ Add File</span>
@@ -570,7 +611,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 {task.attachments.map((att: any) => (
                   <div
                     key={att.filename}
-                    className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl text-left"
+                    className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl text-left hover:bg-slate-100/50 transition-colors group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <FileText className="size-5 text-slate-400 shrink-0" />
@@ -591,7 +632,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     </div>
                     <button
                       onClick={() => handleDeleteAttachment(att.filename)}
-                      className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                      className="text-slate-400 hover:text-rose-600 transition-colors p-1 opacity-0 group-hover:opacity-100"
                       title="Delete attachment"
                     >
                       <Trash2 className="size-3.5" />
@@ -607,67 +648,90 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
           </div>
 
           {/* Activity & Comments Feed */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col h-[400px]">
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col h-[400px] animate-card-enter">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-800 flex items-center gap-1.5">
                 <MessageSquare className="size-4.5 text-slate-400" />
                 Activity & Comments
+                {task.activities && task.activities.length > 0 && (
+                  <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-extrabold ml-1">
+                    {task.activities.length}
+                  </span>
+                )}
               </h3>
             </div>
 
             {/* Scrollable list */}
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1.5">
-              {(task?.activities || []).map((act: any, idx: number) => {
-                const isSystem = act.type === 'system';
-                return (
-                  <div key={act._id || idx} className="flex gap-3 items-start text-xs text-left">
-                    <div className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${
-                      isSystem ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-[#0EA5E9]'
-                    }`}>
-                      {act.userInitials || 'SO'}
-                    </div>
-
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800">{act.userName}</span>
-                        <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
-                          <Clock className="size-3" />
-                          {new Date(act.createdAt).toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1.5 custom-scrollbar">
+              {(task?.activities || []).length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                  <MessageSquare className="size-8 mb-2 opacity-40" />
+                  <span className="text-xs font-medium">No activity yet</span>
+                  <span className="text-[10px] font-medium mt-0.5">Post a comment to start the conversation</span>
+                </div>
+              ) : (
+                (task?.activities || []).map((act: any, idx: number) => {
+                  const isSystem = act.type === 'system';
+                  return (
+                    <div key={act._id || idx} className="flex gap-3 items-start text-xs text-left animate-fade-up">
+                      <div className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${
+                        isSystem ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-[#0EA5E9]'
+                      }`}>
+                        {act.userInitials || 'SO'}
                       </div>
 
-                      {isSystem ? (
-                        <p className="text-slate-400 italic font-medium">{act.content}</p>
-                      ) : (
-                        <p className="text-slate-600 bg-slate-50/50 border border-slate-100/50 p-2.5 rounded-xl leading-relaxed font-semibold">
-                          {act.content}
-                        </p>
-                      )}
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800">{act.userName}</span>
+                          <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {new Date(act.createdAt).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+
+                        {isSystem ? (
+                          <p className="text-slate-400 italic font-medium">{act.content}</p>
+                        ) : (
+                          <p className="text-slate-600 bg-slate-50/50 border border-slate-100/50 p-2.5 rounded-xl leading-relaxed font-semibold">
+                            {act.content}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
+              <div ref={activityEndRef} />
             </div>
 
             {/* Fixed comment input box */}
             <form onSubmit={handleAddComment} className="border-t border-slate-100 pt-3 flex gap-2">
-              <input
-                type="text"
-                placeholder="Write a comment, press enter to post..."
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                className="flex-1 text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-medium"
-              />
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="Write a comment, press enter to post..."
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
+                  className="w-full text-xs px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-medium transition-all"
+                  disabled={isSubmittingComment}
+                />
+                {commentInput.length > 0 && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">
+                    {commentInput.length}/500
+                  </span>
+                )}
+              </div>
               <button
                 type="submit"
-                className="p-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white transition-colors"
+                disabled={isSubmittingComment || !commentInput.trim()}
+                className="p-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send className="size-4" />
+                {isSubmittingComment ? <Spinner size="sm" /> : <Send className="size-4" />}
               </button>
             </form>
           </div>
@@ -678,7 +742,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         <div className="lg:col-span-5 space-y-6">
           
           {/* Details Card */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left animate-card-enter">
             <div className="border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Details Overview</h3>
             </div>
@@ -690,9 +754,10 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 <span className="text-slate-400 font-bold">Assigned By</span>
                 <div className="flex items-center gap-2">
                   <div className="size-6.5 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[10px]">
-                    {task.creatorInfo
-                      ? `${task.creatorInfo.firstName?.[0] || ''}${task.creatorInfo.lastName?.[0] || ''}`.toUpperCase()
-                      : 'SO'}
+                    {getUserInitials(
+                      task.creatorInfo?.firstName,
+                      task.creatorInfo?.lastName,
+                    )}
                   </div>
                   <span className="font-semibold text-slate-700">
                     {task.creatorInfo
@@ -789,7 +854,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
                   onChange={handleDeadlineChange}
                   className={`bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold ${
-                    isOverdue() ? 'text-rose-600 border-rose-300 font-extrabold' : 'text-slate-700'
+                    overdue ? 'text-rose-600 border-rose-300 font-extrabold' : 'text-slate-700'
                   }`}
                 />
               </div>
@@ -883,7 +948,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
                   <div
-                    className="bg-[#0EA5E9] h-full rounded-full transition-all duration-300"
+                    className="bg-[#0EA5E9] h-full rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
@@ -893,7 +958,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
           </div>
 
           {/* Sub-tasks checklist section */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left animate-card-enter">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <CheckSquare className="size-4.5 text-slate-400" />
@@ -905,25 +970,37 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             </div>
 
             <div className="space-y-3">
-              {subTasks.map((sub) => {
-                const subId = sub._id || sub.id;
+              {subTasks.map((sub, index) => {
+                const subId = sub._id || `subtask-${index}`;
                 return (
                   <div
                     key={subId}
-                    onClick={() => handleToggleSubtask(subId)}
-                    className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer text-xs"
+                    className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors group text-xs"
                   >
                     <input
                       type="checkbox"
                       checked={sub.isCompleted}
-                      onChange={() => {}} // toggled on container click
+                      onChange={() => handleToggleSubtask(subId, index)}
                       className="mt-0.5 rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 cursor-pointer"
                     />
-                    <span className={`font-semibold text-slate-700 transition-colors select-none ${
-                      sub.isCompleted ? 'line-through text-slate-400' : ''
-                    }`}>
+                    <span
+                      className={`font-semibold text-slate-700 transition-colors select-none flex-1 cursor-pointer ${
+                        sub.isCompleted ? 'line-through text-slate-400' : ''
+                      }`}
+                      onClick={() => handleToggleSubtask(subId, index)}
+                    >
                       {sub.title}
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSubtask(index);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-0.5"
+                      title="Remove subtask"
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </div>
                 );
               })}
@@ -942,7 +1019,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       handleCreateSubtask();
                     }
                   }}
-                  className="flex-1 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700"
+                  className="flex-1 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-semibold text-slate-700 transition-all"
                   autoFocus
                 />
                 <button
@@ -974,20 +1051,20 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
           </div>
 
           {/* Time Tracking Card */}
-          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left">
+          <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left animate-card-enter">
             <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Clock className="size-4.5 text-slate-400" />
                 Time Tracking
               </h3>
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                Total: {displayHours}h {displayMinutes}m
+                Total: {timeDisplay.hours}h {timeDisplay.minutes}m
               </span>
             </div>
 
             {/* List of Time Logs */}
             {task.timeLogs && task.timeLogs.length > 0 ? (
-              <div className="space-y-3 max-h-40 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                 {task.timeLogs.map((log: any, idx: number) => (
                   <div key={log._id || idx} className="flex justify-between items-start text-xs border-b border-slate-50 pb-2 last:border-0 last:pb-0">
                     <div className="space-y-1">
@@ -1025,7 +1102,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       max={23}
                       value={logHours}
                       onChange={(e) => setLogHours(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-bold text-slate-700"
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-bold text-slate-700 transition-all"
                     />
                   </div>
                   <div className="space-y-1">
@@ -1036,7 +1113,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       max={59}
                       value={logMinutes}
                       onChange={(e) => setLogMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
-                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-bold text-slate-700"
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-bold text-slate-700 transition-all"
                     />
                   </div>
                 </div>
@@ -1047,7 +1124,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     placeholder="What did you work on?"
                     value={logDescription}
                     onChange={(e) => setLogDescription(e.target.value)}
-                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-medium text-slate-700"
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-medium text-slate-700 transition-all"
                   />
                 </div>
                 <div className="flex gap-2 justify-end">
@@ -1071,7 +1148,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                         },
                       });
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white text-[10px] font-bold hover:bg-[#152a63] cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white text-[10px] font-bold hover:bg-[#152a63] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {logTimeMutation.isPending ? 'Saving...' : 'Save Log'}
                   </button>
@@ -1118,7 +1195,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   deleteTaskMutation.mutate({ taskId });
                 }}
                 disabled={deleteTaskMutation.isPending}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer border-0"
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer border-0 disabled:opacity-50"
               >
                 {deleteTaskMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
               </button>

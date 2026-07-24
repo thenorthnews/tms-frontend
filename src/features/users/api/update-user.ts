@@ -10,15 +10,13 @@ export const updateUserInputSchema = z.object({
   // UserDto fields
   email: z.string().trim().email('Valid email is required'),
   countryCode: z.string().trim().min(1, 'Country code is required'),
-  phoneNumber: z.string().trim().min(1, 'Phone number is required'),
+  phoneNumber: z.string().trim().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
 
   // UserInfo fields
   firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().trim().min(2, 'Last name must be at least 2 characters'),
-  fatherName: z.string().trim().optional(),
-  motherName: z.string().trim().optional(),
-  age: z.coerce.number().min(1).max(100).optional(),
   gender: z.coerce.number().min(0).max(2),
+  department: z.string().optional(),
   image: z.string().optional(),
   role: z.coerce.number().optional(),
 });
@@ -45,10 +43,8 @@ export const updateUser = ({
     UserInfo: {
       firstName: data.firstName,
       lastName: data.lastName,
-      fatherName: data.fatherName,
-      motherName: data.motherName,
-      age: data.age,
       gender: data.gender,
+      department: data.department,
       image: data.image,
     },
   };

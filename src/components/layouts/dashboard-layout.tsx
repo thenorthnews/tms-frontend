@@ -87,15 +87,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     onSuccess: () => navigate(paths.auth.login.getHref(location.pathname)),
   });
 
-  const userRole = user.data?.role as any;
+  const userRole = user.data?.role;
   const isEmployee = userRole === 4 || userRole === 'Employee';
-  const isManagerOrAbove = userRole === 0 || userRole === 1 || userRole === 2 || userRole === 'CEO' || userRole === 'Manager' || userRole === 'Team Lead' || userRole === 'ADMIN';
+  const isManagerOrAbove = userRole === 0 || userRole === 1 || userRole === 2 || userRole === 'CEO' || userRole === 'Manager' || userRole === 'Team Lead';
 
   const actualRoleString = (() => {
-    if (userRole === 0 || userRole === 'CEO' || userRole === 'ADMIN') return 'CEO';
+    if (userRole === 0 || userRole === 'CEO') return 'CEO';
     if (userRole === 1 || userRole === 'Manager') return 'Manager';
     if (userRole === 2 || userRole === 'Team Lead') return 'Team Lead';
-    if (userRole === 4 || userRole === 'Employee' || userRole === 'USER') return 'Employee';
+    if (userRole === 4 || userRole === 'Employee') return 'Employee';
     return 'User';
   })();
 
@@ -234,16 +234,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right Action Icons & Profile */}
           <div className="flex items-center gap-3 ml-auto">
-
-            {!isEmployee && (
-              <button
-                onClick={() => navigate(paths.app.createTask.getHref())}
-                className="hidden sm:flex items-center gap-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer"
-              >
-                <Plus className="size-4" />
-                Assign Task
-              </button>
-            )}
 
 
 

@@ -19,6 +19,24 @@ import { useUser, useLogout } from '@/lib/auth';
 import { useUpdateProfile } from '@/features/auth/api/update-profile';
 import { useUploadFile } from '@/features/file/api/upload-file';
 import { useChangePassword } from '@/features/auth/api/change-password';
+import { Form, Input } from '@/components/ui/form';
+import { z } from 'zod';
+
+const profileFormSchema = z.object({
+  firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().trim().min(2, 'Last name must be at least 2 characters'),
+  phoneNumber: z.string().trim().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
+  image: z.string().optional(),
+});
+
+const passwordFormSchema = z.object({
+  oldPassword: z.string().min(6, 'Current password must be at least 6 characters'),
+  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+  confirmPassword: z.string().min(6, 'Confirm password must be at least 6 characters'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "New passwords don't match",
+  path: ['confirmPassword'],
+});
 
 const ProfileRoute = () => {
   const navigate = useNavigate();
@@ -74,11 +92,12 @@ const ProfileRoute = () => {
 
   const getPhoneStr = (p: any) => {
     if (!p) return '';
-    if (typeof p === 'string') return p;
+    if (typeof p === 'string') return p.replace(/\D/g, '').slice(0, 10);
     if (typeof p === 'object') {
-      return p.number || (p.countryCode ? `${p.countryCode} ${p.number || ''}` : '');
+      const num = p.number || p.phoneNumber || p.phone || '';
+      return typeof num === 'string' ? num.replace(/\D/g, '').slice(0, 10) : String(num || '');
     }
-    return String(p);
+    return String(p).replace(/\D/g, '').slice(0, 10);
   };
 
   // --- LOCAL FORMS STATE ---
@@ -169,23 +188,13 @@ const ProfileRoute = () => {
   };
 
   // Submit profile details
-  const handleProfileSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateProfileMutation.mutate({ data: profileData });
+  const handleProfileSave = (values: z.infer<typeof profileFormSchema>) => {
+    updateProfileMutation.mutate({ data: values });
   };
 
   // Submit change password
-  const handlePasswordSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pwdData.newPassword !== pwdData.confirmPassword) {
-      addNotification({
-        type: 'error',
-        title: 'Validation failed',
-        message: "New passwords don't match.",
-      });
-      return;
-    }
-    changePasswordMutation.mutate({ data: pwdData });
+  const handlePasswordSave = (values: z.infer<typeof passwordFormSchema>) => {
+    changePasswordMutation.mutate({ data: values });
   };
 
   // Logout trigger
@@ -197,24 +206,23 @@ const ProfileRoute = () => {
     <ContentLayout title="Settings">
       <div className="max-w-5xl mx-auto w-full animate-in fade-in duration-500 pb-12">
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col lg:flex-row min-h-[600px]">
-          
+
           {/* LEFT: Tab Navigation */}
           <div className="w-full lg:w-64 bg-slate-50/50 border-r border-slate-100 p-5 flex flex-col justify-between select-none">
-            
+
             {/* Nav list */}
             <div className="space-y-1">
-              
+
               {/* Horizontal Scroll wrapper for mobile viewport, standard column layout for desktop */}
               <div className="flex lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 pb-2 lg:pb-0 border-b border-slate-200/50 lg:border-b-0">
-                
+
                 {/* Account tab */}
                 <button
                   onClick={() => setActiveTab('account')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'account'
-                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                  }`}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${activeTab === 'account'
+                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                    }`}
                 >
                   <User className="size-4" />
                   Account Profile
@@ -225,11 +233,10 @@ const ProfileRoute = () => {
                 {/* Security tab */}
                 <button
                   onClick={() => setActiveTab('security')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'security'
-                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                  }`}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${activeTab === 'security'
+                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                    }`}
                 >
                   <Lock className="size-4" />
                   Security Lock
@@ -238,11 +245,10 @@ const ProfileRoute = () => {
                 {/* About tab */}
                 <button
                   onClick={() => setActiveTab('about')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                    activeTab === 'about'
-                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                  }`}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${activeTab === 'about'
+                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                    }`}
                 >
                   <Info className="size-4" />
                   About TaskFlow
@@ -251,204 +257,184 @@ const ProfileRoute = () => {
               </div>
             </div>
 
-            {/* Logout button (Desktop position - hidden on mobile, placed inside content cards on small screens) */}
-            <div className="hidden lg:block pt-6 border-t border-slate-200/50">
-              <button
-                onClick={handleLogoutClick}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-rose-100 hover:border-rose-200 text-rose-500 hover:bg-rose-50/40 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <LogOut className="size-4" />
-                Log Out
-              </button>
-            </div>
-
           </div>
 
           {/* RIGHT: Content panel */}
           <div className="flex-1 p-6 sm:p-10 bg-white text-left">
-            
+
             {/* ACCOUNT TAB PANEL */}
             {activeTab === 'account' && (
-              <form onSubmit={handleProfileSave} className="space-y-6">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-lg font-bold text-slate-800">Account Details</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Manage your personal details and avatar preferences</p>
-                </div>
+              <Form
+                schema={profileFormSchema}
+                onSubmit={handleProfileSave}
+                options={{
+                  values: profileData,
+                }}
+                className="space-y-6"
+              >
+                {({ register, formState }) => (
+                  <>
+                    <div className="border-b border-slate-100 pb-4">
+                      <h3 className="text-lg font-bold text-slate-800">Account Details</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Manage your personal details and avatar preferences</p>
+                    </div>
 
-                {/* Avatar and file upload */}
-                <div className="flex flex-col sm:flex-row items-center gap-4.5 border-b border-slate-50 pb-5">
-                  <div className="size-20 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 shadow-inner">
-                    {profileData.image ? (
-                      <img src={profileData.image} alt="Avatar" className="size-full object-cover" />
-                    ) : (
-                      <span className="text-slate-400 text-base font-bold">
-                        {profileData.firstName?.[0] || 'U'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-center sm:text-left space-y-2">
-                    <label className="block text-xs font-bold text-slate-700">Avatar Photo</label>
-                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                      <button
-                        type="button"
-                        onClick={handlePhotoClick}
-                        disabled={uploadFileMutation.isPending}
-                        className="inline-flex items-center gap-1.5 px-5 py-2 border border-slate-200 hover:border-slate-300 rounded-xl bg-white text-[11px] font-bold text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50"
-                      >
-                        <Upload className="size-3.5" />
-                        Change Photo
-                      </button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        className="hidden"
+                    {/* Avatar and file upload */}
+                    <div className="flex flex-col sm:flex-row items-center gap-4.5 border-b border-slate-50 pb-5">
+                      <div className="size-20 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 shadow-inner">
+                        {profileData.image ? (
+                          <img src={profileData.image} alt="Avatar" className="size-full object-cover" />
+                        ) : (
+                          <span className="text-slate-400 text-base font-bold">
+                            {profileData.firstName?.[0] || 'U'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-center sm:text-left space-y-2">
+                        <label className="block text-xs font-bold text-slate-700">Avatar Photo</label>
+                        <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                          <button
+                            type="button"
+                            onClick={handlePhotoClick}
+                            disabled={uploadFileMutation.isPending}
+                            className="inline-flex items-center gap-1.5 px-5 py-2 border border-slate-200 hover:border-slate-300 rounded-xl bg-white text-[11px] font-bold text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50"
+                          >
+                            <Upload className="size-3.5" />
+                            Change Photo
+                          </button>
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            className="hidden"
+                          />
+                        </div>
+                        {uploadFileMutation.isPending && (
+                          <span className="text-[10px] text-[#0EA5E9] font-bold block animate-pulse">Uploading image file...</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Fields row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                      {/* First Name */}
+                      <Input
+                        label="First Name"
+                        error={formState.errors['firstName']}
+                        registration={register('firstName')}
                       />
+
+                      {/* Last Name */}
+                      <Input
+                        label="Last Name"
+                        error={formState.errors['lastName']}
+                        registration={register('lastName')}
+                      />
+
+                      {/* Phone Number */}
+                      <div className="sm:col-span-2">
+                        <Input
+                          label="Phone Number (10 digits)"
+                          placeholder="e.g. 9876543210"
+                          maxLength={10}
+                          error={formState.errors['phoneNumber']}
+                          registration={register('phoneNumber')}
+                        />
+                      </div>
+
+                      {/* Email (Read Only) */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-400 pl-1">Email Address (Read-only)</label>
+                        <input
+                          type="text"
+                          value={user.data?.email || ''}
+                          disabled
+                          className="block w-full rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-400 cursor-not-allowed"
+                        />
+                      </div>
+
+                      {/* Role Badge (Read Only) */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-400 pl-1">Authority Role Badge</label>
+                        <div className="flex h-10 items-center pl-2">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-[#1E3A8A]/10 text-[#1E3A8A] border border-blue-100 uppercase tracking-wide">
+                            {roleString}
+                          </span>
+                        </div>
+                      </div>
+
                     </div>
-                    {uploadFileMutation.isPending && (
-                      <span className="text-[10px] text-[#0EA5E9] font-bold block animate-pulse">Uploading image file...</span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Fields row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  
-                  {/* First Name */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">First Name</label>
-                    <input
-                      type="text"
-                      value={profileData.firstName}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                      required
-                    />
-                  </div>
-
-                  {/* Last Name */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">Last Name</label>
-                    <input
-                      type="text"
-                      value={profileData.lastName}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                      required
-                    />
-                  </div>
-
-                  {/* Phone Number */}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">Phone Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. +1 1234567890"
-                      value={profileData.phoneNumber}
-                      onChange={(e) => setProfileData(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                    />
-                  </div>
-
-                  {/* Email (Read Only) */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-400 pl-1">Email Address (Read-only)</label>
-                    <input
-                      type="text"
-                      value={user.data.email}
-                      disabled
-                      className="block w-full rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-400 cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Role Badge (Read Only) */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-400 pl-1">Authority Role Badge</label>
-                    <div className="flex h-10 items-center pl-2">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-[#1E3A8A]/10 text-[#1E3A8A] border border-blue-100 uppercase tracking-wide">
-                        {roleString}
-                      </span>
+                    {/* Save button */}
+                    <div className="flex justify-end pt-4">
+                      <button
+                        type="submit"
+                        disabled={updateProfileMutation.isPending}
+                        className="px-6 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        Save Changes
+                      </button>
                     </div>
-                  </div>
-
-                </div>
-
-                {/* Save button */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    type="submit"
-                    disabled={updateProfileMutation.isPending}
-                    className="px-6 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </form>
+                  </>
+                )}
+              </Form>
             )}
-
-
 
             {/* SECURITY TAB PANEL */}
             {activeTab === 'security' && (
-              <form onSubmit={handlePasswordSave} className="space-y-6">
-                <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-lg font-bold text-slate-800">Update Password</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Keep your account credentials secured</p>
-                </div>
+              <Form
+                schema={passwordFormSchema}
+                onSubmit={handlePasswordSave}
+                className="space-y-6"
+              >
+                {({ register, formState }) => (
+                  <>
+                    <div className="border-b border-slate-100 pb-4">
+                      <h3 className="text-lg font-bold text-slate-800">Update Password</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Keep your account credentials secured</p>
+                    </div>
 
-                <div className="space-y-4 max-w-md">
-                  {/* Current Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">Current Password</label>
-                    <input
-                      type="password"
-                      value={pwdData.oldPassword}
-                      onChange={(e) => setPwdData(prev => ({ ...prev, oldPassword: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                      placeholder="••••••••"
-                      required
-                    />
-                  </div>
+                    <div className="space-y-4 max-w-md">
+                      <Input
+                        label="Current Password"
+                        type="password"
+                        placeholder="••••••••"
+                        error={formState.errors['oldPassword']}
+                        registration={register('oldPassword')}
+                      />
 
-                  {/* New Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">New Password</label>
-                    <input
-                      type="password"
-                      value={pwdData.newPassword}
-                      onChange={(e) => setPwdData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                      placeholder="Min. 6 characters"
-                      required
-                    />
-                  </div>
+                      <Input
+                        label="New Password"
+                        type="password"
+                        placeholder="Min. 6 characters"
+                        error={formState.errors['newPassword']}
+                        registration={register('newPassword')}
+                      />
 
-                  {/* Confirm Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-500 pl-1">Confirm New Password</label>
-                    <input
-                      type="password"
-                      value={pwdData.confirmPassword}
-                      onChange={(e) => setPwdData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-[#1E3A8A] text-slate-800"
-                      placeholder="Re-enter password"
-                      required
-                    />
-                  </div>
-                </div>
+                      <Input
+                        label="Confirm New Password"
+                        type="password"
+                        placeholder="Re-enter password"
+                        error={formState.errors['confirmPassword']}
+                        registration={register('confirmPassword')}
+                      />
+                    </div>
 
-                {/* Save button */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    type="submit"
-                    disabled={changePasswordMutation.isPending}
-                    className="px-6 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50"
-                  >
-                    Update Password
-                  </button>
-                </div>
-              </form>
+                    {/* Save button */}
+                    <div className="flex justify-end pt-4">
+                      <button
+                        type="submit"
+                        disabled={changePasswordMutation.isPending}
+                        className="px-6 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        Update Password
+                      </button>
+                    </div>
+                  </>
+                )}
+              </Form>
             )}
 
             {/* ABOUT TAB PANEL */}
@@ -486,17 +472,6 @@ const ProfileRoute = () => {
                 </div>
               </div>
             )}
-
-            {/* Logout button (Mobile view position - shown inside content section for small viewports) */}
-            <div className="mt-8 pt-6 border-t border-slate-100 lg:hidden">
-              <button
-                onClick={handleLogoutClick}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-rose-100 text-rose-500 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <LogOut className="size-4" />
-                Log Out
-              </button>
-            </div>
 
           </div>
 

@@ -27,16 +27,17 @@ import { useTasks } from '@/features/tasks/api/get-tasks';
 import { useTeams } from '@/features/teams/api/teams';
 import { useUpdateTask } from '@/features/tasks/api/update-task';
 import { Spinner } from '@/components/ui/spinner';
-import { TaskStatus, TaskPriority } from '@/features/tasks/types';
+import { Task, TaskStatus, TaskPriority } from '@/features/tasks/types';
+import { Team, User } from '@/types/api';
 
 export const DashboardOverview = () => {
   const navigate = useNavigate();
   const user = useUser();
 
-  const userRole = user.data?.role as any;
+  const userRole = user.data?.role;
   const isEmployee = userRole === 4 || userRole === 'Employee';
   const isManager = userRole === 1 || userRole === 2 || userRole === 'Manager' || userRole === 'Team Lead';
-  const isCEO = userRole === 0 || userRole === 'CEO' || userRole === 'ADMIN';
+  const isCEO = userRole === 0 || userRole === 'CEO';
 
   // --- CEO DASHBOARD DATE FILTER STATE ---
   const [ceoDateFilter, setCeoDateFilter] = useState<'today' | 'week' | 'month' | 'all' | 'custom'>('all');
@@ -211,7 +212,7 @@ export const DashboardOverview = () => {
 
 
 
-  const isTaskInDateRange = (task: any, filter: 'today' | 'week' | 'month' | 'all' | 'custom', customDateStr: string) => {
+  const isTaskInDateRange = (task: Task, filter: 'today' | 'week' | 'month' | 'all' | 'custom', customDateStr: string) => {
     if (filter === 'all') return true;
 
     const rawDate = task.dueDate || task.createdAt;
@@ -259,24 +260,24 @@ export const DashboardOverview = () => {
     return true;
   };
 
-  const teamsTaskBreakdown = dbTeams.map((team: any) => {
+  const teamsTaskBreakdown = dbTeams.map((team: Team) => {
     const teamIdStr = (team._id || team.id)?.toString();
-    const manager = team.managerId;
+    const manager = team.managerId && typeof team.managerId === 'object' ? team.managerId : null;
     const managerName = manager
       ? `${manager.firstName || ''} ${manager.lastName || ''}`.trim()
       : 'Unassigned';
     const memberIds = (team.members || []).map((m: any) =>
-      (m._id || m.id || m)?.toString(),
+      typeof m === 'object' && m !== null ? (m._id || m.id)?.toString() : m?.toString(),
     );
 
-    const teamTasks = dbTasks.filter((t: any) => {
-      const taskTeamId = (t.teamId || t.teamInfo?._id || t.teamInfo?.id)?.toString();
+    const teamTasks = dbTasks.filter((t: Task) => {
+      const taskTeamId = (t.teamId || t.teamInfo?._id)?.toString();
       let matchesTeam = false;
       if (taskTeamId && teamIdStr) {
         matchesTeam = taskTeamId === teamIdStr;
       } else {
-        const assignedId = (t.assignedTo?._id || t.assignedTo?.id || t.assignedTo)?.toString();
-        matchesTeam = !!(assignedId && memberIds.includes(assignedId));
+        const assignedId = t.assignedTo && typeof t.assignedTo === 'object' ? ((t.assignedTo as any)._id || (t.assignedTo as any).id) : t.assignedTo;
+        matchesTeam = !!(assignedId && memberIds.includes(assignedId?.toString()));
       }
       if (!matchesTeam) return false;
 
@@ -313,7 +314,10 @@ export const DashboardOverview = () => {
     };
   });
 
-  const recentActivities = dbTasks.slice(0, 5).map((t: any) => {
+  const recentActivities = [...dbTasks]
+    .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
+    .slice(0, 10)
+    .map((t: any) => {
     const assignee = t.assigneeInfo || t.assignedTo;
     const assigneeName = assignee ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() : 'Unassigned';
     const creator = t.creatorInfo || t.createdBy;
@@ -352,13 +356,17 @@ export const DashboardOverview = () => {
   // ==============================================
   // MANAGER DASHBOARD DATA
   // ==============================================
-  const managerTeam = dbTeams.find(
-    (t: any) => t.managerId?._id?.toString() === user.data?.id || t.managerId === user.data?.id
+  const managerTeam = dbTeams.find((t: any) => {
+    const mgrId = (t.managerId && typeof t.managerId === 'object' ? (t.managerId._id || t.managerId.id) : t.managerId)?.toString();
+    const userIdStr = user.data?.id?.toString();
+    return mgrId && mgrId === userIdStr;
+  });
+  const teamMemberIds = (managerTeam?.members || []).map((m: any) =>
+    (m && typeof m === 'object' ? (m._id || m.id) : m)?.toString()
   );
-  const teamMemberIds = (managerTeam?.members || []).map((m: any) => m._id?.toString() || m.toString());
   const managerTeamTasks = dbTasks.filter((t: any) => {
-    const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
-    return teamMemberIds.includes(assignedId);
+    const assignedId = (t.assignedTo && typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo)?.toString();
+    return assignedId && teamMemberIds.includes(assignedId);
   });
   const managerActiveTasks = managerTeamTasks.filter((t: any) => t.status !== TaskStatus.COMPLETED).length;
   const managerCompletedTasks = managerTeamTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
@@ -394,9 +402,10 @@ export const DashboardOverview = () => {
   ];
 
   const teamMembers = (managerTeam?.members || []).map((m: any) => {
+    const memberIdStr = (m && typeof m === 'object' ? (m._id || m.id) : m)?.toString();
     const assignedTasks = dbTasks.filter((t: any) => {
-      const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
-      return assignedId === m._id?.toString() || assignedId === m.id;
+      const assignedId = (t.assignedTo && typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo)?.toString();
+      return assignedId === memberIdStr;
     });
     const assigned = assignedTasks.length;
     const completed = assignedTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
@@ -490,8 +499,9 @@ export const DashboardOverview = () => {
   // EMPLOYEE DASHBOARD DATA
   // ===========================================
   const myAssignedTasks = dbTasks.filter((t: any) => {
-    const assignedId = t.assignedTo?._id?.toString() || t.assignedTo?.toString();
-    return assignedId === user.data?.id;
+    const assignedId = (t.assignedTo && typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo)?.toString();
+    const userIdStr = user.data?.id?.toString();
+    return assignedId && assignedId === userIdStr;
   });
 
   const employeeTasks = myAssignedTasks.map((t: any) => {
@@ -583,12 +593,6 @@ export const DashboardOverview = () => {
               className="flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 px-5 py-2.5 text-xs font-bold transition-all backdrop-blur-sm cursor-pointer"
             >
               Review Tasks
-            </button>
-            <button
-              onClick={() => navigate(paths.app.createTask.getHref())}
-              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer"
-            >
-              Assign Task
             </button>
           </div>
         </div>
@@ -1045,12 +1049,6 @@ export const DashboardOverview = () => {
             >
               All Tasks
             </button>
-            <button
-              onClick={() => navigate(paths.app.createTask.getHref())}
-              className="flex items-center gap-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0EA5E9]/90 text-white px-5 py-2.5 text-xs font-bold transition-all shadow-md shadow-sky-500/20 cursor-pointer"
-            >
-              + Assign Task
-            </button>
           </div>
         </div>
 
@@ -1126,13 +1124,12 @@ export const DashboardOverview = () => {
                     <th className="py-3 px-2">Priority</th>
                     <th className="py-3 px-2">Status</th>
                     <th className="py-3 px-2">Deadline</th>
-                    <th className="py-3 px-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400 font-semibold">No team tasks found matching filters.</td>
+                      <td colSpan={5} className="py-8 text-center text-slate-400 font-semibold">No team tasks found matching filters.</td>
                     </tr>
                   ) : (
                     filteredTasks.map((task) => (
@@ -1147,12 +1144,6 @@ export const DashboardOverview = () => {
                         <td className="py-4 px-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold border uppercase tracking-wide ${getPriorityStyle(task.priority)}`}>{task.priority}</span></td>
                         <td className="py-4 px-2"><span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold border uppercase tracking-wide ${getStatusStyle(task.status)}`}>{task.status}</span></td>
                         <td className="py-4 px-2 text-slate-500 font-semibold">{task.deadline}</td>
-                        <td className="py-4 px-2 text-right">
-                          <div className="flex items-center justify-end gap-2.5">
-                            <button onClick={() => navigate(paths.app.tasks.getHref())} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#1E3A8A] transition-colors"><Edit className="size-4" /></button>
-                            <button onClick={() => navigate(paths.app.tasks.getHref())} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#0EA5E9] transition-colors"><UserPlus className="size-4" /></button>
-                          </div>
-                        </td>
                       </tr>
                     ))
                   )}

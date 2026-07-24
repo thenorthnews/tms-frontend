@@ -19,7 +19,8 @@ import {
   Phone,
   Shield,
   FolderPlus,
-  Layers
+  Layers,
+  Edit2
 } from 'lucide-react';
 
 import { z } from 'zod';
@@ -33,6 +34,8 @@ import { useDeleteUser } from '@/features/users/api/delete-user';
 import { useCreateUser } from '@/features/users/api/create-user';
 import { useTasks } from '@/features/tasks/api/get-tasks';
 import { useTeams, useCreateTeam, useDeleteTeam, useAddTeamMember, useRemoveTeamMember } from '../api/teams';
+import { User, Team } from '@/types/api';
+import { Task } from '@/features/tasks/types';
 
 const createMemberSchema = z.object({
   firstName: z
@@ -55,8 +58,10 @@ const createMemberSchema = z.object({
     .trim()
     .min(1, 'Password is required')
     .min(6, 'Password must be at least 6 characters long'),
-  phoneNumber: z.string().optional(),
+  phoneNumber: z.string().optional().refine(val => !val || /^\d{10}$/.test(val), 'Phone number must be exactly 10 digits'),
   role: z.enum(['manager', 'tl', 'employee']),
+  department: z.string().optional(),
+  gender: z.coerce.number().min(0, 'Please select a gender').max(2, 'Please select a gender'),
 });
 
 const createTeamSchema = z.object({
@@ -77,7 +82,8 @@ export const TeamManagement = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
   const currentUser = useUser();
-  const isCEO = currentUser.data?.role === 0 || currentUser.data?.role === 'ADMIN';
+  const currentUserRole = currentUser.data?.role as any;
+  const isCEO = currentUserRole === 0 || currentUserRole === 'CEO';
 
   // --- INTERACTIVE UI STATES ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -153,7 +159,7 @@ export const TeamManagement = () => {
       onSuccess: () => {
         addNotification({ type: 'success', title: 'New member registered successfully' });
         setIsAddModalOpen(false);
-        setNewMember({ firstName: '', lastName: '', email: '', password: '', phoneNumber: '', role: 'employee' });
+        setNewMember({ firstName: '', lastName: '', email: '', password: '', phoneNumber: '', role: 'employee', department: 'Engineering', gender: 0 });
         setMemberErrors({});
       },
       onError: (err: any) => {
@@ -195,7 +201,7 @@ export const TeamManagement = () => {
     },
   });
   
-  // New member form state (with role)
+  // New member form state (with role, department & gender)
   const [newMember, setNewMember] = useState({
     firstName: '',
     lastName: '',
@@ -203,13 +209,15 @@ export const TeamManagement = () => {
     password: '',
     phoneNumber: '',
     role: 'employee' as 'manager' | 'tl' | 'employee',
+    department: 'Engineering',
+    gender: 0,
   });
 
   // Create team form state
   const [newTeam, setNewTeam] = useState({ name: '', managerId: '' });
   
   // Sorting states
-  const [sortKey, setSortKey] = useState<'name' | 'role' | 'assigned' | 'completed' | 'progress'>('name');
+  const [sortKey, setSortKey] = useState<'name' | 'role' | 'department' | 'assigned' | 'completed' | 'progress'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Assign member to team handler
@@ -234,27 +242,40 @@ export const TeamManagement = () => {
   const dbUsers = usersQuery.data?.data || [];
   const allDbUsers = allUsersQuery.data?.data || [];
   const dbTasks = tasksQuery.data?.data || [];
-  const dbTeams = (teamsQuery.data as any) || [];
+  const dbTeams = (teamsQuery.data as Team[]) || [];
 
   // Map users to local schema & calculate metrics dynamically
-  const teamMembers = dbUsers.map((u: any) => {
+  const teamMembers = dbUsers.map((u: User) => {
     // Count tasks assigned to this user
-    const assignedTasks = dbTasks.filter(
-      (t: any) => t.assignedTo?._id === u.id || t.assignedTo === u.id
-    );
+    const assignedTasks = dbTasks.filter((t: Task) => {
+      const assigned = t.assignedTo;
+      if (!assigned) return false;
+      const assignedId = typeof assigned === 'object' ? (assigned as any)._id || (assigned as any).id : assigned;
+      return assignedId === u.id || assignedId === u._id;
+    });
     const assigned = assignedTasks.length;
-    const completed = assignedTasks.filter((t: any) => t.status === 2).length; // status 2 is COMPLETED
+    const completed = assignedTasks.filter((t: Task) => t.status === 2).length; // status 2 is COMPLETED
 
     // Generate random profile background colors based on user initials
     const colors = ['bg-emerald-500', 'bg-sky-500', 'bg-[#1E3A8A]', 'bg-[#F59E0B]', 'bg-indigo-500', 'bg-pink-500'];
     const idx = Math.abs((u.firstName || '').charCodeAt(0) + (u.lastName || '').charCodeAt(0) || 0) % colors.length;
     const color = colors[idx];
 
+    const userTeam = dbTeams.find((t: any) => {
+      const mgr: any = t.managerId;
+      const managerIdStr = (mgr?._id || mgr?.id || mgr)?.toString();
+      const memberIds = (t.members || []).map((mb: any) => (mb._id || mb.id || mb)?.toString());
+      const mIdStr = (u.id || u._id)?.toString();
+      return mIdStr === managerIdStr || memberIds.includes(mIdStr);
+    });
+    const department = userTeam?.name || (u as any).department || 'Engineering';
+
     return {
       id: u.id,
       name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'No Name',
-      email: u.email || '',
+      email: typeof u.email === 'object' ? (u.email as any).id || '' : u.email || '',
       role: u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'Team Lead' : 'Employee',
+      department,
       assigned,
       completed,
       avatarInitials: `${u.firstName?.[0] || 'U'}${u.lastName?.[0] || ''}`.toUpperCase(),
@@ -271,10 +292,11 @@ export const TeamManagement = () => {
     );
     if (!targetTeam) return true;
 
+    const mgr: any = targetTeam.managerId;
     const managerIdStr = (
-      targetTeam.managerId?._id ||
-      targetTeam.managerId?.id ||
-      targetTeam.managerId
+      mgr?._id ||
+      mgr?.id ||
+      mgr
     )?.toString();
 
     const memberIds = (targetTeam.members || []).map((mb: any) =>
@@ -286,7 +308,7 @@ export const TeamManagement = () => {
   });
 
   // Sorting Handler
-  const handleSort = (key: 'name' | 'role' | 'assigned' | 'completed' | 'progress') => {
+  const handleSort = (key: 'name' | 'role' | 'department' | 'assigned' | 'completed' | 'progress') => {
     if (sortKey === key) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -330,9 +352,12 @@ export const TeamManagement = () => {
 
   // Derived metrics calculated over ALL database users
   const allTeamMembersForStats = allDbUsers.map((u: any) => {
-    const assignedTasks = dbTasks.filter(
-      (t: any) => t.assignedTo?._id === u.id || t.assignedTo === u.id
-    );
+    const assignedTasks = dbTasks.filter((t: any) => {
+      const assigned = t.assignedTo;
+      if (!assigned) return false;
+      const assignedId = typeof assigned === 'object' ? assigned._id || assigned.id : assigned;
+      return assignedId === u.id || assignedId === u._id;
+    });
     const assigned = assignedTasks.length;
     const completed = assignedTasks.filter((t: any) => t.status === 2).length;
     return { assigned, completed };
@@ -369,10 +394,7 @@ export const TeamManagement = () => {
         ...newMember,
         countryCode: '+1',
         phoneNumber: newMember.phoneNumber || '0000000000',
-        fatherName: 'Not Provided',
-        motherName: 'Not Provided',
-        age: 30,
-        gender: 0,
+        gender: Number(newMember.gender),
         image: '',
         role: (newMember.role as string) === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
       }
@@ -744,6 +766,15 @@ export const TeamManagement = () => {
                   </div>
                 </th>
                 <th
+                  onClick={() => handleSort('department')}
+                  className="py-3 px-2 cursor-pointer hover:text-slate-800 transition-colors"
+                >
+                  <div className="flex items-center gap-1">
+                    Department
+                    {sortKey === 'department' && (sortOrder === 'asc' ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />)}
+                  </div>
+                </th>
+                <th
                   onClick={() => handleSort('assigned')}
                   className="py-3 px-2 cursor-pointer hover:text-slate-800 transition-colors"
                 >
@@ -776,7 +807,7 @@ export const TeamManagement = () => {
             <tbody className="divide-y divide-slate-100">
               {paginatedMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 font-bold">
+                  <td colSpan={7} className="py-8 text-center text-slate-400 font-bold">
                     No team members found matching your search.
                   </td>
                 </tr>
@@ -801,6 +832,13 @@ export const TeamManagement = () => {
                       {/* Role */}
                       <td className="py-4 px-2 font-semibold text-slate-600">
                         {m.role}
+                      </td>
+
+                      {/* Department */}
+                      <td className="py-4 px-2 font-semibold text-slate-600">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          {m.department}
+                        </span>
                       </td>
 
                       {/* Assigned */}
@@ -840,14 +878,23 @@ export const TeamManagement = () => {
                             <Eye className="size-4" />
                           </button>
                           {isCEO && (
-                            <button
-                              onClick={() => handleRemoveMember(m.id)}
-                              disabled={deleteUserMutation.isPending}
-                              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer border-0 bg-transparent"
-                              title="Remove Member"
-                            >
-                              <Trash2 className="size-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => navigate(paths.app.editUser.getHref(m.id))}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer border-0 bg-transparent"
+                                title="Edit Member Details"
+                              >
+                                <Edit2 className="size-4" />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveMember(m.id)}
+                                disabled={deleteUserMutation.isPending}
+                                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer border-0 bg-transparent"
+                                title="Remove Member"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -1102,6 +1149,46 @@ export const TeamManagement = () => {
                     <option value="manager">Manager</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Department Selector */}
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase">Department</label>
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                  <Layers className="size-3.5 text-slate-400" />
+                  <select
+                    value={newMember.department}
+                    onChange={(e) => setNewMember(prev => ({ ...prev, department: e.target.value }))}
+                    className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0"
+                  >
+                    <option value="Engineering">Engineering</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="Design">Design</option>
+                    <option value="Operations">Operations</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Gender Selector */}
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase">Gender *</label>
+                <div className={`flex items-center gap-2 bg-slate-50 border ${memberErrors.gender ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
+                  <UserIcon className="size-3.5 text-slate-400" />
+                  <select
+                    value={newMember.gender}
+                    onChange={(e) => setNewMember(prev => ({ ...prev, gender: Number(e.target.value) }))}
+                    className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0"
+                  >
+                    <option value={0}>Male</option>
+                    <option value={1}>Female</option>
+                    <option value={2}>Other</option>
+                  </select>
+                </div>
+                {memberErrors.gender && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{memberErrors.gender}</p>
+                )}
               </div>
 
               {/* Modal Actions */}

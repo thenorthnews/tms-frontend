@@ -69,8 +69,6 @@ export const UpdateProfileForm = () => {
         defaultValues: {
           firstName: user.data?.firstName ?? '',
           lastName: user.data?.lastName ?? '',
-          fatherName: user.data?.fatherName ?? '',
-          motherName: user.data?.motherName ?? '',
           image: user.data?.image ?? '',
         },
       }}
@@ -119,18 +117,6 @@ export const UpdateProfileForm = () => {
                 label="Last Name"
                 error={formState.errors['lastName']}
                 registration={register('lastName')}
-                className="rounded-full h-11 px-5"
-              />
-              <Input
-                label="Father Name"
-                error={formState.errors['fatherName']}
-                registration={register('fatherName')}
-                className="rounded-full h-11 px-5"
-              />
-              <Input
-                label="Mother Name"
-                error={formState.errors['motherName']}
-                registration={register('motherName')}
                 className="rounded-full h-11 px-5"
               />
             </div>

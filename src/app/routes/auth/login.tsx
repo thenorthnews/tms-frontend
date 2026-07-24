@@ -170,7 +170,7 @@ const LoginRoute = () => {
                 Welcome to TaskFlow
               </h2>
               <p className="text-sm text-slate-500">
-                Sign in to access your administrative workspace.
+                Sign in to access your workspace.
               </p>
             </div>
 

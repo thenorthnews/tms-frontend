@@ -73,9 +73,6 @@ export const CreateUserForm = () => {
           phoneNumber: '',
           firstName: '',
           lastName: '',
-          fatherName: '',
-          motherName: '',
-          age: '' as unknown as number,
           gender: Gender.MALE,
           image: '',
           role: 4,
@@ -91,13 +88,6 @@ export const CreateUserForm = () => {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
                   <Input label="First Name" error={formState.errors['firstName']} registration={register('firstName')} />
                   <Input label="Last Name" error={formState.errors['lastName']} registration={register('lastName')} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                  <Input label="Father Name" error={formState.errors['fatherName']} registration={register('fatherName')} />
-                  <Input label="Mother Name" error={formState.errors['motherName']} registration={register('motherName')} />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                  <Input label="Age" type="number" error={formState.errors['age']} registration={register('age')} />
                 </div>
                 <div>
                   <Select
@@ -130,6 +120,7 @@ export const CreateUserForm = () => {
                       { label: 'Employee', value: '4' },
                       { label: 'Team Lead', value: '2' },
                       { label: 'Manager', value: '1' },
+                      { label: 'CEO', value: '0' },
                     ]}
                   />
                 </div>

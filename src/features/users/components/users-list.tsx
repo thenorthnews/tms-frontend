@@ -12,6 +12,7 @@ import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableColumn } from '@/components/ui/table';
 import { paths } from '@/config/paths';
+import { User } from '@/types/api';
 import { formatDate } from '@/utils/format';
 
 import { useUsers } from '../api/get-users';
@@ -93,11 +94,11 @@ export const UsersList = () => {
   const users = usersQuery.data?.data;
   const meta = usersQuery.data?.meta;
 
-  const columns: TableColumn<any>[] = useMemo(() => [
+  const columns: TableColumn<User>[] = useMemo(() => [
     {
       title: 'Image',
       field: 'image',
-      Cell({ entry: { image } }: any) {
+      Cell({ entry: { image } }: { entry: User }) {
         return (
           <div className="h-10 w-10 shrink-0">
             {image ? (
@@ -118,27 +119,27 @@ export const UsersList = () => {
     {
       title: 'Name',
       field: 'firstName',
-      Cell({ entry: { firstName, lastName } }: any) {
+      Cell({ entry: { firstName, lastName } }: { entry: User }) {
         return <span className="font-medium text-slate-900">{`${firstName} ${lastName}`}</span>;
       },
     },
     {
       title: 'Email',
       field: 'email',
-      Cell({ entry: { email } }: any) {
-        const emailStr = typeof email === 'object' && email !== null ? (email as any).id : email;
+      Cell({ entry: { email } }: { entry: User }) {
+        const emailStr = typeof email === 'object' && email !== null ? (email as any).id || '' : email;
         return <a href={`mailto:${emailStr}`} className="text-slate-500 hover:text-indigo-600 transition-colors">{emailStr}</a>;
       },
     },
     {
       title: 'Role',
       field: 'role',
-      Cell({ entry: { role } }: any) {
+      Cell({ entry: { role } }: { entry: User }) {
         let roleString = 'Unknown';
-        if (role === UserRole.CEO) roleString = 'CEO';
-        else if (role === UserRole.MANAGER) roleString = 'Manager';
-        else if (role === UserRole.TL) roleString = 'Team Lead';
-        else if (role === UserRole.EMPLOYEE) roleString = 'Employee';
+        if (role === UserRole.CEO || role === 0) roleString = 'CEO';
+        else if (role === UserRole.MANAGER || role === 1) roleString = 'Manager';
+        else if (role === UserRole.TL || role === 2) roleString = 'Team Lead';
+        else if (role === UserRole.EMPLOYEE || role === 4) roleString = 'Employee';
         else roleString = String(role);
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
@@ -150,7 +151,7 @@ export const UsersList = () => {
     {
       title: 'Status',
       field: 'status',
-      Cell({ entry: { id, status } }: any) {
+      Cell({ entry: { id, status } }: { entry: User }) {
         const getStatusColor = (s: number) => {
           switch(s) {
             case UserStatus.ACTIVE: return 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/20'; // Active
@@ -182,14 +183,14 @@ export const UsersList = () => {
     {
       title: 'Created At',
       field: 'createdAt',
-      Cell({ entry: { createdAt } }: any) {
-        return <span>{formatDate(createdAt)}</span>;
+      Cell({ entry: { createdAt } }: { entry: User }) {
+        return <span>{formatDate(createdAt as number)}</span>;
       },
     },
     {
       title: '',
       field: 'id',
-      Cell({ entry: { id } }: any) {
+      Cell({ entry: { id } }: { entry: User }) {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-gray-200">

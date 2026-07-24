@@ -9,6 +9,7 @@ type FieldWrapperProps = {
   className?: string;
   children: React.ReactNode;
   error?: FieldError | undefined;
+  htmlFor?: string;
 };
 
 export type FieldWrapperPassThroughProps = Omit<
@@ -17,10 +18,12 @@ export type FieldWrapperPassThroughProps = Omit<
 >;
 
 export const FieldWrapper = (props: FieldWrapperProps) => {
-  const { label, error, children } = props;
+  const { label, error, children, htmlFor } = props;
+  const errorId = htmlFor ? `${htmlFor}-error` : undefined;
+
   return (
     <div>
-      <Label>
+      <Label htmlFor={htmlFor}>
         {label}
         <div className="mt-1">{children}</div>
       </Label>

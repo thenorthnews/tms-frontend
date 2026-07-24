@@ -9,8 +9,10 @@ export enum UserRole {
 }
 
 export enum ROLES {
-  ADMIN = 'ADMIN',
-  USER = 'USER',
+  CEO = 'CEO',
+  MANAGER = 'MANAGER',
+  TL = 'TL',
+  EMPLOYEE = 'EMPLOYEE',
 }
 
 type RoleTypes = keyof typeof ROLES;
@@ -28,14 +30,17 @@ export const useAuthorization = () => {
         const userRole = user.data.role;
         const numericRole = typeof userRole === 'string' ? parseInt(userRole, 10) : userRole;
         return allowedRoles.some(allowedRole => {
-          if (allowedRole === 'ADMIN') {
-            return (
-              [UserRole.CEO, UserRole.MANAGER, UserRole.TL, 'CEO', 'MANAGER', 'TL'].includes(numericRole as any) ||
-              userRole === 'ADMIN'
-            );
+          if (allowedRole === 'CEO') {
+            return numericRole === UserRole.CEO || userRole === 'CEO' || userRole === 0;
           }
-          if (allowedRole === 'USER') {
-            return numericRole === UserRole.EMPLOYEE || userRole === 'USER';
+          if (allowedRole === 'MANAGER') {
+            return numericRole === UserRole.MANAGER || userRole === 'MANAGER' || userRole === 1;
+          }
+          if (allowedRole === 'TL') {
+            return numericRole === UserRole.TL || userRole === 'TL' || userRole === 2;
+          }
+          if (allowedRole === 'EMPLOYEE') {
+            return numericRole === UserRole.EMPLOYEE || userRole === 'EMPLOYEE' || userRole === 4;
           }
           return false;
         });

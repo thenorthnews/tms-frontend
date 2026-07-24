@@ -7,14 +7,11 @@ const ReportsRoute = () => {
     <ContentLayout title="Reports & Analytics">
       <Authorization
         forbiddenFallback={
-          <div className="flex h-[50vh] flex-col items-center justify-center space-y-3 text-center">
-            <h2 className="text-xl font-bold text-slate-800">Access Denied</h2>
-            <p className="text-sm text-slate-500 max-w-sm">
-              Only organization administrators and department managers are authorized to view analytics reports.
-            </p>
+          <div className="p-4 text-center text-red-500">
+            Only CEOs and department managers are authorized to view analytics reports.
           </div>
         }
-        allowedRoles={[ROLES.ADMIN]}
+        allowedRoles={[ROLES.CEO, ROLES.MANAGER]}
       >
         <div className="mt-4 animate-in fade-in duration-300">
           <ReportsDashboard />

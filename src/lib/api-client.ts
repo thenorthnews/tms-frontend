@@ -18,8 +18,7 @@ export const mapUser = (backendUser: Record<string, any>): User => {
     teamId: backendUser.teamId || '',
     bio: backendUser.bio || '',
     phoneNumber: backendUser.phoneNumber || userInfo.phoneNumber || '',
-    fatherName: userInfo.fatherName || '',
-    motherName: userInfo.motherName || '',
+    department: backendUser.department || userInfo.department || 'Engineering',
     image: userInfo.image || '',
     status: backendUser.status ?? 0,
   };

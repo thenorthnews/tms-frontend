@@ -11,14 +11,11 @@ export const createUserInputSchema = z.object({
   email: z.string().trim().email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   countryCode: z.string().trim().min(1, 'Country code is required'),
-  phoneNumber: z.string().trim().min(1, 'Phone number is required'),
+  phoneNumber: z.string().trim().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
 
   // User info
   firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().trim().min(2, 'Last name must be at least 2 characters'),
-  fatherName: z.string().trim().optional(),
-  motherName: z.string().trim().optional(),
-  age: z.coerce.number().min(1).max(100).optional(),
   gender: z.coerce.number().min(0).max(2).optional(),
   image: z.string().optional(),
   role: z.coerce.number().optional(),
@@ -46,9 +43,6 @@ export const createUser = ({
     UserInfo: {
       firstName: data.firstName,
       lastName: data.lastName,
-      fatherName: data.fatherName,
-      motherName: data.motherName,
-      age: data.age,
       gender: data.gender,
       image: data.image,
     },

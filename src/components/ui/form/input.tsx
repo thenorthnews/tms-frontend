@@ -22,6 +22,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className,
           )}
           ref={ref}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${label}-error` : undefined}
           {...registration}
           {...props}
         />

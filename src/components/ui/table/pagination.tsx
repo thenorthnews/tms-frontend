@@ -4,6 +4,7 @@ import {
   DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
 import * as React from 'react';
+import { useLocation } from 'react-router';
 
 import { ButtonProps, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/utils/cn';
@@ -127,18 +128,20 @@ export {
   PaginationEllipsis,
 };
 
-import { useLocation } from 'react-router';
+// ─── Table Pagination Component ───────────────────────────────────────────────
 
 export type TablePaginationProps = {
   totalPages: number;
   currentPage: number;
   rootUrl?: string;
+  totalItems?: number;
 };
 
 export const TablePagination = ({
   totalPages,
   currentPage,
   rootUrl,
+  totalItems,
 }: TablePaginationProps) => {
   const location = useLocation();
 
@@ -150,48 +153,60 @@ export const TablePagination = ({
   };
 
   return (
-    <Pagination className="justify-end py-8 select-none">
-      <PaginationContent>
-        {currentPage > 1 && (
-          <PaginationItem>
-            <PaginationPrevious href={createHref(currentPage - 1)} />
-          </PaginationItem>
+    <div className="flex items-center justify-between py-8">
+      {/* Page info */}
+      <div className="text-xs font-semibold text-slate-500">
+        Page {currentPage} of {totalPages}
+        {totalItems !== undefined && (
+          <span className="ml-1.5 text-slate-400">
+            ({totalItems} total)
+          </span>
         )}
-        {currentPage > 2 && (
-          <PaginationItem>
-            <PaginationEllipsis />
-          </PaginationItem>
-        )}
-        {currentPage > 1 && (
-          <PaginationItem>
-            <PaginationLink href={createHref(currentPage - 1)}>
-              {currentPage - 1}
+      </div>
+
+      <Pagination className="justify-end w-auto mx-0 select-none">
+        <PaginationContent>
+          {currentPage > 1 && (
+            <PaginationItem>
+              <PaginationPrevious href={createHref(currentPage - 1)} />
+            </PaginationItem>
+          )}
+          {currentPage > 2 && (
+            <PaginationItem>
+              <PaginationEllipsis />
+            </PaginationItem>
+          )}
+          {currentPage > 1 && (
+            <PaginationItem>
+              <PaginationLink href={createHref(currentPage - 1)}>
+                {currentPage - 1}
+              </PaginationLink>
+            </PaginationItem>
+          )}
+          <PaginationItem className="rounded-sm bg-slate-200 font-bold">
+            <PaginationLink href={createHref(currentPage)}>
+              {currentPage}
             </PaginationLink>
           </PaginationItem>
-        )}
-        <PaginationItem className="rounded-sm bg-slate-200 font-bold">
-          <PaginationLink href={createHref(currentPage)}>
-            {currentPage}
-          </PaginationLink>
-        </PaginationItem>
-        {totalPages > currentPage && (
-          <PaginationItem>
-            <PaginationLink href={createHref(currentPage + 1)}>
-              {currentPage + 1}
-            </PaginationLink>
-          </PaginationItem>
-        )}
-        {totalPages > currentPage + 1 && (
-          <PaginationItem>
-            <PaginationEllipsis />
-          </PaginationItem>
-        )}
-        {currentPage < totalPages && (
-          <PaginationItem>
-            <PaginationNext href={createHref(currentPage + 1)} />
-          </PaginationItem>
-        )}
-      </PaginationContent>
-    </Pagination>
+          {totalPages > currentPage && (
+            <PaginationItem>
+              <PaginationLink href={createHref(currentPage + 1)}>
+                {currentPage + 1}
+              </PaginationLink>
+            </PaginationItem>
+          )}
+          {totalPages > currentPage + 1 && (
+            <PaginationItem>
+              <PaginationEllipsis />
+            </PaginationItem>
+          )}
+          {currentPage < totalPages && (
+            <PaginationItem>
+              <PaginationNext href={createHref(currentPage + 1)} />
+            </PaginationItem>
+          )}
+        </PaginationContent>
+      </Pagination>
+    </div>
   );
 };

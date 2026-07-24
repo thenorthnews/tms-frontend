@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Clock
 } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import {
@@ -31,6 +31,13 @@ import { useTasks } from '../api/get-tasks';
 import { useUpdateTask } from '../api/update-task';
 import { useDeleteTask } from '../api/delete-task';
 import { TaskStatus, TaskPriority, Task } from '../types';
+import {
+  getPriorityLabel,
+  getPriorityBadgeStyle,
+  getPriorityKanbanStyle,
+  getPriorityDotColor,
+  getStatusSelectStyle,
+} from '../utils/task-utils';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -67,6 +74,7 @@ export const TasksList = () => {
   const [dateVal, setDateVal] = useState(dateFilterParam || (currentView === 'kanban' ? 'today' : ''));
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
 
   const updateTaskMutation = useUpdateTask({
     mutationConfig: {
@@ -216,7 +224,7 @@ export const TasksList = () => {
     {
       title: 'Title',
       field: 'title',
-      Cell({ entry: { title, description, tags } }: any) {
+      Cell({ entry: { title, description, tags } }: { entry: Task }) {
         return (
           <div className="space-y-1">
             <span className="font-bold text-slate-800 block">{title}</span>
@@ -244,7 +252,7 @@ export const TasksList = () => {
     {
       title: 'Assignee',
       field: 'assignedTo',
-      Cell({ entry: { assigneeInfo } }: any) {
+      Cell({ entry: { assigneeInfo } }: { entry: Task }) {
         if (!assigneeInfo) {
           return <span className="text-slate-400 text-sm font-medium">Unassigned</span>;
         }
@@ -273,11 +281,11 @@ export const TasksList = () => {
     {
       title: 'Checklist',
       field: 'subtasks',
-      Cell({ entry: { subtasks } }: any) {
+      Cell({ entry: { subtasks } }: { entry: Task }) {
         if (!subtasks || subtasks.length === 0) {
           return <span className="text-slate-400 text-xs font-medium">No subtasks</span>;
         }
-        const completed = subtasks.filter((s: any) => s.isCompleted).length;
+        const completed = subtasks.filter((s) => s.isCompleted).length;
         const total = subtasks.length;
         const percent = Math.round((completed / total) * 100);
         return (
@@ -288,7 +296,7 @@ export const TasksList = () => {
             </div>
             <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden flex">
               <div
-                className="bg-[#0EA5E9] h-full rounded-full transition-all duration-300"
+                className="bg-[#0EA5E9] h-full rounded-full transition-all duration-500"
                 style={{ width: `${percent}%` }}
               />
             </div>
@@ -299,28 +307,9 @@ export const TasksList = () => {
     {
       title: 'Priority',
       field: 'priority',
-      Cell({ entry: { priority } }: any) {
-        const getPriorityBadge = (p: number) => {
-          switch (p) {
-            case TaskPriority.HIGH:
-              return 'bg-red-50 text-red-700 border-red-200';
-            case TaskPriority.MEDIUM:
-              return 'bg-amber-50 text-amber-700 border-amber-200';
-            default:
-              return 'bg-blue-50 text-blue-700 border-blue-200';
-          }
-        };
-
-        const getPriorityLabel = (p: number) => {
-          switch (p) {
-            case TaskPriority.HIGH: return 'High';
-            case TaskPriority.MEDIUM: return 'Medium';
-            default: return 'Low';
-          }
-        };
-
+      Cell({ entry: { priority } }: { entry: Task }) {
         return (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getPriorityBadge(priority)}`}>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getPriorityBadgeStyle(priority)}`}>
             {getPriorityLabel(priority)}
           </span>
         );
@@ -329,24 +318,11 @@ export const TasksList = () => {
     {
       title: 'Status',
       field: 'status',
-      Cell({ entry: { id, _id, status } }: any) {
-        const taskId = id || _id;
-        const getStatusColor = (s: number) => {
-          switch (s) {
-            case TaskStatus.COMPLETED:
-              return 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/20';
-            case TaskStatus.IN_PROGRESS:
-              return 'bg-blue-50 text-blue-700 border-blue-200 focus:ring-blue-500/20';
-            case TaskStatus.CANCELLED:
-              return 'bg-rose-50 text-rose-700 border-rose-200 focus:ring-rose-500/20';
-            default:
-              return 'bg-slate-50 text-slate-700 border-slate-200 focus:ring-slate-500/20';
-          }
-        };
-
+      Cell({ entry: { id, _id, status } }: { entry: Task }) {
+        const taskId = id || _id || '';
         return (
           <select
-            className={`block w-32 rounded-full border px-3 py-1.5 shadow-sm text-xs font-semibold focus:ring-4 transition-all cursor-pointer ${getStatusColor(status as number)}`}
+            className={`block w-32 rounded-full border px-3 py-1.5 shadow-sm text-xs font-semibold focus:ring-4 transition-all cursor-pointer ${getStatusSelectStyle(status as number)}`}
             value={status}
             onChange={(e) => {
               updateTaskMutation.mutate({
@@ -367,7 +343,7 @@ export const TasksList = () => {
     {
       title: 'Due Date',
       field: 'dueDate',
-      Cell({ entry: { dueDate } }: any) {
+      Cell({ entry: { dueDate } }: { entry: Task }) {
         if (!dueDate) return <span className="text-slate-400 text-xs font-medium">No due date</span>;
         return (
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
@@ -380,8 +356,8 @@ export const TasksList = () => {
     {
       title: '',
       field: 'id',
-      Cell({ entry: { id, _id } }: any) {
-        const taskId = id || _id;
+      Cell({ entry: { id, _id } }: { entry: Task }) {
+        const taskId = id || _id || '';
         return (
           <DropdownMenu>
             <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-gray-200">
@@ -420,6 +396,7 @@ export const TasksList = () => {
 
   const handleDrop = (e: React.DragEvent, targetStatus: number) => {
     e.preventDefault();
+    setDragOverColumn(null);
     const taskId = e.dataTransfer.getData('text/plain');
     if (taskId) {
       updateTaskMutation.mutate({
@@ -429,6 +406,15 @@ export const TasksList = () => {
     }
   };
 
+  const handleDragOver = (e: React.DragEvent, status: number) => {
+    e.preventDefault();
+    setDragOverColumn(status);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
+  };
+
   const kanbanColumns = [
     { title: 'Pending', status: TaskStatus.PENDING, color: 'border-t-slate-400 bg-slate-50/50' },
     { title: 'In Progress', status: TaskStatus.IN_PROGRESS, color: 'border-t-blue-500 bg-blue-50/20' },
@@ -436,36 +422,21 @@ export const TasksList = () => {
     { title: 'Cancelled', status: TaskStatus.CANCELLED, color: 'border-t-rose-400 bg-rose-50/20' },
   ];
 
-  const getPriorityLabel = (p: number) => {
-    switch (p) {
-      case TaskPriority.HIGH: return 'High';
-      case TaskPriority.MEDIUM: return 'Medium';
-      default: return 'Low';
-    }
-  };
-
-  const getPriorityBadgeStyle = (p: number) => {
-    switch (p) {
-      case TaskPriority.HIGH:
-        return 'bg-rose-50 text-rose-700 border-rose-100';
-      case TaskPriority.MEDIUM:
-        return 'bg-amber-50 text-amber-700 border-amber-100';
-      default:
-        return 'bg-slate-50 text-slate-600 border-slate-100';
-    }
-  };
-
   const renderKanbanBoard = (tasksList: Task[]) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in duration-500">
         {kanbanColumns.map((col) => {
           const colTasks = tasksList.filter((t) => t.status === col.status);
+          const isDragOver = dragOverColumn === col.status;
           return (
             <div
               key={col.status}
-              onDragOver={(e) => e.preventDefault()}
+              onDragOver={(e) => handleDragOver(e, col.status)}
+              onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, col.status)}
-              className={`flex flex-col min-h-[550px] rounded-2xl border border-slate-200/60 p-4 border-t-4 ${col.color} shadow-sm transition-all`}
+              className={`flex flex-col min-h-[550px] rounded-2xl border border-slate-200/60 p-4 border-t-4 ${col.color} shadow-sm transition-all ${
+                isDragOver ? 'ring-2 ring-indigo-300/50 ring-offset-1 bg-indigo-50/10 scale-[1.01]' : ''
+              }`}
             >
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-slate-800 text-sm">{col.title}</span>
@@ -473,10 +444,12 @@ export const TasksList = () => {
                   {colTasks.length}
                 </span>
               </div>
-              <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-1">
+              <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-1 custom-scrollbar">
                 {colTasks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-200/50 rounded-xl text-slate-400 text-[10px] font-bold">
-                    Drag tasks here
+                  <div className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl text-[10px] font-bold transition-colors ${
+                    isDragOver ? 'border-indigo-300 text-indigo-400 bg-indigo-50/30' : 'border-slate-200/50 text-slate-400'
+                  }`}>
+                    {isDragOver ? 'Drop here' : 'Drag tasks here'}
                   </div>
                 ) : (
                   colTasks.map((t) => {
@@ -487,10 +460,10 @@ export const TasksList = () => {
                         draggable
                         onDragStart={(e) => handleDragStart(e, taskId)}
                         onClick={() => navigate(paths.app.editTask.getHref(taskId))}
-                        className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-grab active:cursor-grabbing text-left space-y-2.5 relative group"
+                        className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-grab active:cursor-grabbing text-left space-y-2.5 relative group animate-card-enter"
                       >
                         <div className="flex justify-between items-start">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${getPriorityBadgeStyle(t.priority)}`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${getPriorityKanbanStyle(t.priority)}`}>
                             {getPriorityLabel(t.priority)}
                           </span>
                           {t.assigneeInfo ? (
@@ -510,6 +483,20 @@ export const TasksList = () => {
                           <p className="text-[10px] text-slate-450 font-medium line-clamp-2 leading-normal">
                             {t.description}
                           </p>
+                        )}
+                        {/* Subtask progress mini-bar */}
+                        {t.subtasks && t.subtasks.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex-1 bg-slate-100 h-1 rounded-full overflow-hidden">
+                              <div
+                                className="bg-[#0EA5E9] h-full rounded-full transition-all duration-300"
+                                style={{ width: `${Math.round((t.subtasks.filter(s => s.isCompleted).length / t.subtasks.length) * 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[8px] font-bold text-slate-400">
+                              {t.subtasks.filter(s => s.isCompleted).length}/{t.subtasks.length}
+                            </span>
+                          </div>
                         )}
                         {t.dueDate && (
                           <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold border-t border-slate-50 pt-2 mt-2">
@@ -642,16 +629,9 @@ export const TasksList = () => {
                     </span>
                   )}
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-1 max-h-[80px] pr-0.5">
+                <div className="flex-1 overflow-y-auto space-y-1 max-h-[80px] pr-0.5 custom-scrollbar">
                   {dayTasks.map((t) => {
                     const taskId = t.id || t._id || '';
-                    const getPriorityColor = (p: number) => {
-                      switch (p) {
-                        case TaskPriority.HIGH: return 'bg-rose-500';
-                        case TaskPriority.MEDIUM: return 'bg-amber-500';
-                        default: return 'bg-slate-400';
-                      }
-                    };
                     return (
                       <div
                         key={taskId}
@@ -659,7 +639,7 @@ export const TasksList = () => {
                         className="text-[9px] font-bold text-slate-700 truncate cursor-pointer hover:text-indigo-600 bg-slate-50 border border-slate-105 rounded-md p-1 flex items-center gap-1 transition-all"
                         title={t.title}
                       >
-                        <span className={`size-1.5 rounded-full ${getPriorityColor(t.priority)} shrink-0`} />
+                        <span className={`size-1.5 rounded-full ${getPriorityDotColor(t.priority)} shrink-0`} />
                         <span className="truncate">{t.title}</span>
                       </div>
                     );
@@ -677,6 +657,7 @@ export const TasksList = () => {
     totalPages,
     currentPage: page,
     rootUrl: '',
+    totalItems: total,
   };
 
   return (
@@ -732,6 +713,11 @@ export const TasksList = () => {
               <option value="all">All Dates</option>
             </select>
           )}
+
+          {/* Task count badge */}
+          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full hidden sm:inline-flex">
+            {total} task{total !== 1 ? 's' : ''}
+          </span>
         </div>
 
           {!isEmployee && (

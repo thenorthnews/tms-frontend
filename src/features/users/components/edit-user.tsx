@@ -31,6 +31,8 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
 
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const userQuery = useGetUser({ userId });
   const uploadFileMutation = useUploadFile();
 
@@ -39,9 +41,17 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
       onSuccess: () => {
         addNotification({
           type: 'success',
-          title: 'User Updated',
+          title: 'User Details Updated Successfully',
         });
-        navigate(paths.app.users.getHref());
+        navigate(-1);
+      },
+      onError: (err: any) => {
+        const backendMsg = err.response?.data?.message || err.message || '';
+        if (backendMsg.toLowerCase().includes('email') || err.response?.status === 409) {
+          setFormErrors((prev) => ({ ...prev, email: 'Email already exists' }));
+        } else if (backendMsg.toLowerCase().includes('phone')) {
+          setFormErrors((prev) => ({ ...prev, phoneNumber: 'Phone number already exists' }));
+        }
       },
     },
   });
@@ -83,76 +93,24 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Read-only display fields */}
-      <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
-        <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">
-          User Details (Read Only)
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div>
-            <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">User ID</span>
-            <span className="block text-sm font-semibold text-slate-800 break-all">
-              {userData._id}
-            </span>
-          </div>
-          <div>
-            <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Status</span>
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${
-              userData.status === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-              userData.status === 1 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}>
-              {userData.status === 0 ? 'Active' : userData.status === 1 ? 'Inactive' : 'Pending'}
-            </span>
-          </div>
-          <div>
-            <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Email</span>
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${
-              userData.email?.isVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-            }`}>
-              {userData.email?.isVerified ? 'Verified' : 'Not Verified'}
-            </span>
-          </div>
-          <div>
-            <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Phone</span>
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${
-              userData.phoneNumber?.isVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-            }`}>
-              {userData.phoneNumber?.isVerified ? 'Verified' : 'Not Verified'}
-            </span>
-          </div>
-        </div>
-        {/* Show current image */}
-        {userInfo.image && (
-          <div className="mt-6">
-            <span className="block text-xs text-slate-400 font-medium uppercase tracking-wider mb-2">Current Image</span>
-            <img
-              src={userInfo.image}
-              alt="User"
-              className="h-16 w-16 rounded-full object-cover border-2 border-white shadow-sm"
-            />
-          </div>
-        )}
-      </div>
-
       {/* Editable form */}
       <Form
         id="edit-user"
+        key={`${userData._id}-${userData.firstName || userInfo.firstName || ''}-${userData.lastName || userInfo.lastName || ''}-${userData.department || ''}`}
         onSubmit={(values) => {
           updateUserMutation.mutate({ userId, data: values });
         }}
         schema={updateUserInputSchema}
         options={{
           defaultValues: {
-            email: userData.email?.id || '',
+            email: userData.email?.id || (typeof userData.email === 'string' ? userData.email : ''),
             countryCode: userData.phoneNumber?.countryCode || '+91',
-            phoneNumber: userData.phoneNumber?.number || '',
-            firstName: userInfo.firstName || '',
-            lastName: userInfo.lastName || '',
-            fatherName: userInfo.fatherName || '',
-            motherName: userInfo.motherName || '',
-            age: userInfo.age ?? ('' as unknown as number),
-            gender: userInfo.gender ?? 0,
-            image: userInfo.image || '',
+            phoneNumber: userData.phoneNumber?.number || (typeof userData.phoneNumber === 'string' ? userData.phoneNumber : ''),
+            firstName: userData.firstName || userInfo.firstName || '',
+            lastName: userData.lastName || userInfo.lastName || '',
+            gender: userData.gender ?? userInfo.gender ?? 0,
+            department: userData.department || 'Engineering',
+            image: userData.image || userInfo.image || '',
             role: userData.role ?? 4,
           } as UpdateUserInput,
         }}
@@ -176,34 +134,12 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                    <Input
-                      label="Father Name"
-                      error={formState.errors['fatherName']}
-                      registration={register('fatherName')}
-                    />
-                    <Input
-                      label="Mother Name"
-                      error={formState.errors['motherName']}
-                      registration={register('motherName')}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                    <Input
-                      label="Age"
-                      type="number"
-                      error={formState.errors['age']}
-                      registration={register('age')}
-                    />
-                  </div>
-                  
                   <div>
                     <Select
                       label="Gender"
                       error={formState.errors['gender']}
                       registration={register('gender')}
-                      defaultValue={String(userInfo.gender ?? 0)}
+                      defaultValue={String(userData.gender ?? userInfo.gender ?? 0)}
                       options={[
                         { label: 'Male', value: '0' },
                         { label: 'Female', value: '1' },
@@ -225,7 +161,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                     registration={register('email')}
                   />
                 </div>
-                <div>
+                <div className="mb-4">
                   <Select
                     label="Role"
                     error={formState.errors['role']}
@@ -235,6 +171,23 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                       { label: 'Employee', value: '4' },
                       { label: 'Team Lead', value: '2' },
                       { label: 'Manager', value: '1' },
+                      { label: 'CEO', value: '0' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <Select
+                    label="Department"
+                    error={formState.errors['department']}
+                    registration={register('department')}
+                    defaultValue={userData.department || 'Engineering'}
+                    options={[
+                      { label: 'Engineering', value: 'Engineering' },
+                      { label: 'Marketing', value: 'Marketing' },
+                      { label: 'Sales', value: 'Sales' },
+                      { label: 'Human Resources', value: 'Human Resources' },
+                      { label: 'Design', value: 'Design' },
+                      { label: 'Operations', value: 'Operations' },
                     ]}
                   />
                 </div>
@@ -292,7 +245,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                 type="button"
                 variant="outline"
                 className="rounded-full px-6"
-                onClick={() => navigate(paths.app.users.getHref())}
+                onClick={() => navigate(-1)}
               >
                 Cancel
               </Button>

@@ -12,35 +12,35 @@ import { useUser } from '@/lib/auth';
 
 export const clientLoader =
   (queryClient: QueryClient) =>
-  async ({ request }: LoaderFunctionArgs) => {
-    const url = new URL(request.url);
+    async ({ request }: LoaderFunctionArgs) => {
+      const url = new URL(request.url);
 
-    const page = Number(url.searchParams.get('page') || 1);
-    const search = url.searchParams.get('search') || '';
+      const page = Number(url.searchParams.get('page') || 1);
+      const search = url.searchParams.get('search') || '';
 
-    const query = getUsersQueryOptions({ page, search });
+      const query = getUsersQueryOptions({ page, search });
 
-    try {
-      return (
-        queryClient.getQueryData(query.queryKey) ??
-        (await queryClient.fetchQuery(query))
-      );
-    } catch (error) {
-      console.error('Failed to load users:', error);
-      return null;
-    }
-  };
+      try {
+        return (
+          queryClient.getQueryData(query.queryKey) ??
+          (await queryClient.fetchQuery(query))
+        );
+      } catch (error) {
+        console.error('Failed to load users:', error);
+        return null;
+      }
+    };
 
 const UsersRoute = () => {
   const navigate = useNavigate();
   const user = useUser();
-  const isCEO = user.data?.role === 0 || user.data?.role === 'CEO' || (user.data as any)?.role === 'ADMIN';
+  const isCEO = (user.data?.role as any) === 0 || (user.data?.role as any) === 'CEO';
 
   return (
     <ContentLayout title="Users">
       <Authorization
-        forbiddenFallback={<div>Only admin can view this.</div>}
-        allowedRoles={[ROLES.ADMIN]}
+        forbiddenFallback={<div>Only CEO can view this.</div>}
+        allowedRoles={[ROLES.CEO]}
       >
         {isCEO && (
           <div className="flex justify-end">

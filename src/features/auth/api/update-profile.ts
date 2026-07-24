@@ -9,8 +9,6 @@ export const updateProfileInputSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
   phoneNumber: z.string().trim().optional(),
-  fatherName: z.string().trim().optional(),
-  motherName: z.string().trim().optional(),
   image: z.string().optional(),
 });
 

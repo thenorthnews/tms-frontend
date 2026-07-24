@@ -4,12 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { api, mapUser } from '@/lib/api-client';
 import { useUser } from '@/lib/auth';
+import { UserRole } from '@/lib/authorization';
 import { Button } from '@/components/ui/button';
 import { Form, Input, Select, Textarea } from '@/components/ui/form';
 import { useNotifications } from '@/components/ui/notifications';
+import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
 import { createTaskInputSchema, useCreateTask } from '../api/create-task';
-import { TaskStatus, TaskPriority } from '../types';
+import { TaskStatus, TaskPriority, Subtask } from '../types';
+import { User, Team } from '@/types/api';
 
 export const CreateTask = () => {
   const navigate = useNavigate();
@@ -17,7 +20,8 @@ export const CreateTask = () => {
   const currentUserQuery = useUser();
   const currentUser = currentUserQuery.data;
 
-  if (currentUser?.role === 4) {
+  // Use enum instead of magic number
+  if (currentUser?.role === UserRole.EMPLOYEE) {
     return <Navigate to={paths.app.tasks.getHref()} replace />;
   }
 
@@ -29,24 +33,22 @@ export const CreateTask = () => {
   const [tagsInput, setTagsInput] = useState('');
 
   // Fetch active users for the assignee dropdown
-  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ['users-list'],
     queryFn: async () => {
       const res = (await api.get('/admin/users', {
         params: { limit: 100 },
-      })) as any;
+      })) as { users?: Record<string, any>[] };
       return (res.users || []).map(mapUser);
     },
   });
 
-  
-
   // Fetch teams for the team dropdown
-  const { data: teamsRes = [] } = useQuery({
+  const { data: teamsRes = [], isLoading: isLoadingTeams } = useQuery<any[]>({
     queryKey: ['teams-list'],
     queryFn: async () => {
       const res = (await api.get('/admin/teams')) as any;
-      return res.data || res || [];
+      return (res.data || res || []) as any[];
     },
   });
 
@@ -62,21 +64,16 @@ export const CreateTask = () => {
     },
   });
 
-  const userOptions = [
-    { label: 'Unassigned', value: '' },
-    ...users.map((u: any) => ({
-      label: `${u.firstName} ${u.lastName} (${u.email})`,
-      value: u.id,
+  const teamOptions = [
+    { label: 'No Team (Independent)', value: '' },
+    ...teamsRes.map((t: Team) => ({
+      label: t.name,
+      value: (t._id || t.id) as string,
     })),
   ];
 
-  const teamOptions = [
-    { label: 'No Team (Independent)', value: '' },
-    ...teamsRes.map((t: any) => ({
-      label: t.name,
-      value: t._id || t.id,
-    })),
-  ];
+  // Loading skeleton for dropdown areas
+  const isLoadingDropdowns = isLoadingUsers || isLoadingTeams;
 
   return (
     <div className="space-y-6 pb-10">
@@ -101,7 +98,7 @@ export const CreateTask = () => {
           Back to list
         </button>
       </div>
-      <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
+      <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 animate-card-enter">
         <h3 className="text-lg font-bold text-slate-800 mb-1">
           Create New Task
         </h3>
@@ -164,14 +161,22 @@ export const CreateTask = () => {
                 if (mId) teamMemberIds.add(String(mId));
               });
             }
-          } else if (currentUser?.role === 1 || currentUser?.role === 2) {
+          } else if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL) {
             // Find all teams managed by currentUser
             const managedTeams = teamsRes.filter((t: any) => {
-              const mgrId = (t.managerId?._id || t.managerId?.id || t.managerId)?.toString();
+              const mgrId = (
+                t.managerId?._id ||
+                t.managerId?.id ||
+                t.managerId
+              )?.toString();
               return mgrId === currentUser.id?.toString();
             });
             managedTeams.forEach((t: any) => {
-              const mgrId = (t.managerId?._id || t.managerId?.id || t.managerId)?.toString();
+              const mgrId = (
+                t.managerId?._id ||
+                t.managerId?.id ||
+                t.managerId
+              )?.toString();
               if (mgrId) teamMemberIds.add(mgrId);
               (t.members || []).forEach((m: any) => {
                 const mId = (m._id || m.id || m)?.toString();
@@ -181,9 +186,12 @@ export const CreateTask = () => {
             if (currentUser.id) teamMemberIds.add(currentUser.id.toString());
           }
 
-          const filteredUsers = (selectedTeamId || currentUser?.role === 1 || currentUser?.role === 2)
-            ? users.filter((u: any) => teamMemberIds.has(String(u.id || u._id)))
-            : users;
+          const filteredUsers =
+            selectedTeamId || currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL
+              ? users.filter((u: any) =>
+                  teamMemberIds.has(String(u.id || u._id)),
+                )
+              : users;
 
           const userOptions = [
             {
@@ -201,7 +209,7 @@ export const CreateTask = () => {
           return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 animate-card-enter">
                   <Input
                     label="Task Title"
                     error={formState.errors.title as any}
@@ -221,7 +229,7 @@ export const CreateTask = () => {
                 </div>
 
                 {/* Tags and Subtasks Checklist Section */}
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6">
+                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6 animate-card-enter">
                   <div>
                     <label className="block text-sm font-bold text-slate-800 mb-2">
                       Tags / Labels
@@ -231,8 +239,24 @@ export const CreateTask = () => {
                       placeholder="e.g. Bug, Feature, Design (comma separated)"
                       value={tagsInput}
                       onChange={(e) => setTagsInput(e.target.value)}
-                      className="w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700"
+                      className="w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-semibold text-slate-700 transition-all"
                     />
+                    {tagsInput && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {tagsInput.split(',').map((tag, i) => {
+                          const trimmed = tag.trim();
+                          if (!trimmed) return null;
+                          return (
+                            <span
+                              key={i}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-150"
+                            >
+                              {trimmed}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -253,7 +277,11 @@ export const CreateTask = () => {
                             <button
                               type="button"
                               onClick={() =>
-                                setSubtasks(subtasks.filter((_: any, i: number) => i !== idx))
+                                setSubtasks(
+                                  subtasks.filter(
+                                    (_: any, i: number) => i !== idx,
+                                  ),
+                                )
                               }
                               className="text-xs font-bold text-red-500 hover:text-red-700 cursor-pointer"
                             >
@@ -285,7 +313,7 @@ export const CreateTask = () => {
                             }
                           }
                         }}
-                        className="flex-1 text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700"
+                        className="flex-1 text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-semibold text-slate-700 transition-all"
                       />
                       <button
                         type="button"
@@ -311,60 +339,79 @@ export const CreateTask = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-                  <Select
-                    label="Status"
-                    error={formState.errors.status as any}
-                    registration={register('status')}
-                    options={[
-                      { label: 'Pending', value: String(TaskStatus.PENDING) },
-                      {
-                        label: 'In Progress',
-                        value: String(TaskStatus.IN_PROGRESS),
-                      },
-                      { label: 'Completed', value: String(TaskStatus.COMPLETED) },
-                      { label: 'Cancelled', value: String(TaskStatus.CANCELLED) },
-                    ]}
-                  />
+                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4 animate-card-enter">
+                  {isLoadingDropdowns ? (
+                    <div className="space-y-4">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="space-y-2">
+                          <div className="h-3 w-20 bg-slate-200 rounded animate-skeleton" />
+                          <div className="h-11 w-full bg-slate-100 rounded-full animate-skeleton" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <Select
+                        label="Status"
+                        error={formState.errors.status as any}
+                        registration={register('status')}
+                        options={[
+                          { label: 'Pending', value: String(TaskStatus.PENDING) },
+                          {
+                            label: 'In Progress',
+                            value: String(TaskStatus.IN_PROGRESS),
+                          },
+                          {
+                            label: 'Completed',
+                            value: String(TaskStatus.COMPLETED),
+                          },
+                          {
+                            label: 'Cancelled',
+                            value: String(TaskStatus.CANCELLED),
+                          },
+                        ]}
+                      />
 
-                  <Select
-                    label="Priority"
-                    error={formState.errors.priority as any}
-                    registration={register('priority')}
-                    options={[
-                      { label: 'Low', value: String(TaskPriority.LOW) },
-                      { label: 'Medium', value: String(TaskPriority.MEDIUM) },
-                      { label: 'High', value: String(TaskPriority.HIGH) },
-                    ]}
-                  />
+                      <Select
+                        label="Priority"
+                        error={formState.errors.priority as any}
+                        registration={register('priority')}
+                        options={[
+                          { label: 'Low', value: String(TaskPriority.LOW) },
+                          { label: 'Medium', value: String(TaskPriority.MEDIUM) },
+                          { label: 'High', value: String(TaskPriority.HIGH) },
+                        ]}
+                      />
 
-                  <Input
-                    label="Due Date"
-                    type="date"
-                    min={new Date().toISOString().split('T')[0]}
-                    error={formState.errors.dueDate as any}
-                    registration={register('dueDate')}
-                  />
+                      <Input
+                        label="Due Date"
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        error={formState.errors.dueDate as any}
+                        registration={register('dueDate')}
+                      />
 
-                  <Select
-                    label="Team"
-                    error={formState.errors.teamId as any}
-                    registration={{
-                      ...teamRegister,
-                      onChange: async (e) => {
-                        await teamRegister.onChange(e);
-                        setValue('assignedTo', '');
-                      },
-                    }}
-                    options={teamOptions}
-                  />
+                      <Select
+                        label="Team"
+                        error={formState.errors.teamId as any}
+                        registration={{
+                          ...teamRegister,
+                          onChange: async (e) => {
+                            await teamRegister.onChange(e);
+                            setValue('assignedTo', '');
+                          },
+                        }}
+                        options={teamOptions}
+                      />
 
-                  <Select
-                    label="Assign To"
-                    error={formState.errors.assignedTo as any}
-                    registration={register('assignedTo')}
-                    options={userOptions}
-                  />
+                      <Select
+                        label="Assign To"
+                        error={formState.errors.assignedTo as any}
+                        registration={register('assignedTo')}
+                        options={userOptions}
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div className="flex justify-end">
