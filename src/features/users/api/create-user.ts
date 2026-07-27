@@ -4,8 +4,6 @@ import { z } from 'zod';
 import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
 
-import { getUsersQueryOptions } from './get-users';
-
 export const createUserInputSchema = z.object({
   // User credentials
   email: z.string().trim().email('Valid email is required'),
