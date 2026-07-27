@@ -9,8 +9,8 @@ import { getUserQueryOptions } from './get-user';
 export const updateUserInputSchema = z.object({
   // UserDto fields
   email: z.string().trim().email('Valid email is required'),
-  countryCode: z.string().trim().min(1, 'Country code is required'),
-  phoneNumber: z.string().trim().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
+  countryCode: z.string().trim().optional(),
+  phoneNumber: z.string().trim().optional(),
 
   // UserInfo fields
   firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
@@ -30,15 +30,10 @@ export const updateUser = ({
   userId: string;
   data: UpdateUserInput;
 }): Promise<any> => {
-  const payload = {
+  const payload: any = {
     UserDto: {
-      email: {
-        id: data.email,
-      },
-      phoneNumber: {
-        countryCode: data.countryCode,
-        number: data.phoneNumber,
-      },
+      email: data.email,
+      phoneNumber: data.phoneNumber && data.phoneNumber.trim() ? data.phoneNumber.trim() : undefined,
     },
     UserInfo: {
       firstName: data.firstName,
@@ -46,6 +41,7 @@ export const updateUser = ({
       gender: data.gender,
       department: data.department,
       image: data.image,
+      role: data.role,
     },
   };
 

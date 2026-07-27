@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -65,7 +65,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
     queryFn: async () => {
-      const res = await api.get('/admin/users', { params: { limit: 100 } }) as any;
+      const res = await api.get('/admin/users', { params: { limit: 100, all: 'true' } }) as any;
       return (res.users || []).map(mapUser);
     },
   });
@@ -82,10 +82,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const updateTaskMutation = useUpdateTask({
     mutationConfig: {
       onSuccess: () => {
-        addNotification({
-          type: 'success',
-          title: 'Task details updated',
-        });
         taskQuery.refetch();
       },
     },
@@ -130,6 +126,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const [tempDescription, setTempDescription] = useState('');
   const [committedDate, setCommittedDate] = useState('');
   const [showReassignMenu, setShowReassignMenu] = useState(false);
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  const [selectedNewAssignees, setSelectedNewAssignees] = useState<string[]>([]);
   const [showTeamMenu, setShowTeamMenu] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
 
@@ -151,20 +149,50 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   const task = taskQuery.data;
 
+  const [searchParams] = useSearchParams();
+
+  // Permission for reassigning task: Only CEO (0), Manager (1), and TL (2) can reassign tasks
+  const currentUserId = String(currentUser?._id || currentUser?.id || '');
+  const canReassign = currentUser?.role === 0 || currentUser?.role === 1 || currentUser?.role === 2;
+
+  // Filter available target assignees for Manager/TL
+  const availableAssignees = useMemo(() => {
+    if (!currentUser) return users;
+    if (currentUser.role === 0) return users; // CEO can assign to anyone
+    if (currentUser.role === 1 || currentUser.role === 2) {
+      return users.filter((u: any) => {
+        const isManagerOrTL = u.role === 0 || u.role === 1 || u.role === 2;
+        const isInSameTeam = currentUser.teamId && u.teamId && String(u.teamId) === String(currentUser.teamId);
+        return isManagerOrTL || isInSameTeam;
+      });
+    }
+    return [];
+  }, [users, currentUser]);
+
   // Initialize values from fetched task
   useEffect(() => {
     if (task) {
       setTempDescription(task.description || '');
       setSubTasks(task.subtasks || []);
       setTagsInput(task.tags?.join(', ') || '');
-      // Initialize committed date from task data or reasonable default
+
+      if (task.assignedTo) {
+        const raw = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo];
+        setSelectedNewAssignees(raw.map((a: any) => String(a._id || a)));
+      } else {
+        setSelectedNewAssignees([]);
+      }
+
       if (task.dueDate) {
         const dueDate = new Date(task.dueDate);
         dueDate.setDate(dueDate.getDate() + 1);
         setCommittedDate(dueDate.toISOString().split('T')[0]);
       }
+      if (searchParams.get('reassign') === 'true' && canReassign) {
+        setReassignModalOpen(true);
+      }
     }
-  }, [task]);
+  }, [task, searchParams, canReassign]);
 
   // Close action dropdown on outside click
   useEffect(() => {
@@ -198,11 +226,20 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     );
   }
 
-  if (!task) {
+  if (!task || taskQuery.isError) {
     return (
-      <div className="text-center text-red-500 py-12 font-bold flex flex-col items-center gap-2">
-        <AlertCircle className="size-8" />
-        Task not found
+      <div className="text-center py-16 font-bold flex flex-col items-center justify-center gap-3 bg-white border border-slate-100 rounded-3xl p-8 shadow-sm my-8">
+        <AlertCircle className="size-10 text-slate-400" />
+        <span className="text-slate-800 text-base font-extrabold">Task Not Accessible</span>
+        <p className="text-slate-400 text-xs font-medium max-w-sm">
+          This task may have been reassigned to another team member or is no longer accessible to your account.
+        </p>
+        <button
+          onClick={() => navigate(paths.app.tasks.getHref())}
+          className="mt-2 rounded-full bg-[#1E3A8A] text-white text-xs font-bold px-6 py-2 hover:bg-[#152a63] transition-colors cursor-pointer"
+        >
+          Back to Tasks List
+        </button>
       </div>
     );
   }
@@ -313,7 +350,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       .split(',')
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
-    
+
     updateTaskMutation.mutate({
       taskId,
       data: { tags: parsedTags },
@@ -324,14 +361,14 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
+
     setIsUploadingFile(true);
     try {
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
         formData.append('file', files[i]);
       }
-      
+
       const res = await api.post('/file/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -385,25 +422,46 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   };
 
-  const handleReassignUser = (userId: string) => {
-    updateTaskMutation.mutate({
-      taskId,
-      data: { assignedTo: userId || undefined },
-    });
+  const handleReassignUser = (userIds: string[]) => {
+    const isEmployee = currentUser?.role === 4;
+
+    updateTaskMutation.mutate(
+      {
+        taskId,
+        data: { assignedTo: userIds },
+      },
+      {
+        onSuccess: () => {
+          if (isEmployee) {
+            navigate(paths.app.tasks.getHref());
+          } else {
+            taskQuery.refetch();
+          }
+        },
+      },
+    );
     setShowReassignMenu(false);
+    setReassignModalOpen(false);
   };
 
   const handleUpdateTeam = (teamId: string) => {
+    // Toggle: if team already in list remove it, else add it
+    const currentIds: string[] = ((task.teamIds || []) as any[]).map((t: any) =>
+      typeof t === 'object' ? (t._id || t.id)?.toString() : t?.toString()
+    ).filter(Boolean);
+    const newIds = currentIds.includes(teamId)
+      ? currentIds.filter((id) => id !== teamId)
+      : teamId ? [...currentIds, teamId] : currentIds;
     updateTaskMutation.mutate({
       taskId,
-      data: { teamId: teamId || undefined },
+      data: { teamIds: newIds.length > 0 ? newIds : [] } as any,
     });
     setShowTeamMenu(false);
   };
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Top Breadcrumb row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1 text-xs font-bold text-slate-400">
@@ -428,19 +486,19 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
       {/* Main Content: 2 Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-        
+
         {/* Left Column (approx 58% width) */}
         <div className="lg:col-span-7 space-y-6">
-          
+
           {/* Title and Header Card */}
           <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm relative space-y-4 animate-card-enter">
-            
+
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-3">
                 <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
                   {task.title}
                 </h1>
-                
+
                 {/* Badges row */}
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Status Selector Dropdown */}
@@ -497,18 +555,20 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       <Edit2 className="size-4" />
                       Edit Description
                     </button>
+                    {canReassign && (
+                      <button
+                        onClick={() => {
+                          setShowActionDropdown(false);
+                          setReassignModalOpen(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                      >
+                        <UserCheck className="size-4" />
+                        Reassign Task
+                      </button>
+                    )}
                     {currentUser?.role !== 4 && (
                       <>
-                        <button
-                          onClick={() => {
-                            setShowActionDropdown(false);
-                            setShowReassignMenu(true);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
-                        >
-                          <UserCheck className="size-4" />
-                          Reassign Task
-                        </button>
                         <div className="border-t border-slate-100 my-1" />
                         <button
                           onClick={() => {
@@ -530,7 +590,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             {/* Description Text block */}
             <div className="border-t border-slate-100 pt-4 space-y-2 text-left">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Description</span>
-              
+
               {isEditingDescription ? (
                 <div className="space-y-3 mt-1.5">
                   <textarea
@@ -674,9 +734,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   const isSystem = act.type === 'system';
                   return (
                     <div key={act._id || idx} className="flex gap-3 items-start text-xs text-left animate-fade-up">
-                      <div className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${
-                        isSystem ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-[#0EA5E9]'
-                      }`}>
+                      <div className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${isSystem ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-[#0EA5E9]'
+                        }`}>
                         {act.userInitials || 'SO'}
                       </div>
 
@@ -740,7 +799,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
         {/* Right Column (approx 42% width) - Details card & Sub-tasks */}
         <div className="lg:col-span-5 space-y-6">
-          
+
           {/* Details Card */}
           <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-4 text-left animate-card-enter">
             <div className="border-b border-slate-100 pb-3">
@@ -748,7 +807,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             </div>
 
             <div className="space-y-3.5 text-xs">
-              
+
+              {/* Client Info */}
+              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-400 font-bold">Client</span>
+                <span className="font-semibold text-slate-800 bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-[11px] border border-indigo-100">
+                  {task.clientInfo?.name || 'N/A'}{task.clientInfo?.companyName ? ` (${task.clientInfo.companyName})` : ''}
+                </span>
+              </div>
+
               {/* Assigned By */}
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-bold">Assigned By</span>
@@ -770,36 +837,46 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               {/* Assigned To */}
               <div className="flex items-center justify-between py-1 border-b border-slate-50 relative">
                 <span className="text-slate-400 font-bold">Assigned To</span>
-                
+
                 {showReassignMenu ? (
                   <select
-                    onChange={(e) => handleReassignUser(e.target.value)}
+                    onChange={(e) => handleReassignUser(e.target.value ? [e.target.value] : [])}
                     onBlur={() => setShowReassignMenu(false)}
                     defaultValue={task.assignedTo || ''}
                     className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
                     autoFocus
                   >
                     <option value="">Unassigned</option>
-                    {users.map((u: any) => (
-                      <option key={u.id} value={u.id}>
-                        {u.firstName} {u.lastName}
+                    {availableAssignees.map((u: any) => (
+                      <option key={u.id || u._id} value={u.id || u._id}>
+                        {u.firstName} {u.lastName} ({u.department ? u.department : (u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'User')})
                       </option>
                     ))}
                   </select>
                 ) : (
                   <div
-                    onClick={() => setShowReassignMenu(true)}
-                    className="flex items-center gap-2 hover:bg-slate-50 px-2 py-1 rounded-lg border border-transparent hover:border-slate-100 transition-colors cursor-pointer"
+                    onClick={() => {
+                      if (canReassign) {
+                        setReassignModalOpen(true);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-2 py-1 rounded-lg border border-transparent transition-colors ${canReassign ? 'hover:bg-slate-50 hover:border-slate-100 cursor-pointer' : ''
+                      }`}
                   >
                     {task.assigneeInfo ? (
-                      <>
-                        <div className="size-6.5 rounded-full bg-sky-50 text-[#0EA5E9] font-bold flex items-center justify-center text-[10px]">
-                          {task.assigneeInfo.firstName?.[0]}
-                        </div>
-                        <span className="font-semibold text-slate-700">
-                          {task.assigneeInfo.firstName} {task.assigneeInfo.lastName}
-                        </span>
-                      </>
+                      (() => {
+                        const assignees = Array.isArray(task.assigneeInfo) ? task.assigneeInfo : [task.assigneeInfo];
+                        if (assignees.length === 0) return <span className="text-slate-400 font-medium italic">Unassigned</span>;
+                        return (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {assignees.map((u: any, idx: number) => (
+                              <span key={idx} className="inline-flex items-center gap-1 bg-sky-50 text-[#0EA5E9] px-2.5 py-0.5 rounded-full text-xs font-bold border border-sky-100">
+                                {u.firstName} {u.lastName}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <span className="text-slate-400 font-medium italic">Unassigned</span>
                     )}
@@ -810,22 +887,25 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               {/* Team */}
               <div className="flex items-center justify-between py-1 border-b border-slate-50 relative">
                 <span className="text-slate-400 font-bold">Team</span>
-                
+
                 {showTeamMenu && (currentUser?.role === 0 || currentUser?.role === 1) ? (
-                  <select
-                    onChange={(e) => handleUpdateTeam(e.target.value)}
-                    onBlur={() => setShowTeamMenu(false)}
-                    defaultValue={task.teamId || ''}
-                    className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
-                    autoFocus
-                  >
-                    <option value="">No Team (Independent)</option>
-                    {teamsRes.map((t: any) => (
-                      <option key={t._id || t.id} value={t._id || t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex flex-col gap-1 items-end">
+                    <select
+                      onChange={(e) => handleUpdateTeam(e.target.value)}
+                      onBlur={() => setShowTeamMenu(false)}
+                      className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
+                      autoFocus
+                      defaultValue=""
+                    >
+                      <option value="">-- Add/Remove Team --</option>
+                      {teamsRes.map((t: any) => (
+                        <option key={t._id || t.id} value={t._id || t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[9px] text-slate-400 italic">Select to toggle team</span>
+                  </div>
                 ) : (
                   <div
                     onClick={() => {
@@ -833,15 +913,20 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                         setShowTeamMenu(true);
                       }
                     }}
-                    className={`flex items-center gap-2 px-2 py-1 rounded-lg border border-transparent transition-colors ${
-                      (currentUser?.role === 0 || currentUser?.role === 1)
+                    className={`flex flex-wrap items-center gap-1 px-2 py-1 rounded-lg border border-transparent transition-colors ${(currentUser?.role === 0 || currentUser?.role === 1)
                         ? 'hover:bg-slate-50 hover:border-slate-100 cursor-pointer'
                         : ''
-                    }`}
+                      }`}
                   >
-                    <span className="font-bold text-[#1E3A8A] bg-[#1E3A8A]/5 px-2 py-0.5 rounded-md">
-                      {task.teamInfo?.name || 'No Team'}
-                    </span>
+                    {((task.teamsInfo || []) as any[]).length > 0 ? (
+                      (task.teamsInfo as any[]).map((ti: any) => (
+                        <span key={ti._id || ti.id} className="font-bold text-[#1E3A8A] bg-[#1E3A8A]/5 px-2 py-0.5 rounded-md text-xs">
+                          {ti.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="font-bold text-slate-400 text-xs">No Team</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -853,9 +938,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   type="date"
                   defaultValue={task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''}
                   onChange={handleDeadlineChange}
-                  className={`bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold ${
-                    overdue ? 'text-rose-600 border-rose-300 font-extrabold' : 'text-slate-700'
-                  }`}
+                  className={`bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold ${overdue ? 'text-rose-600 border-rose-300 font-extrabold' : 'text-slate-700'
+                    }`}
                 />
               </div>
 
@@ -984,9 +1068,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       className="mt-0.5 rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 cursor-pointer"
                     />
                     <span
-                      className={`font-semibold text-slate-700 transition-colors select-none flex-1 cursor-pointer ${
-                        sub.isCompleted ? 'line-through text-slate-400' : ''
-                      }`}
+                      className={`font-semibold text-slate-700 transition-colors select-none flex-1 cursor-pointer ${sub.isCompleted ? 'line-through text-slate-400' : ''
+                        }`}
                       onClick={() => handleToggleSubtask(subId, index)}
                     >
                       {sub.title}
@@ -1198,6 +1281,127 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer border-0 disabled:opacity-50"
               >
                 {deleteTaskMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Task Modal */}
+      {reassignModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-5 border border-slate-100 animate-in zoom-in-95 duration-200 text-left">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="size-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <UserCheck className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-800">Reassign Task</h3>
+                  <p className="text-xs text-slate-400 font-medium">Select an employee or manager to reassign this task to</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReassignModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-700 block">
+                Assignees (Select Multiple Users)
+              </label>
+
+              {/* Selected Assignees Badges */}
+              <div className="flex flex-wrap gap-1.5 min-h-[36px] items-center border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
+                {selectedNewAssignees.length === 0 ? (
+                  <span className="text-slate-400 text-xs italic">No assignees selected (Unassigned)</span>
+                ) : (
+                  selectedNewAssignees.map((id) => {
+                    const u = users.find((user: any) => (user.id || user._id) === id);
+                    if (!u) return null;
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 bg-[#1E3A8A] text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-xs"
+                      >
+                        {u.firstName} {u.lastName}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedNewAssignees(selectedNewAssignees.filter((aId) => aId !== id))}
+                          className="hover:text-rose-300 ml-1 cursor-pointer"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Checkbox List */}
+              <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1 bg-white">
+                {availableAssignees.length === 0 ? (
+                  <span className="text-slate-400 text-xs italic block p-1">No assignees available</span>
+                ) : (
+                  availableAssignees.map((u: any) => {
+                    const uId = u.id || u._id;
+                    const isSelected = selectedNewAssignees.includes(uId);
+                    const roleBadge = u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'Employee';
+                    return (
+                      <label
+                        key={uId}
+                        className={`flex items-center justify-between p-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                          isSelected ? 'bg-indigo-50/80 border border-indigo-200 text-[#1E3A8A]' : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedNewAssignees([...selectedNewAssignees, uId]);
+                              } else {
+                                setSelectedNewAssignees(selectedNewAssignees.filter((id) => id !== uId));
+                              }
+                            }}
+                            className="rounded text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span>{u.firstName} {u.lastName} <span className="text-slate-400 font-normal">({u.email})</span></span>
+                        </div>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
+                          u.role === 1 ? 'bg-purple-100 text-purple-700' : u.role === 2 ? 'bg-blue-100 text-blue-700' : u.role === 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {roleBadge}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setReassignModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 cursor-pointer bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleReassignUser(selectedNewAssignees);
+                  setReassignModalOpen(false);
+                }}
+                disabled={updateTaskMutation.isPending}
+                className="px-5 py-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer border-0 disabled:opacity-50"
+              >
+                {updateTaskMutation.isPending ? 'Reassigning...' : 'Confirm Reassign'}
               </button>
             </div>
           </div>

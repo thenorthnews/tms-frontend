@@ -9,17 +9,17 @@ export const mapUser = (backendUser: Record<string, any>): User => {
   if (!backendUser) return null as any;
   const userInfo = backendUser.userInfo || {};
   return {
-    id: backendUser._id,
+    id: backendUser._id || backendUser.id,
     createdAt: backendUser.createdAt ? new Date(backendUser.createdAt).getTime() : Date.now(),
-    email: backendUser.email?.id || backendUser.email || '',
-    firstName: userInfo.firstName || backendUser.firstName || '',
-    lastName: userInfo.lastName || backendUser.lastName || '',
+    email: typeof backendUser.email === 'string' ? backendUser.email : (backendUser.email?.id || ''),
+    firstName: backendUser.firstName || userInfo.firstName || '',
+    lastName: backendUser.lastName || userInfo.lastName || '',
     role: backendUser.role ?? 'USER',
     teamId: backendUser.teamId || '',
     bio: backendUser.bio || '',
-    phoneNumber: backendUser.phoneNumber || userInfo.phoneNumber || '',
+    phoneNumber: typeof backendUser.phoneNumber === 'string' ? backendUser.phoneNumber : (backendUser.phoneNumber?.number || userInfo.phoneNumber || ''),
     department: backendUser.department || userInfo.department || 'Engineering',
-    image: userInfo.image || '',
+    image: backendUser.image || userInfo.image || '',
     status: backendUser.status ?? 0,
   };
 };

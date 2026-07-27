@@ -10,7 +10,7 @@ export const updateTaskInputSchema = z.object({
   status: z.coerce.number().min(0).max(3).optional(),
   priority: z.coerce.number().min(0).max(2).optional(),
   dueDate: z.string().optional(),
-  assignedTo: z.string().optional(),
+  assignedTo: z.union([z.string(), z.array(z.string())]).optional(),
   subtasks: z
     .array(
       z.object({
@@ -63,7 +63,7 @@ export const useUpdateTask = ({
       queryClient.invalidateQueries({
         queryKey: ['tasks'],
       });
-      queryClient.invalidateQueries({
+      queryClient.removeQueries({
         queryKey: ['tasks', data.id || data._id],
       });
       onSuccess?.(data, ...args);

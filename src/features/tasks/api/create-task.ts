@@ -22,8 +22,9 @@ export const createTaskInputSchema = z.object({
       },
       { message: 'Due date cannot be in the past' },
     ),
-  assignedTo: z.string().optional(),
-  teamId: z.string().optional(),
+  assignedTo: z.union([z.string(), z.array(z.string())]).optional(),
+  teamIds: z.array(z.string()).optional(),
+  clientId: z.string().optional(),
   subtasks: z
     .array(
       z.object({

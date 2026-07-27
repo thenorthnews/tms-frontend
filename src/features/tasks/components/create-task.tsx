@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, X } from 'lucide-react';
 import { api, mapUser } from '@/lib/api-client';
 import { useUser } from '@/lib/auth';
 import { UserRole } from '@/lib/authorization';
@@ -13,6 +13,8 @@ import { paths } from '@/config/paths';
 import { createTaskInputSchema, useCreateTask } from '../api/create-task';
 import { TaskStatus, TaskPriority, Subtask } from '../types';
 import { User, Team } from '@/types/api';
+
+import { useClients } from '@/features/clients/api/get-clients';
 
 export const CreateTask = () => {
   const navigate = useNavigate();
@@ -31,6 +33,8 @@ export const CreateTask = () => {
   >([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [autoTeamIds, setAutoTeamIds] = useState<string[]>([]);
 
   // Fetch active users for the assignee dropdown
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
@@ -50,6 +54,13 @@ export const CreateTask = () => {
       const res = (await api.get('/admin/teams')) as any;
       return (res.data || res || []) as any[];
     },
+  });
+
+  const isCEO = currentUser?.role === UserRole.CEO || currentUser?.role === 0 || currentUser?.role === 'CEO';
+
+  // Fetch clients for the client dropdown only if user is CEO
+  const { data: clientsRes = [], isLoading: isLoadingClients } = useClients({
+    queryConfig: { enabled: isCEO },
   });
 
   const createTaskMutation = useCreateTask({
@@ -72,8 +83,16 @@ export const CreateTask = () => {
     })),
   ];
 
+  const clientOptions = [
+    { label: 'Select Client *', value: '' },
+    ...clientsRes.map((c: any) => ({
+      label: `${c.name}${c.companyName ? ` (${c.companyName})` : ''}`,
+      value: (c._id || c.id) as string,
+    })),
+  ];
+
   // Loading skeleton for dropdown areas
-  const isLoadingDropdowns = isLoadingUsers || isLoadingTeams;
+  const isLoadingDropdowns = isLoadingUsers || isLoadingTeams || isLoadingClients;
 
   return (
     <div className="space-y-6 pb-10">
@@ -117,13 +136,15 @@ export const CreateTask = () => {
 
           const data = {
             ...values,
-            assignedTo: values.assignedTo || undefined,
-            teamId: values.teamId || undefined,
+            assignedTo: selectedAssignees.length > 0 ? selectedAssignees : undefined,
+            teamIds: autoTeamIds.length > 0 ? autoTeamIds : undefined,
+            clientId: values.clientId,
             status: Number(values.status),
             priority: Number(values.priority),
             subtasks,
             tags: parsedTags,
           };
+          delete (data as any).teamId;
           createTaskMutation.mutate({ data });
         }}
         schema={createTaskInputSchema}
@@ -136,6 +157,7 @@ export const CreateTask = () => {
             dueDate: '',
             assignedTo: '',
             teamId: '',
+            clientId: '',
           } as any,
         }}
       >
@@ -189,8 +211,8 @@ export const CreateTask = () => {
           const filteredUsers =
             selectedTeamId || currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL
               ? users.filter((u: any) =>
-                  teamMemberIds.has(String(u.id || u._id)),
-                )
+                teamMemberIds.has(String(u.id || u._id)),
+              )
               : users;
 
           const userOptions = [
@@ -391,25 +413,159 @@ export const CreateTask = () => {
                         registration={register('dueDate')}
                       />
 
-                      <Select
-                        label="Team"
-                        error={formState.errors.teamId as any}
-                        registration={{
-                          ...teamRegister,
-                          onChange: async (e) => {
-                            await teamRegister.onChange(e);
-                            setValue('assignedTo', '');
-                          },
-                        }}
-                        options={teamOptions}
-                      />
+                      {isCEO && (
+                        <Select
+                          label="Client *"
+                          error={formState.errors.clientId as any}
+                          registration={register('clientId')}
+                          options={clientOptions}
+                        />
+                      )}
 
-                      <Select
-                        label="Assign To"
-                        error={formState.errors.assignedTo as any}
-                        registration={register('assignedTo')}
-                        options={userOptions}
-                      />
+                      {/* Multi-Assignee Selection */}
+                      <div className="space-y-2 text-left">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Assign To (Select Multiple Users)
+                        </label>
+                        <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-3">
+                          {/* Selected Assignees Badges */}
+                          <div className="flex flex-wrap gap-1.5 min-h-[32px] items-center">
+                            {selectedAssignees.length === 0 ? (
+                              <span className="text-slate-400 text-xs italic">No users selected (Unassigned)</span>
+                            ) : (
+                              selectedAssignees.map((id) => {
+                                const u = users.find((user: any) => (user.id || user._id) === id);
+                                if (!u) return null;
+
+                                const computeTeamIds = (list: string[]): string[] => {
+                                  const found: string[] = [];
+                                  for (const uid of list) {
+                                    for (const t of teamsRes) {
+                                      const tid = (t._id || t.id) as string;
+                                      const members: string[] = (t.members || []).map((m: any) =>
+                                        (typeof m === 'object' ? m._id || m.id : m)?.toString()
+                                      );
+                                      const mgrId = (typeof t.managerId === 'object'
+                                        ? t.managerId?._id || t.managerId?.id
+                                        : t.managerId)?.toString();
+                                      if (members.includes(uid) || mgrId === uid) {
+                                        if (!found.includes(tid)) found.push(tid);
+                                      }
+                                    }
+                                  }
+                                  return found;
+                                };
+
+                                const handleRemove = () => {
+                                  const newList = selectedAssignees.filter((aId) => aId !== id);
+                                  setSelectedAssignees(newList);
+                                  setAutoTeamIds(computeTeamIds(newList));
+                                };
+
+                                return (
+                                  <span
+                                    key={id}
+                                    className="inline-flex items-center gap-1 bg-[#1E3A8A] text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-xs"
+                                  >
+                                    {u.firstName} {u.lastName}
+                                    <button
+                                      type="button"
+                                      onClick={handleRemove}
+                                      className="hover:text-rose-300 ml-1 cursor-pointer"
+                                    >
+                                      <X className="size-3.5" />
+                                    </button>
+                                  </span>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Checkbox List */}
+                          <div className="max-h-48 overflow-y-auto border-t border-slate-200 pt-2 space-y-1">
+                            {filteredUsers.length === 0 ? (
+                              <span className="text-slate-400 text-xs italic block p-1">No assignees available</span>
+                            ) : (
+                              filteredUsers.map((u: any) => {
+                                const uId = u.id || u._id;
+                                const isSelected = selectedAssignees.includes(uId);
+                                const roleBadge = u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'Employee';
+
+                                const computeTeamIds = (list: string[]): string[] => {
+                                  const found: string[] = [];
+                                  for (const uid of list) {
+                                    for (const t of teamsRes) {
+                                      const tid = (t._id || t.id) as string;
+                                      const members: string[] = (t.members || []).map((m: any) =>
+                                        (typeof m === 'object' ? m._id || m.id : m)?.toString()
+                                      );
+                                      const mgrId = (typeof t.managerId === 'object'
+                                        ? t.managerId?._id || t.managerId?.id
+                                        : t.managerId)?.toString();
+                                      if (members.includes(uid) || mgrId === uid) {
+                                        if (!found.includes(tid)) found.push(tid);
+                                      }
+                                    }
+                                  }
+                                  return found;
+                                };
+
+                                const handleAssigneeChange = (checked: boolean) => {
+                                  const newList = checked
+                                    ? [...selectedAssignees, uId]
+                                    : selectedAssignees.filter((id) => id !== uId);
+                                  setSelectedAssignees(newList);
+                                  setAutoTeamIds(computeTeamIds(newList));
+                                };
+
+                                return (
+                                  <label
+                                    key={uId}
+                                    className={`flex items-center justify-between p-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                                      isSelected ? 'bg-indigo-50/80 border border-indigo-200 text-[#1E3A8A]' : 'hover:bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={(e) => handleAssigneeChange(e.target.checked)}
+                                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                                      />
+                                      <span>{u.firstName} {u.lastName} <span className="text-slate-400 font-normal">({u.email})</span></span>
+                                    </div>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
+                                      u.role === 1 ? 'bg-purple-100 text-purple-700' : u.role === 2 ? 'bg-blue-100 text-blue-700' : u.role === 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                      {roleBadge}
+                                    </span>
+                                  </label>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Auto-detected Teams (read-only) */}
+                      {autoTeamIds.length > 0 && (
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700">
+                            Team (Auto-detected)
+                          </label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {autoTeamIds.map((tid) => {
+                              const team = teamsRes.find((t: any) => (t._id || t.id) === tid);
+                              if (!team) return null;
+                              return (
+                                <span key={tid} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                  {team.name}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

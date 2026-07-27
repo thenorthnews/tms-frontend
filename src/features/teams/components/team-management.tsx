@@ -58,7 +58,13 @@ const createMemberSchema = z.object({
     .trim()
     .min(1, 'Password is required')
     .min(6, 'Password must be at least 6 characters long'),
-  phoneNumber: z.string().optional().refine(val => !val || /^\d{10}$/.test(val), 'Phone number must be exactly 10 digits'),
+  phoneNumber: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || !val.trim() || /^\d{10}$/.test(val.trim()),
+      'Phone number must be empty or exactly 10 digits (e.g. 9876543210)',
+    ),
   role: z.enum(['manager', 'tl', 'employee']),
   department: z.string().optional(),
   gender: z.coerce.number().min(0, 'Please select a gender').max(2, 'Please select a gender'),
@@ -163,12 +169,25 @@ export const TeamManagement = () => {
         setMemberErrors({});
       },
       onError: (err: any) => {
-        const backendMsg = err.response?.data?.message || err.message || '';
-        if (backendMsg.toLowerCase().includes('email') || err.response?.status === 409) {
+        const rawMsg = err.response?.data?.message || err.message || '';
+        const backendMsg = Array.isArray(rawMsg) ? rawMsg.join(', ') : rawMsg;
+        const msgLower = backendMsg.toLowerCase();
+
+        if (msgLower.includes('phone')) {
+          setMemberErrors((prev) => ({
+            ...prev,
+            phoneNumber: 'Phone number already exists',
+          }));
+        } else if (msgLower.includes('email')) {
           setMemberErrors((prev) => ({
             ...prev,
             email: 'Email already exists',
           }));
+        } else {
+          addNotification({
+            type: 'error',
+            title: backendMsg || 'Failed to create user',
+          });
         }
       },
     },
@@ -393,7 +412,9 @@ export const TeamManagement = () => {
       data: {
         ...newMember,
         countryCode: '+1',
-        phoneNumber: newMember.phoneNumber || '0000000000',
+        phoneNumber: newMember.phoneNumber && newMember.phoneNumber.trim()
+          ? newMember.phoneNumber.trim()
+          : undefined,
         gender: Number(newMember.gender),
         image: '',
         role: (newMember.role as string) === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
@@ -1122,7 +1143,7 @@ export const TeamManagement = () => {
               {/* Phone Number */}
               <div className="space-y-1">
                 <label className="block text-[10px] font-bold text-slate-400 uppercase">Phone Number (Optional)</label>
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2">
+                <div className={`flex items-center gap-2 bg-slate-50 border ${memberErrors.phoneNumber ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'} rounded-xl px-3.5 py-2`}>
                   <Phone className="size-3.5 text-slate-400" />
                   <input
                     type="text"
@@ -1132,6 +1153,9 @@ export const TeamManagement = () => {
                     className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium"
                   />
                 </div>
+                {memberErrors.phoneNumber && (
+                  <p className="text-[11px] font-semibold text-rose-500 mt-1">{memberErrors.phoneNumber}</p>
+                )}
               </div>
 
               {/* Role Selector */}

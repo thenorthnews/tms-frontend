@@ -54,27 +54,42 @@ export type Task = {
   status: TaskStatus;
   priority: TaskPriority;
   dueDate?: string;
-  assignedTo?: string;
+  assignedTo?: string | string[];
   createdBy: string;
   createdAt: number;
   updatedAt: number;
   subtasks?: Subtask[];
   tags?: string[];
   attachments?: Attachment[];
-  teamId?: string;
   activities?: Activity[];
   timeLogs?: TimeLog[];
   assigneeInfo?: {
     firstName: string;
     lastName: string;
     image?: string;
-  };
+  } | {
+    firstName: string;
+    lastName: string;
+    image?: string;
+  }[];
   creatorInfo?: {
     firstName: string;
     lastName: string;
   };
+  teamId?: string; // keep for backward compat
+  teamIds?: string[];
   teamInfo?: {
     _id: string;
     name: string;
+  };
+  teamsInfo?: {
+    _id: string;
+    name: string;
+  }[];
+  clientId?: string;
+  clientInfo?: {
+    _id: string;
+    name: string;
+    companyName?: string;
   };
 };

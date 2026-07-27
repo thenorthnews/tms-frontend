@@ -9,7 +9,13 @@ import {
   Columns,
   ChevronLeft,
   ChevronRight,
-  Clock
+  Clock,
+  UserCheck,
+  Briefcase,
+  X,
+  ArrowRight,
+  RotateCcw,
+  Building,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -26,6 +32,8 @@ import { Table, TableColumn } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { paths } from '@/config/paths';
 import { formatDate } from '@/utils/format';
+import { useClients } from '@/features/clients/api/get-clients';
+import { useUsers } from '@/features/users/api/get-users';
 import { useUser } from '@/lib/auth';
 import { useTasks } from '../api/get-tasks';
 import { useUpdateTask } from '../api/update-task';
@@ -57,24 +65,39 @@ export const TasksList = () => {
   const { addNotification } = useNotifications();
   const currentUserQuery = useUser();
   const currentUser = currentUserQuery.data;
-  const isEmployee = currentUser?.role === 4;
+  const isEmployee = currentUser?.role === 4 || currentUser?.role === 'Employee';
+  const isCEO = currentUser?.role === 0 || currentUser?.role === 'CEO';
 
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const page = +(searchParams.get('page') || 1);
   const search = searchParams.get('search') || '';
   const statusFilter = searchParams.get('status');
   const priorityFilter = searchParams.get('priority');
   const dateFilterParam = searchParams.get('dateFilter');
+  const clientFilterParam = searchParams.get('clientId');
+  const assigneeFilterParam = searchParams.get('assignedTo');
   const currentView = searchParams.get('view') || 'list';
 
   const [searchVal, setSearchVal] = useState(search);
   const [statusVal, setStatusVal] = useState(statusFilter || '');
   const [priorityVal, setPriorityVal] = useState(priorityFilter || '');
+  const [clientVal, setClientVal] = useState(clientFilterParam || '');
+  const [assigneeVal, setAssigneeVal] = useState(assigneeFilterParam || '');
   const [dateVal, setDateVal] = useState(dateFilterParam || (currentView === 'kanban' ? 'today' : ''));
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
+
+  const { data: clients = [] } = useClients({
+    queryConfig: { enabled: isCEO },
+  });
+
+  const { data: usersData } = useUsers({
+    limit: 1000,
+    queryConfig: { enabled: !isEmployee },
+  });
+  const usersList = usersData?.data || [];
 
   const updateTaskMutation = useUpdateTask({
     mutationConfig: {
@@ -147,6 +170,34 @@ export const TasksList = () => {
     });
   };
 
+  const handleClientFilterChange = (val: string) => {
+    setClientVal(val);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (val) {
+        next.set('clientId', val);
+      } else {
+        next.delete('clientId');
+      }
+      next.set('page', '1');
+      return next;
+    });
+  };
+
+  const handleAssigneeFilterChange = (val: string) => {
+    setAssigneeVal(val);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (val) {
+        next.set('assignedTo', val);
+      } else {
+        next.delete('assignedTo');
+      }
+      next.set('page', '1');
+      return next;
+    });
+  };
+
   const handleDateFilterChange = (val: string) => {
     setDateVal(val);
     setSearchParams((prev) => {
@@ -174,6 +225,8 @@ export const TasksList = () => {
     const params: Record<string, any> = { search };
     if (statusVal) params.status = Number(statusVal);
     if (priorityVal) params.priority = Number(priorityVal);
+    if (clientVal && clientVal !== 'all') params.clientId = clientVal;
+    if (assigneeVal && assigneeVal !== 'all') params.assignedTo = assigneeVal;
 
     if (currentView === 'kanban') {
       params.limit = 100;
@@ -194,9 +247,17 @@ export const TasksList = () => {
       }
     }
     return params;
-  }, [page, search, statusVal, priorityVal, currentView, dateVal, currentMonth, currentYear]);
+  }, [page, search, statusVal, priorityVal, clientVal, assigneeVal, currentView, dateVal, currentMonth, currentYear]);
 
-  const tasksQuery = useTasks({ params: queryParams });
+  const selectedClient = useMemo(() => {
+    if (!clientVal || clientVal === 'all') return null;
+    return clients.find((c: any) => (c._id || c.id) === clientVal);
+  }, [clients, clientVal]);
+
+  const tasksQuery = useTasks({
+    params: queryParams,
+    queryConfig: { enabled: !isCEO || Boolean(clientVal) || Boolean(assigneeVal) },
+  });
 
   if (tasksQuery.isLoading) {
     return (
@@ -256,25 +317,40 @@ export const TasksList = () => {
         if (!assigneeInfo) {
           return <span className="text-slate-400 text-sm font-medium">Unassigned</span>;
         }
+        const assignees = Array.isArray(assigneeInfo) ? assigneeInfo : [assigneeInfo];
+        if (assignees.length === 0) {
+          return <span className="text-slate-400 text-sm font-medium">Unassigned</span>;
+        }
         return (
-          <div className="flex items-center gap-2">
-            {assigneeInfo.image ? (
-              <img
-                className="h-7 w-7 rounded-full object-cover border border-slate-200"
-                src={assigneeInfo.image}
-                alt="Assignee"
-              />
-            ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 border border-slate-200">
-                <span className="text-slate-400 text-[10px] font-semibold">
-                  {assigneeInfo.firstName?.[0] || 'U'}
-                </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {assignees.map((u: any, idx: number) => (
+              <div key={idx} className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full" title={`${u.firstName || ''} ${u.lastName || ''}`}>
+                {u.image ? (
+                  <img className="h-5 w-5 rounded-full object-cover" src={u.image} alt="" />
+                ) : (
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600">
+                    {u.firstName?.[0] || 'U'}
+                  </div>
+                )}
+                <span className="font-semibold text-slate-700 text-xs">{u.firstName || 'User'}</span>
               </div>
-            )}
-            <span className="font-semibold text-slate-700 text-sm">
-              {`${assigneeInfo.firstName} ${assigneeInfo.lastName}`}
-            </span>
+            ))}
           </div>
+        );
+      },
+    },
+    {
+      title: 'Client',
+      field: 'clientId',
+      Cell({ entry: { clientInfo } }: { entry: Task }) {
+        if (!clientInfo) {
+          return <span className="text-slate-400 text-xs font-medium">N/A</span>;
+        }
+        return (
+          <span className="font-semibold text-slate-800 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-xs border border-indigo-150 inline-flex items-center gap-1">
+            <Briefcase className="size-3 text-indigo-500" />
+            {clientInfo.name}
+          </span>
         );
       },
     },
@@ -363,25 +439,27 @@ export const TasksList = () => {
             <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-gray-200">
               <MoreVertical className="size-5 text-gray-600" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem
-                className="cursor-pointer font-semibold"
+                className="cursor-pointer font-semibold text-slate-700"
                 onClick={() => navigate(paths.app.editTask.getHref(taskId))}
               >
-                <Edit2 className="mr-2 size-4" />
+                <Edit2 className="mr-2 size-4 text-slate-500" />
                 Edit Task
               </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50 font-semibold"
-                onClick={() => {
-                  if (confirm('Are you sure you want to delete this task?')) {
-                    deleteTaskMutation.mutate({ taskId });
-                  }
-                }}
-              >
-                <Trash2 className="mr-2 size-4" />
-                Delete Task
-              </DropdownMenuItem>
+              {!isEmployee && (
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50 font-semibold"
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this task?')) {
+                      deleteTaskMutation.mutate({ taskId });
+                    }
+                  }}
+                >
+                  <Trash2 className="mr-2 size-4" />
+                  Delete Task
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -434,9 +512,8 @@ export const TasksList = () => {
               onDragOver={(e) => handleDragOver(e, col.status)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, col.status)}
-              className={`flex flex-col min-h-[550px] rounded-2xl border border-slate-200/60 p-4 border-t-4 ${col.color} shadow-sm transition-all ${
-                isDragOver ? 'ring-2 ring-indigo-300/50 ring-offset-1 bg-indigo-50/10 scale-[1.01]' : ''
-              }`}
+              className={`flex flex-col min-h-[550px] rounded-2xl border border-slate-200/60 p-4 border-t-4 ${col.color} shadow-sm transition-all ${isDragOver ? 'ring-2 ring-indigo-300/50 ring-offset-1 bg-indigo-50/10 scale-[1.01]' : ''
+                }`}
             >
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-slate-800 text-sm">{col.title}</span>
@@ -446,9 +523,8 @@ export const TasksList = () => {
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-1 custom-scrollbar">
                 {colTasks.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl text-[10px] font-bold transition-colors ${
-                    isDragOver ? 'border-indigo-300 text-indigo-400 bg-indigo-50/30' : 'border-slate-200/50 text-slate-400'
-                  }`}>
+                  <div className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl text-[10px] font-bold transition-colors ${isDragOver ? 'border-indigo-300 text-indigo-400 bg-indigo-50/30' : 'border-slate-200/50 text-slate-400'
+                    }`}>
                     {isDragOver ? 'Drop here' : 'Drag tasks here'}
                   </div>
                 ) : (
@@ -467,9 +543,16 @@ export const TasksList = () => {
                             {getPriorityLabel(t.priority)}
                           </span>
                           {t.assigneeInfo ? (
-                            <div className="size-6 rounded-full bg-indigo-50 text-indigo-700 font-extrabold flex items-center justify-center text-[9px] border border-slate-200" title={`${t.assigneeInfo.firstName} ${t.assigneeInfo.lastName}`}>
-                              {t.assigneeInfo.firstName?.[0]}{t.assigneeInfo.lastName?.[0]}
-                            </div>
+                            (() => {
+                              const assignees = Array.isArray(t.assigneeInfo) ? t.assigneeInfo : [t.assigneeInfo];
+                              const firstUser: any = assignees[0];
+                              if (!firstUser) return <div className="size-6 rounded-full bg-slate-50 text-slate-400 font-bold flex items-center justify-center text-[9px] border border-slate-100" title="Unassigned">--</div>;
+                              return (
+                                <div className="size-6 rounded-full bg-indigo-50 text-indigo-700 font-extrabold flex items-center justify-center text-[9px] border border-slate-200" title={assignees.map((u: any) => `${u.firstName || ''} ${u.lastName || ''}`).join(', ')}>
+                                  {firstUser.firstName?.[0]}{firstUser.lastName?.[0]}
+                                </div>
+                              );
+                            })()
                           ) : (
                             <div className="size-6 rounded-full bg-slate-50 text-slate-400 font-bold flex items-center justify-center text-[9px] border border-slate-100" title="Unassigned">
                               --
@@ -547,7 +630,7 @@ export const TasksList = () => {
   const renderCalendar = (tasksList: Task[]) => {
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-    
+
     const days = [];
     for (let i = 0; i < firstDay; i++) {
       days.push(null);
@@ -618,9 +701,8 @@ export const TasksList = () => {
                 className={`bg-white min-h-[110px] p-2 flex flex-col justify-between hover:bg-slate-50/30 transition-colors group relative border-t border-slate-100 text-left`}
               >
                 <div className="flex justify-between items-center mb-1">
-                  <span className={`text-xs font-extrabold flex items-center justify-center size-6 rounded-full ${
-                    isToday ? 'bg-[#1E3A8A] text-white' : 'text-slate-700'
-                  }`}>
+                  <span className={`text-xs font-extrabold flex items-center justify-center size-6 rounded-full ${isToday ? 'bg-[#1E3A8A] text-white' : 'text-slate-700'
+                    }`}>
                     {dateStr}
                   </span>
                   {dayTasks.length > 0 && (
@@ -660,8 +742,126 @@ export const TasksList = () => {
     totalItems: total,
   };
 
+  // Initial state: ONLY for CEO, if no client is selected yet, show the "Which client's tasks would you like to view?" selection screen!
+  if (isCEO && !clientVal) {
+    return (
+      <div className="space-y-8 max-w-5xl mx-auto py-4 animate-card-enter">
+        {/* Header Title */}
+        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-slate-100 shadow-sm text-center space-y-3">
+          <div className="size-16 rounded-3xl bg-gradient-to-tr from-[#1E3A8A] to-[#0EA5E9] text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
+            <Briefcase className="size-8" />
+          </div>
+          <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">
+            Which client's tasks would you like to view?
+          </h2>
+          <p className="text-sm text-slate-500 font-medium max-w-lg mx-auto">
+            Please select a client below to view their associated tasks, project status, and team assignments.
+          </p>
+        </div>
+
+        {/* Client Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Card 0: All Clients */}
+          <div
+            onClick={() => handleClientFilterChange('all')}
+            className="group relative bg-gradient-to-br from-[#1E3A8A] to-[#0EA5E9] text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden border border-blue-800/20 transform hover:-translate-y-1"
+          >
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] uppercase font-bold tracking-widest bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-md">
+                  All Projects
+                </span>
+                <Building className="size-6 text-white/80" />
+              </div>
+              <h3 className="text-xl font-extrabold text-white">All Clients Tasks</h3>
+              <p className="text-xs text-blue-100 leading-relaxed font-medium">
+                View consolidated tasks across all clients in one unified table view.
+              </p>
+            </div>
+            <div className="pt-6 flex items-center text-xs font-bold text-white group-hover:translate-x-1 transition-transform">
+              <span>View All Tasks</span>
+              <ArrowRight className="size-4 ml-2" />
+            </div>
+          </div>
+
+          {/* Client Specific Cards */}
+          {clients.map((c: any) => {
+            const cId = c._id || c.id;
+            return (
+              <div
+                key={cId}
+                onClick={() => handleClientFilterChange(cId)}
+                className="group relative bg-white hover:bg-slate-50/80 rounded-3xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 cursor-pointer flex flex-col justify-between transform hover:-translate-y-1"
+              >
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-extrabold tracking-wider bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">
+                      {c.status === 0 ? 'Active Client' : 'Inactive'}
+                    </span>
+                    <div className="size-10 rounded-2xl bg-indigo-50/80 text-indigo-600 flex items-center justify-center font-bold text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                      <Briefcase className="size-5" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                    {c.name}
+                  </h3>
+                  {c.companyName && (
+                    <p className="text-xs font-semibold text-slate-500">
+                      Company: <span className="text-slate-700">{c.companyName}</span>
+                    </p>
+                  )}
+                  {c.description && (
+                    <p className="text-xs text-slate-400 font-medium line-clamp-2 leading-relaxed">
+                      {c.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-6 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:text-indigo-700">
+                  <span>Open Client Tasks</span>
+                  <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Active Client Selection Bar */}
+      {isCEO && (
+        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 animate-card-enter">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/20 shrink-0">
+              <Briefcase className="size-5" />
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Viewing Tasks For
+              </span>
+              <h3 className="text-base font-extrabold text-slate-800">
+                {clientVal === 'all'
+                  ? 'All Clients'
+                  : selectedClient
+                    ? `${selectedClient.name}${selectedClient.companyName ? ` (${selectedClient.companyName})` : ''}`
+                    : 'Selected Client'}
+              </h3>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleClientFilterChange('')}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer border-0 shrink-0"
+          >
+            <RotateCcw className="size-4 text-slate-500" />
+            Switch Client
+          </button>
+        </div>
+      )}
+
       {/* Header section with search & creation */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-white/70 backdrop-blur-md border border-slate-100 p-4 rounded-3xl shadow-sm">
         <div className="flex flex-1 flex-wrap items-center gap-3">
@@ -674,6 +874,47 @@ export const TasksList = () => {
               className="block w-full rounded-full px-5 py-2 border border-slate-200 bg-white shadow-inner focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 text-sm transition-all"
             />
           </div>
+
+          {/* Client Select Dropdown */}
+          {isCEO && (
+            <select
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer max-w-[180px] truncate"
+              value={clientVal}
+              onChange={(e) => handleClientFilterChange(e.target.value)}
+            >
+              <option value="">All Clients</option>
+              {clients.map((c: any) => (
+                <option key={c._id || c.id} value={c._id || c.id}>
+                  {c.name} {c.companyName ? `(${c.companyName})` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Member / Employee Select Dropdown */}
+          {!isEmployee && (
+            <select
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer max-w-[200px] truncate"
+              value={assigneeVal}
+              onChange={(e) => handleAssigneeFilterChange(e.target.value)}
+            >
+              <option value="">All Members</option>
+              {usersList.map((u: any) => {
+                const uId = u._id || u.id;
+                const roleLabel =
+                  u.role === 1 || u.role === 'MANAGER' || u.role === 'Manager'
+                    ? 'Manager'
+                    : u.role === 2 || u.role === 'TL'
+                    ? 'TL'
+                    : 'Employee';
+                return (
+                  <option key={uId} value={uId}>
+                    {u.firstName} {u.lastName} ({roleLabel})
+                  </option>
+                );
+              })}
+            </select>
+          )}
 
           {/* Status Filter */}
           <select
@@ -720,48 +961,45 @@ export const TasksList = () => {
           </span>
         </div>
 
-          {!isEmployee && (
-            <Button
-              onClick={() => navigate(paths.app.createTask.getHref())}
-              icon={<Plus className="size-4" />}
-              className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0 h-10 px-6"
-            >
-              Create Task
-            </Button>
-          )}
+        {!isEmployee && (
+          <Button
+            onClick={() => navigate(paths.app.createTask.getHref())}
+            icon={<Plus className="size-4" />}
+            className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0 h-10 px-6"
+          >
+            Create Task
+          </Button>
+        )}
       </div>
 
       {/* View tabs */}
       <div className="flex bg-slate-100 p-1 rounded-2xl w-fit border border-slate-200/40">
         <button
           onClick={() => handleViewChange('list')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            currentView === 'list'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'list'
               ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
               : 'text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           <List className="size-3.5" />
           List
         </button>
         <button
           onClick={() => handleViewChange('kanban')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            currentView === 'kanban'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'kanban'
               ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
               : 'text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           <Columns className="size-3.5" />
           Kanban Board
         </button>
         <button
           onClick={() => handleViewChange('calendar')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            currentView === 'calendar'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'calendar'
               ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
               : 'text-slate-500 hover:text-slate-800'
-          }`}
+            }`}
         >
           <CalendarIcon className="size-3.5" />
           Calendar

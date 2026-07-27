@@ -1,4 +1,4 @@
-import { Home, PanelLeft, Users, Sparkles, Settings, User2, CheckSquare, FileText, LogOut } from 'lucide-react';
+import { Home, PanelLeft, Users, Sparkles, Settings, User2, CheckSquare, FileText, LogOut, Briefcase } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useNavigation, useLocation } from 'react-router';
 
@@ -90,6 +90,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const userRole = user.data?.role;
   const isEmployee = userRole === 4 || userRole === 'Employee';
   const isManagerOrAbove = userRole === 0 || userRole === 1 || userRole === 2 || userRole === 'CEO' || userRole === 'Manager' || userRole === 'Team Lead';
+  const isCEO = userRole === 0 || userRole === 'CEO';
 
   const actualRoleString = (() => {
     if (userRole === 0 || userRole === 'CEO') return 'CEO';
@@ -108,6 +109,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     },
     !isEmployee && { name: 'Teams', to: paths.app.teams.getHref(), icon: Users },
     isManagerOrAbove && { name: 'Reports', to: paths.app.reports.getHref(), icon: FileText },
+    isCEO && { name: 'Clients', to: paths.app.clients.getHref(), icon: Briefcase },
     { name: 'Profile/Settings', to: paths.app.profile.getHref(), icon: Settings },
   ].filter(Boolean) as SideNavigationItem[];
 
