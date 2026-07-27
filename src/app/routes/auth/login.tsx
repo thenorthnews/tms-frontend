@@ -69,17 +69,17 @@ const LoginRoute = () => {
   return (
     <>
       <Head title="Login - TaskFlow" />
-      
+
       <div className="flex min-h-screen bg-[#F8FAFC] font-sans antialiased">
-        
+
         {/* Left Half (60%): Branded graphic panel */}
         <div className="relative hidden w-full overflow-hidden bg-[#1E3A8A] lg:flex lg:w-3/5 flex-col justify-between p-12 xl:p-16">
-          
+
           {/* Graphic/Light FX Background */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A] via-[#1E3B8B] to-[#0F172A] z-0"></div>
           <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[#0EA5E9] opacity-15 blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-[#3B82F6] opacity-10 blur-[150px] pointer-events-none"></div>
-          
+
           {/* Header Logo */}
           <div className="relative z-10 flex items-center gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-[#0EA5E9] shadow-lg shadow-sky-500/20">
@@ -147,7 +147,7 @@ const LoginRoute = () => {
 
         {/* Right Half (40%): Login Form Container */}
         <div className="w-full lg:w-2/5 flex flex-col justify-center items-center px-6 sm:px-12 md:px-20 py-12 bg-white relative">
-          
+
           {/* Logo representation on Mobile/Tablet screens */}
           <div className="absolute top-8 left-8 flex items-center gap-2 lg:hidden">
             <div className="flex size-8 items-center justify-center rounded-lg bg-[#1E3A8A]">
@@ -163,7 +163,7 @@ const LoginRoute = () => {
 
           {/* Center Card Container */}
           <div className="w-full max-w-[420px] space-y-8">
-            
+
             {/* Title Block */}
             <div className="space-y-2">
               <h2 className="text-3xl font-extrabold tracking-tight text-slate-950">
@@ -183,7 +183,7 @@ const LoginRoute = () => {
 
             {/* LOGIN FORM */}
             <form onSubmit={handleLoginSubmit} className="space-y-5">
-              
+
               {/* Email Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
@@ -199,9 +199,8 @@ const LoginRoute = () => {
                       if (errors.email) setErrors(prev => { const { email, ...rest } = prev; return rest; });
                     }}
                     placeholder="name@company.com"
-                    className={`w-full h-11 pl-10 pr-4 bg-white border ${
-                      errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                    } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
+                    className={`w-full h-11 pl-10 pr-4 bg-white border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
+                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
                   />
                 </div>
                 {errors.email && <p className="text-xs text-rose-500">{errors.email}</p>}
@@ -209,7 +208,7 @@ const LoginRoute = () => {
 
               {/* Password Input */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
+                {/* <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
                   <a 
                     href="#forgot" 
@@ -221,7 +220,7 @@ const LoginRoute = () => {
                   >
                     Forgot Password?
                   </a>
-                </div>
+                </div> */}
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                     <Lock className="size-4" />
@@ -234,9 +233,8 @@ const LoginRoute = () => {
                       if (errors.password) setErrors(prev => { const { password, ...rest } = prev; return rest; });
                     }}
                     placeholder="••••••••"
-                    className={`w-full h-11 pl-10 pr-10 bg-white border ${
-                      errors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                    } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
+                    className={`w-full h-11 pl-10 pr-10 bg-white border ${errors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
+                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
                   />
                   <button
                     type="button"

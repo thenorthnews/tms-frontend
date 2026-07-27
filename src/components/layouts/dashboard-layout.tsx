@@ -1,4 +1,4 @@
-import { Home, PanelLeft, Users, Sparkles, Search, Settings, Sun, User2, MessageSquare, Calendar, CheckSquare, HelpCircle, FileText, LogOut, ChevronDown, Plus } from 'lucide-react';
+import { Home, PanelLeft, Users, Sparkles, Settings, User2, CheckSquare, FileText, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useNavigation, useLocation } from 'react-router';
 
@@ -217,19 +217,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             </DrawerContent>
           </Drawer>
 
-          {/* Left page title / search bar */}
+          {/* Left page title */}
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-extrabold text-slate-800 hidden md:block">
               {isEmployee ? 'My Dashboard' : 'Dashboard'}
             </h2>
-            <div className="hidden sm:flex items-center gap-2 bg-white rounded-xl px-3.5 py-2 border border-slate-200/50 shadow-sm w-64 focus-within:border-[#1E3A8A] transition-all">
-              <Search className="size-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search tasks, teams..."
-                className="text-xs text-slate-800 placeholder-slate-400 focus:outline-none w-full bg-transparent font-medium"
-              />
-            </div>
           </div>
 
           {/* Right Action Icons & Profile */}

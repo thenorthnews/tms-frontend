@@ -314,10 +314,7 @@ export const DashboardOverview = () => {
     };
   });
 
-  const recentActivities = [...dbTasks]
-    .sort((a: any, b: any) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())
-    .slice(0, 10)
-    .map((t: any) => {
+  const recentActivities = dbTasks.slice(0, 5).map((t: any) => {
     const assignee = t.assigneeInfo || t.assignedTo;
     const assigneeName = assignee ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() : 'Unassigned';
     const creator = t.creatorInfo || t.createdBy;

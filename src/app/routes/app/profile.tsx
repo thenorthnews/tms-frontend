@@ -197,11 +197,6 @@ const ProfileRoute = () => {
     changePasswordMutation.mutate({ data: values });
   };
 
-  // Logout trigger
-  const handleLogoutClick = () => {
-    logout.mutate(undefined);
-  };
-
   return (
     <ContentLayout title="Settings">
       <div className="max-w-5xl mx-auto w-full animate-in fade-in duration-500 pb-12">
