@@ -47,11 +47,11 @@ export const CreateTask = () => {
   });
 
   // Fetch teams for filtering assignees for Manager/TL
-  const { data: teamsRes = [], isLoading: isLoadingTeams } = useQuery<any[]>({
+  const { data: teamsRes = [], isLoading: isLoadingTeams } = useQuery<Team[]>({
     queryKey: ['teams-list'],
     queryFn: async () => {
-      const res = (await api.get('/admin/teams')) as any;
-      return (res.data || res || []) as any[];
+      const res = await api.get('/admin/teams');
+      return (Array.isArray(res) ? res : (res as { data?: Team[] })?.data || []) as Team[];
     },
   });
 
@@ -76,7 +76,7 @@ export const CreateTask = () => {
 
   const clientOptions = [
     { label: 'Select Client *', value: '' },
-    ...clientsRes.map((c: any) => ({
+    ...clientsRes.map((c) => ({
       label: `${c.name}${c.companyName ? ` (${c.companyName})` : ''}`,
       value: (c._id || c.id) as string,
     })),
@@ -134,8 +134,8 @@ export const CreateTask = () => {
             subtasks,
             tags: parsedTags,
           };
-          delete (data as any).teamId;
-          delete (data as any).teamIds;
+          delete (data as Record<string, unknown>).teamId;
+          delete (data as Record<string, unknown>).teamIds;
           createTaskMutation.mutate({ data });
         }}
         schema={createTaskInputSchema}
@@ -148,7 +148,7 @@ export const CreateTask = () => {
             dueDate: '',
             assignedTo: '',
             clientId: '',
-          } as any,
+          },
         }}
       >
         {({ register, formState }) => {
@@ -156,23 +156,22 @@ export const CreateTask = () => {
           const teamMemberIds = new Set<string>();
           if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL) {
             // Find all teams managed by currentUser
-            const managedTeams = teamsRes.filter((t: any) => {
+            const managedTeams = teamsRes.filter((t: Team) => {
+              const mgr = t.managerId;
               const mgrId = (
-                t.managerId?._id ||
-                t.managerId?.id ||
-                t.managerId
+                typeof mgr === 'object' ? mgr?._id || mgr?.id : mgr
               )?.toString();
               return mgrId === currentUser.id?.toString();
             });
-            managedTeams.forEach((t: any) => {
+            managedTeams.forEach((t: Team) => {
+              const mgr = t.managerId;
               const mgrId = (
-                t.managerId?._id ||
-                t.managerId?.id ||
-                t.managerId
+                typeof mgr === 'object' ? mgr?._id || mgr?.id : mgr
               )?.toString();
               if (mgrId) teamMemberIds.add(mgrId);
-              (t.members || []).forEach((m: any) => {
-                const mId = (m._id || m.id || m)?.toString();
+              (t.members || []).forEach((m: unknown) => {
+                const mb = m as { _id?: string; id?: string } | string;
+                const mId = (typeof mb === 'object' ? mb._id || mb.id : mb)?.toString();
                 if (mId) teamMemberIds.add(mId);
               });
             });
@@ -181,7 +180,7 @@ export const CreateTask = () => {
 
           const filteredUsers =
             currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL
-              ? users.filter((u: any) =>
+              ? users.filter((u: User) =>
                 teamMemberIds.has(String(u.id || u._id)),
               )
               : users;
@@ -192,7 +191,7 @@ export const CreateTask = () => {
                 <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 animate-card-enter">
                   <Input
                     label="Task Title"
-                    error={formState.errors.title as any}
+                    error={formState.errors.title}
                     registration={register('title')}
                     placeholder="Enter a clear summary for this task..."
                   />
@@ -200,7 +199,7 @@ export const CreateTask = () => {
                   <div className="mt-4">
                     <Textarea
                       label="Description"
-                      error={formState.errors.description as any}
+                      error={formState.errors.description}
                       registration={register('description')}
                       placeholder="Provide details or steps to complete the task..."
                       rows={6}
@@ -246,7 +245,7 @@ export const CreateTask = () => {
 
                     {subtasks.length > 0 && (
                       <div className="space-y-2 mb-4">
-                        {subtasks.map((sub: any, idx: number) => (
+                        {subtasks.map((sub, idx) => (
                           <div
                             key={idx}
                             className="flex items-center justify-between bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-100"
@@ -259,7 +258,7 @@ export const CreateTask = () => {
                               onClick={() =>
                                 setSubtasks(
                                   subtasks.filter(
-                                    (_: any, i: number) => i !== idx,
+                                    (_, i) => i !== idx,
                                   ),
                                 )
                               }
@@ -333,7 +332,7 @@ export const CreateTask = () => {
                     <>
                       <Select
                         label="Status"
-                        error={formState.errors.status as any}
+                        error={formState.errors.status}
                         registration={register('status')}
                         options={[
                           { label: 'Pending', value: String(TaskStatus.PENDING) },
@@ -358,7 +357,7 @@ export const CreateTask = () => {
 
                       <Select
                         label="Priority"
-                        error={formState.errors.priority as any}
+                        error={formState.errors.priority}
                         registration={register('priority')}
                         options={[
                           { label: 'Low', value: String(TaskPriority.LOW) },
@@ -371,14 +370,14 @@ export const CreateTask = () => {
                         label="Due Date"
                         type="date"
                         min={new Date().toISOString().split('T')[0]}
-                        error={formState.errors.dueDate as any}
+                        error={formState.errors.dueDate}
                         registration={register('dueDate')}
                       />
 
                       {isCEO && (
                         <Select
                           label="Client *"
-                          error={formState.errors.clientId as any}
+                          error={formState.errors.clientId}
                           registration={register('clientId')}
                           options={clientOptions}
                         />
@@ -396,7 +395,7 @@ export const CreateTask = () => {
                               <span className="text-slate-400 text-xs italic">No users selected (Unassigned)</span>
                             ) : (
                               selectedAssignees.map((id) => {
-                                const u = users.find((user: any) => (user.id || user._id) === id);
+                                const u = users.find((user: User) => (user.id || user._id) === id);
                                 if (!u) return null;
 
                                 const handleRemove = () => {
@@ -427,8 +426,8 @@ export const CreateTask = () => {
                             {filteredUsers.length === 0 ? (
                               <span className="text-slate-400 text-xs italic block p-1">No assignees available</span>
                             ) : (
-                              filteredUsers.map((u: any) => {
-                                const uId = u.id || u._id;
+                              filteredUsers.map((u: User) => {
+                                const uId = u.id || u._id || '';
                                 const isSelected = selectedAssignees.includes(uId);
                                 const roleBadge = u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'Employee';
 

@@ -6,6 +6,12 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { Head } from '@/components/seo';
 import { paths } from '@/config/paths';
 import { useLogin, useUser } from '@/lib/auth';
+import { z } from 'zod';
+
+const loginInputSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required').email('Invalid email address'),
+  password: z.string().min(1, 'Password is required').min(5, 'Password must be at least 5 characters'),
+});
 
 const LoginRoute = () => {
   const navigate = useNavigate();
@@ -38,25 +44,20 @@ const LoginRoute = () => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: Record<string, string> = {};
 
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Invalid email address';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 5) {
-      newErrors.password = 'Password must be at least 5 characters';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+    const validationResult = loginInputSchema.safeParse({ email, password });
+    if (!validationResult.success) {
+      const fieldErrors: Record<string, string> = {};
+      validationResult.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0] as string] = err.message;
+        }
+      });
+      setErrors(fieldErrors);
       return;
     }
 
+    setErrors({});
     login.mutate({ email, password }, {
       onError: (error: any) => {
         setErrors({

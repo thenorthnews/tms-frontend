@@ -3,6 +3,8 @@ import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
 import { getTaskQueryOptions } from './get-task';
 
+import { Task } from '../types';
+
 export type LogTimeDTO = {
   taskId: string;
   data: {
@@ -12,7 +14,7 @@ export type LogTimeDTO = {
   };
 };
 
-export const logTime = ({ taskId, data }: LogTimeDTO): Promise<any> => {
+export const logTime = ({ taskId, data }: LogTimeDTO): Promise<Task> => {
   return api.post(`/tasks/${taskId}/time-logs`, data);
 };
 

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
 
-export const deleteTask = ({ taskId }: { taskId: string }): Promise<any> => {
+export const deleteTask = ({ taskId }: { taskId: string }): Promise<{ message: string }> => {
   return api.delete(`/tasks/${taskId}`);
 };
 

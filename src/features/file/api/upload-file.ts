@@ -25,7 +25,7 @@ export const uploadFile = async ({
     },
   });
 
-  return (response as any)[0];
+  return (response as unknown as UploadFileResponse[])[0];
 };
 
 type UseUploadFileOptions = {

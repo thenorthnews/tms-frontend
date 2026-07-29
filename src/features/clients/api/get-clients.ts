@@ -4,8 +4,8 @@ import { Client } from '../types';
 import { QueryConfig } from '@/lib/react-query';
 
 export const getClients = async (): Promise<Client[]> => {
-  const res = (await api.get('/clients')) as any;
-  return res.data || res || [];
+  const res = await api.get('/clients');
+  return (Array.isArray(res) ? res : (res as { data?: Client[] })?.data || []) as Client[];
 };
 
 export const getClientsQueryOptions = () => {

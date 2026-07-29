@@ -19,7 +19,7 @@ export const getUsers = async (
     total: number;
   };
 }> => {
-  const response = (await api.get(`/admin/users`, {
+  const response: { users?: Record<string, unknown>[]; total?: number; limit?: number; page?: number } = await api.get(`/admin/users`, {
     params: {
       page,
       search,
@@ -27,7 +27,7 @@ export const getUsers = async (
       role,
       teamId,
     },
-  })) as any;
+  });
   const users = (response.users || []).map(mapUser);
   const total = response.total || 0;
   const limitVal = response.limit || 10;

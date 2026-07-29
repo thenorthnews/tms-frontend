@@ -34,8 +34,28 @@ import { useDeleteUser } from '@/features/users/api/delete-user';
 import { useCreateUser } from '@/features/users/api/create-user';
 import { useTasks } from '@/features/tasks/api/get-tasks';
 import { useTeams, useCreateTeam, useDeleteTeam, useAddTeamMember, useRemoveTeamMember } from '../api/teams';
-import { User, Team } from '@/types/api';
+import { User, Team, TeamMember } from '@/types/api';
 import { Task } from '@/features/tasks/types';
+import { CreateMemberFormState, MemberRole, MemberSortKey } from '../types';
+
+const isRecord = (val: unknown): val is Record<string, unknown> => typeof val === 'object' && val !== null;
+
+const getAssignedId = (assigned: unknown): string => {
+  if (!assigned) return '';
+  if (typeof assigned === 'string') return assigned;
+  if (Array.isArray(assigned)) {
+    const first = assigned[0];
+    if (typeof first === 'string') return first;
+    if (isRecord(first)) {
+      return String(first._id || first.id || '');
+    }
+    return '';
+  }
+  if (isRecord(assigned)) {
+    return String(assigned._id || assigned.id || '');
+  }
+  return '';
+};
 
 const createMemberSchema = z.object({
   firstName: z
@@ -88,7 +108,7 @@ export const TeamManagement = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
   const currentUser = useUser();
-  const currentUserRole = currentUser.data?.role as any;
+  const currentUserRole = currentUser.data?.role;
   const isCEO = currentUserRole === 0 || currentUserRole === 'CEO';
 
   // --- INTERACTIVE UI STATES ---
@@ -123,12 +143,12 @@ export const TeamManagement = () => {
   const roleVal = selectedRoleFilter === 'all'
     ? undefined
     : selectedRoleFilter === 'ceo'
-    ? 0
-    : selectedRoleFilter === 'manager'
-    ? 1
-    : selectedRoleFilter === 'tl'
-    ? 2
-    : 4; // employee
+      ? 0
+      : selectedRoleFilter === 'manager'
+        ? 1
+        : selectedRoleFilter === 'tl'
+          ? 2
+          : 4; // employee
 
   // Query 1: For the paginated table (using backend page, limit, search, role, teamId)
   const usersQuery = useUsers({
@@ -168,7 +188,7 @@ export const TeamManagement = () => {
         setNewMember({ firstName: '', lastName: '', email: '', password: '', phoneNumber: '', role: 'employee', department: 'Engineering', gender: 0 });
         setMemberErrors({});
       },
-      onError: (err: any) => {
+      onError: (err: { response?: { data?: { message?: string | string[] } }; message?: string }) => {
         const rawMsg = err.response?.data?.message || err.message || '';
         const backendMsg = Array.isArray(rawMsg) ? rawMsg.join(', ') : rawMsg;
         const msgLower = backendMsg.toLowerCase();
@@ -219,22 +239,22 @@ export const TeamManagement = () => {
       addNotification({ type: 'success', title: 'Team deleted successfully' });
     },
   });
-  
+
   // New member form state (with role, department & gender)
-  const [newMember, setNewMember] = useState({
+  const [newMember, setNewMember] = useState<CreateMemberFormState>({
     firstName: '',
     lastName: '',
     email: '',
     password: '',
     phoneNumber: '',
-    role: 'employee' as 'manager' | 'tl' | 'employee',
+    role: 'employee',
     department: 'Engineering',
     gender: 0,
   });
 
   // Create team form state
   const [newTeam, setNewTeam] = useState({ name: '', managerId: '' });
-  
+
   // Sorting states
   const [sortKey, setSortKey] = useState<'name' | 'role' | 'department' | 'assigned' | 'completed' | 'progress'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -261,15 +281,13 @@ export const TeamManagement = () => {
   const dbUsers = usersQuery.data?.data || [];
   const allDbUsers = allUsersQuery.data?.data || [];
   const dbTasks = tasksQuery.data?.data || [];
-  const dbTeams = (teamsQuery.data as Team[]) || [];
+  const dbTeams = teamsQuery.data || [];
 
   // Map users to local schema & calculate metrics dynamically
   const teamMembers = dbUsers.map((u: User) => {
     // Count tasks assigned to this user
     const assignedTasks = dbTasks.filter((t: Task) => {
-      const assigned = t.assignedTo;
-      if (!assigned) return false;
-      const assignedId = typeof assigned === 'object' ? (assigned as any)._id || (assigned as any).id : assigned;
+      const assignedId = getAssignedId(t.assignedTo);
       return assignedId === u.id || assignedId === u._id;
     });
     const assigned = assignedTasks.length;
@@ -280,19 +298,23 @@ export const TeamManagement = () => {
     const idx = Math.abs((u.firstName || '').charCodeAt(0) + (u.lastName || '').charCodeAt(0) || 0) % colors.length;
     const color = colors[idx];
 
-    const userTeam = dbTeams.find((t: any) => {
-      const mgr: any = t.managerId;
-      const managerIdStr = (mgr?._id || mgr?.id || mgr)?.toString();
-      const memberIds = (t.members || []).map((mb: any) => (mb._id || mb.id || mb)?.toString());
+    const userTeam = dbTeams.find((t: Team) => {
+      const mgr = t.managerId;
+      const managerIdStr = (typeof mgr === 'object' ? mgr?._id || mgr?.id : mgr)?.toString();
+      const memberIds = (t.members || []).map((mb: TeamMember) =>
+        (typeof mb === 'object' ? mb._id || mb.id : mb)?.toString()
+      );
       const mIdStr = (u.id || u._id)?.toString();
       return mIdStr === managerIdStr || memberIds.includes(mIdStr);
     });
-    const department = userTeam?.name || (u as any).department || 'Engineering';
+    const department = userTeam?.name || u.department || 'Engineering';
+
+    const userEmailStr = typeof u.email === 'string' ? u.email : String(u.email || '');
 
     return {
       id: u.id,
       name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'No Name',
-      email: typeof u.email === 'object' ? (u.email as any).id || '' : u.email || '',
+      email: userEmailStr,
       role: u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'Team Lead' : 'Employee',
       department,
       assigned,
@@ -307,19 +329,16 @@ export const TeamManagement = () => {
     if (selectedTeamFilter === 'all') return true;
 
     const targetTeam = dbTeams.find(
-      (t: any) => (t._id || t.id)?.toString() === selectedTeamFilter,
+      (t: Team) => (t._id || t.id)?.toString() === selectedTeamFilter,
     );
     if (!targetTeam) return true;
 
-    const mgr: any = targetTeam.managerId;
-    const managerIdStr = (
-      mgr?._id ||
-      mgr?.id ||
-      mgr
-    )?.toString();
+    const mgr = targetTeam.managerId;
+    const mgrObj = (mgr && typeof mgr === 'object') ? (mgr as { _id?: string; id?: string }) : null;
+    const managerIdStr = (mgrObj ? mgrObj._id || mgrObj.id : (typeof mgr === 'string' ? mgr : ''))?.toString();
 
-    const memberIds = (targetTeam.members || []).map((mb: any) =>
-      (mb._id || mb.id || mb)?.toString(),
+    const memberIds = (targetTeam.members || []).map((mb: TeamMember) =>
+      (typeof mb === 'object' ? mb._id || mb.id : mb)?.toString(),
     );
 
     const mIdStr = m.id?.toString();
@@ -343,42 +362,34 @@ export const TeamManagement = () => {
 
   // Sort Members List (client side sorting on the paginated list)
   const sortedMembers = [...searchedMembers].sort((a, b) => {
-    let aVal: any = a[sortKey as keyof typeof a];
-    let bVal: any = b[sortKey as keyof typeof b];
+    let aVal: string | number = sortKey === 'progress' ? getProgressVal(a) : (a[sortKey] ?? 0);
+    let bVal: string | number = sortKey === 'progress' ? getProgressVal(b) : (b[sortKey] ?? 0);
 
-    if (sortKey === 'progress') {
-      aVal = getProgressVal(a);
-      bVal = getProgressVal(b);
-    }
-
-    if (typeof aVal === 'string') {
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
       return sortOrder === 'asc'
         ? aVal.localeCompare(bVal)
         : bVal.localeCompare(aVal);
-    } else {
-      return sortOrder === 'asc'
-        ? aVal - bVal
-        : bVal - aVal;
     }
+    const aNum = typeof aVal === 'number' ? aVal : 0;
+    const bNum = typeof bVal === 'number' ? bVal : 0;
+    return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
   });
 
   // Backend Pagination Logic
   const totalPages = usersQuery.data?.meta?.totalPages || 1;
   const backendTotal = usersQuery.data?.meta?.total || 0;
-  
+
   // Since pagination is performed by the backend, paginatedMembers is simply the sortedMembers array
   const paginatedMembers = sortedMembers;
 
   // Derived metrics calculated over ALL database users
-  const allTeamMembersForStats = allDbUsers.map((u: any) => {
-    const assignedTasks = dbTasks.filter((t: any) => {
-      const assigned = t.assignedTo;
-      if (!assigned) return false;
-      const assignedId = typeof assigned === 'object' ? assigned._id || assigned.id : assigned;
+  const allTeamMembersForStats = allDbUsers.map((u: User) => {
+    const assignedTasks = dbTasks.filter((t: Task) => {
+      const assignedId = getAssignedId(t.assignedTo);
       return assignedId === u.id || assignedId === u._id;
     });
     const assigned = assignedTasks.length;
-    const completed = assignedTasks.filter((t: any) => t.status === 2).length;
+    const completed = assignedTasks.filter((t: Task) => t.status === 2).length;
     return { assigned, completed };
   });
 
@@ -386,8 +397,8 @@ export const TeamManagement = () => {
   const activeTasksCount = allTeamMembersForStats.reduce((acc, m) => acc + (m.assigned - m.completed), 0);
   const avgCompletionRate = totalMembersCount > 0
     ? Math.round(
-        (allTeamMembersForStats.reduce((acc, m) => acc + (m.assigned > 0 ? (m.completed / m.assigned) : 0), 0) / totalMembersCount) * 100
-      )
+      (allTeamMembersForStats.reduce((acc, m) => acc + (m.assigned > 0 ? (m.completed / m.assigned) : 0), 0) / totalMembersCount) * 100
+    )
     : 0;
 
 
@@ -417,7 +428,7 @@ export const TeamManagement = () => {
           : undefined,
         gender: Number(newMember.gender),
         image: '',
-        role: (newMember.role as string) === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
+        role: newMember.role === 'manager' ? 1 : newMember.role === 'tl' ? 2 : 4,
       }
     });
   };
@@ -472,17 +483,17 @@ export const TeamManagement = () => {
   };
 
   // Get managers and team leads list for team creation dropdown
-  const managers = allDbUsers.filter((u: any) => u.role === 1 || u.role === 2);
+  const managers = allDbUsers.filter((u: User) => u.role === 1 || u.role === 2);
   // Get employees not in any team for assignment
-  const allTeamMemberIds = dbTeams.flatMap((t: any) => (t.members || []).map((m: any) => m._id || m.id || m));
-  const unassignedEmployees = allDbUsers.filter((u: any) => {
+  const allTeamMemberIds = dbTeams.flatMap((t: Team) => (t.members || []).map((m: TeamMember) => typeof m === 'object' ? m._id || m.id : m));
+  const unassignedEmployees = allDbUsers.filter((u: User) => {
     const uid = u.id || u._id;
     return u.role === 4 && !allTeamMemberIds.includes(uid);
   });
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Top Banner and "+ Add Member" Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#1E3A8A] via-[#10348a] to-[#0A192F] rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden border border-slate-700/20">
         <div className="absolute right-0 top-0 size-80 bg-[#0EA5E9]/10 rounded-full blur-3xl pointer-events-none" />
@@ -529,7 +540,7 @@ export const TeamManagement = () => {
 
       {/* Stats Strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        
+
         {/* Total Members */}
         <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm flex items-center justify-between hover:shadow-md transition-all duration-300">
           <div className="space-y-1.5 text-left">
@@ -584,43 +595,45 @@ export const TeamManagement = () => {
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-slate-800 text-left">Teams Overview</h3>
         {dbTeams.length === 0 ? (
-          <div className="bg-white border border-slate-100 rounded-xl p-8 text-center text-slate-400 font-bold">
+          <div className="bg-[#FFFFFF] border border-slate-100 rounded-xl p-8 text-center text-slate-400 font-bold">
             No teams created yet.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {dbTeams.map((team: any) => {
-              const managerName = team.managerId
-                ? `${team.managerId.firstName || ''} ${team.managerId.lastName || ''}`.trim()
+            {dbTeams.map((team: Team) => {
+              const managerObj = typeof team.managerId === 'object' ? team.managerId : null;
+              const managerName = managerObj
+                ? `${managerObj.firstName || ''} ${managerObj.lastName || ''}`.trim()
                 : 'Unassigned';
 
               const teamIdStr = (team._id || team.id)?.toString();
-              const memberIds = (team.members || []).map((m: any) =>
-                (m._id || m.id || m)?.toString(),
+              const memberIds = (team.members || []).map((m: TeamMember) =>
+                (typeof m === 'object' ? m._id || m.id : m)?.toString(),
               );
 
-              const teamTasks = dbTasks.filter((t: any) => {
-                const taskTeamId = (t.teamId || t.teamInfo?._id || t.teamInfo?.id)?.toString();
+              const teamTasks = dbTasks.filter((t: Task) => {
+                const taskTeamId = (t.teamId || t.teamInfo?._id)?.toString();
                 if (taskTeamId && teamIdStr) {
                   return taskTeamId === teamIdStr;
                 }
-                const assignedId = (t.assignedTo?._id || t.assignedTo?.id || t.assignedTo)?.toString();
+                const assignedId = getAssignedId(t.assignedTo);
                 return assignedId && memberIds.includes(assignedId);
               });
 
               const totalTasksCount = teamTasks.length;
-              const pendingCount = teamTasks.filter((t: any) => t.status === 0).length;
-              const inProgressCount = teamTasks.filter((t: any) => t.status === 1).length;
-              const completedCount = teamTasks.filter((t: any) => t.status === 2).length;
+              const pendingCount = teamTasks.filter((t: Task) => t.status === 0).length;
+              const inProgressCount = teamTasks.filter((t: Task) => t.status === 1).length;
+              const completedCount = teamTasks.filter((t: Task) => t.status === 2).length;
 
               return (
-                <div key={team._id} className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm space-y-4 text-left relative hover:shadow-md transition-all duration-300">
+                <div key={team._id || team.id} className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm space-y-4 text-left relative hover:shadow-md transition-all duration-300">
                   {/* Delete Team Button (CEO only) */}
                   {isCEO && (
                     <button
                       onClick={() => {
-                        if (confirm(`Are you sure you want to delete the team "${team.name}"?`)) {
-                          deleteTeamMutation.mutate(team._id || team.id);
+                        const targetId = team._id || team.id;
+                        if (targetId && confirm(`Are you sure you want to delete the team "${team.name}"?`)) {
+                          deleteTeamMutation.mutate(targetId);
                         }
                       }}
                       className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer border-0 bg-transparent"
@@ -629,7 +642,7 @@ export const TeamManagement = () => {
                       <Trash2 className="size-4" />
                     </button>
                   )}
-                  
+
                   <div className="space-y-1">
                     <h4 className="text-base font-extrabold text-slate-800">{team.name}</h4>
                     <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
@@ -668,12 +681,15 @@ export const TeamManagement = () => {
                       <span className="text-xs text-slate-400 italic">No members assigned yet</span>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
-                        {team.members.map((m: any) => {
-                          const initials = `${m.firstName?.[0] || 'U'}${m.lastName?.[0] || ''}`.toUpperCase();
-                          const fullName = `${m.firstName || ''} ${m.lastName || ''}`.trim();
+                        {team.members.map((m: TeamMember) => {
+                          const memberObj = typeof m === 'object' ? m : null;
+                          const memberId = memberObj?._id || memberObj?.id || (typeof m === 'string' ? m : '');
+                          const initials = memberObj ? `${memberObj.firstName?.[0] || 'U'}${memberObj.lastName?.[0] || ''}`.toUpperCase() : 'U';
+                          const fullName = memberObj ? `${memberObj.firstName || ''} ${memberObj.lastName || ''}`.trim() : memberId;
+                          const teamIdVal = team._id || team.id || '';
                           return (
                             <div
-                              key={m._id || m.id}
+                              key={memberId}
                               className="inline-flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg pl-1.5 pr-2 py-0.5 text-[10px] font-bold text-slate-600"
                               title={fullName}
                             >
@@ -681,12 +697,12 @@ export const TeamManagement = () => {
                                 {initials}
                               </div>
                               <span>{fullName}</span>
-                              
+
                               {/* Remove Member Button */}
                               <button
                                 onClick={() => {
-                                  if (confirm(`Remove ${fullName} from ${team.name}?`)) {
-                                    removeTeamMemberMutation.mutate({ teamId: team._id || team.id, userId: m._id || m.id });
+                                  if (teamIdVal && memberId && confirm(`Remove ${fullName} from ${team.name}?`)) {
+                                    removeTeamMemberMutation.mutate({ teamId: teamIdVal, userId: memberId });
                                   }
                                 }}
                                 className="p-0.5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-rose-600 transition-colors border-0 bg-transparent cursor-pointer"
@@ -708,7 +724,7 @@ export const TeamManagement = () => {
 
       {/* Team Roster Grid/Table Card Container */}
       <div className="bg-white border border-slate-100 rounded-xl p-5 sm:p-6 shadow-sm space-y-6">
-        
+
         {/* Title, Filter, and Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="text-left">
@@ -725,7 +741,7 @@ export const TeamManagement = () => {
                 className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-bold cursor-pointer border-0 p-0"
               >
                 <option value="all">All Teams</option>
-                {dbTeams.map((team: any) => (
+                {dbTeams.map((team: Team) => (
                   <option key={team._id || team.id} value={team._id || team.id}>
                     {team.name}
                   </option>
@@ -1019,11 +1035,10 @@ export const TeamManagement = () => {
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`size-9 flex items-center justify-center rounded-xl transition-all text-xs font-bold cursor-pointer ${
-                      currentPage === page
+                    className={`size-9 flex items-center justify-center rounded-xl transition-all text-xs font-bold cursor-pointer ${currentPage === page
                         ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                         : 'border border-transparent hover:border-slate-200 text-slate-500 hover:text-slate-800 bg-white'
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>
@@ -1048,7 +1063,7 @@ export const TeamManagement = () => {
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-            
+
             {/* Modal Header */}
             <div className="p-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <div className="space-y-0.5 text-left">
@@ -1067,7 +1082,7 @@ export const TeamManagement = () => {
 
             {/* Modal Content - Creation Form */}
             <form onSubmit={handleFormSubmit} className="p-5 space-y-4 text-left">
-              
+
               {/* Name fields */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -1165,7 +1180,11 @@ export const TeamManagement = () => {
                   <Shield className="size-3.5 text-slate-400" />
                   <select
                     value={newMember.role}
-                    onChange={(e) => setNewMember(prev => ({ ...prev, role: e.target.value as 'manager' | 'tl' | 'employee' }))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const role: MemberRole = val === 'manager' || val === 'tl' ? val : 'employee';
+                      setNewMember(prev => ({ ...prev, role }));
+                    }}
                     className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0"
                   >
                     <option value="employee">Employee</option>
@@ -1269,7 +1288,7 @@ export const TeamManagement = () => {
                   <Shield className="size-3.5 text-slate-400" />
                   <select value={newTeam.managerId} onChange={(e) => setNewTeam(p => ({ ...p, managerId: e.target.value }))} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0">
                     <option value="">Select a manager or team lead...</option>
-                    {managers.map((m: any) => (
+                    {managers.map((m: User) => (
                       <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.role === 1 ? 'Manager' : 'Team Lead'})</option>
                     ))}
                   </select>
@@ -1309,7 +1328,7 @@ export const TeamManagement = () => {
                   <Layers className="size-3.5 text-slate-400" />
                   <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0">
                     <option value="">Select a team...</option>
-                    {dbTeams.map((t: any) => (
+                    {dbTeams.map((t: Team) => (
                       <option key={t._id || t.id} value={t._id || t.id}>{t.name}</option>
                     ))}
                   </select>
@@ -1324,7 +1343,7 @@ export const TeamManagement = () => {
                   <UserIcon className="size-3.5 text-slate-400" />
                   <select value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} className="text-xs text-slate-800 focus:outline-none w-full bg-transparent font-medium cursor-pointer border-0">
                     <option value="">Select an employee...</option>
-                    {unassignedEmployees.map((u: any) => (
+                    {unassignedEmployees.map((u: User) => (
                       <option key={u.id} value={u.id}>{u.firstName} {u.lastName} ({u.email})</option>
                     ))}
                   </select>

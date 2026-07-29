@@ -3,8 +3,10 @@ import { Form, Input } from '@/components/ui/form';
 import { useNotifications } from '@/components/ui/notifications';
 import { useUser } from '@/lib/auth';
 import { useUploadFile } from '@/features/file/api/upload-file';
+import { UseFormSetValue } from 'react-hook-form';
 import {
   updateProfileInputSchema,
+  UpdateProfileInput,
   useUpdateProfile,
 } from '../api/update-profile';
 
@@ -30,7 +32,7 @@ export const UpdateProfileForm = () => {
           title: 'Image uploaded successfully',
         });
       },
-      onError: (error: any) => {
+      onError: (error: { response?: { data?: { message?: string } }; message?: string }) => {
         const message = error.response?.data?.message || error.message;
         addNotification({
           type: 'error',
@@ -43,7 +45,7 @@ export const UpdateProfileForm = () => {
 
   const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    setValue: any
+    setValue: UseFormSetValue<UpdateProfileInput>
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -93,7 +95,7 @@ export const UpdateProfileForm = () => {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleImageUpload(e, setValue)}
+                  onChange={(e) => handleImageUpload(e, setValue as unknown as UseFormSetValue<UpdateProfileInput>)}
                   disabled={uploadFileMutation.isPending}
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                 />

@@ -80,7 +80,7 @@ const ProfileRoute = () => {
         // Clear password fields
         setPwdData({ oldPassword: '', newPassword: '', confirmPassword: '' });
       },
-      onError: (err: any) => {
+      onError: (err: { message?: string }) => {
         addNotification({
           type: 'error',
           title: 'Failed to update password',
@@ -90,11 +90,12 @@ const ProfileRoute = () => {
     }
   });
 
-  const getPhoneStr = (p: any) => {
+  const getPhoneStr = (p: unknown) => {
     if (!p) return '';
     if (typeof p === 'string') return p.replace(/\D/g, '').slice(0, 10);
-    if (typeof p === 'object') {
-      const num = p.number || p.phoneNumber || p.phone || '';
+    if (typeof p === 'object' && p !== null) {
+      const pObj = p as Record<string, unknown>;
+      const num = pObj.number || pObj.phoneNumber || pObj.phone || '';
       return typeof num === 'string' ? num.replace(/\D/g, '').slice(0, 10) : String(num || '');
     }
     return String(p).replace(/\D/g, '').slice(0, 10);
@@ -149,12 +150,12 @@ const ProfileRoute = () => {
     );
   }
 
-  const getRoleString = (r: any) => {
+  const getRoleString = (r: unknown) => {
     if (r === 0 || r === 'CEO') return 'CEO';
     if (r === 1 || r === 'Manager') return 'Manager';
     if (r === 2 || r === 'Team Lead') return 'Team Lead';
     if (r === 4 || r === 'Employee') return 'Employee';
-    return String(r);
+    return String(r ?? '');
   };
 
   const role = user.data.role;

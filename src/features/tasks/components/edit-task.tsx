@@ -26,7 +26,12 @@ import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
+import { z } from 'zod';
+import { User, Team } from '@/types/api';
 import { api, mapUser } from '@/lib/api-client';
+
+const commentInputSchema = z.string().trim().min(1, 'Comment cannot be empty').max(500, 'Comment text exceeds 500 characters limit');
+const subtaskInputSchema = z.string().trim().min(1, 'Subtask title cannot be empty');
 import { useUser } from '@/lib/auth';
 
 import { useTask } from '../api/get-task';
@@ -61,20 +66,20 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const taskQuery = useTask({ taskId });
 
   // Fetch active users for reassignment
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ['users-list'],
     queryFn: async () => {
-      const res = await api.get('/admin/users', { params: { limit: 100, all: 'true' } }) as any;
+      const res = (await api.get('/admin/users', { params: { limit: 100, all: 'true' } })) as { users?: Record<string, unknown>[] };
       return (res.users || []).map(mapUser);
     },
   });
 
   // Fetch teams for the team dropdown
-  const { data: teamsRes = [] } = useQuery({
+  const { data: teamsRes = [] } = useQuery<Team[]>({
     queryKey: ['teams-list'],
     queryFn: async () => {
-      const res = await api.get('/admin/teams') as any;
-      return res.data || res || [];
+      const res = await api.get('/admin/teams');
+      return (Array.isArray(res) ? res : (res as { data?: Team[] })?.data || []) as Team[];
     },
   });
 
@@ -97,8 +102,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       },
     },
   });
-
-
 
   // --- LOCAL INTERACTIVE STATES ---
   const [commentInput, setCommentInput] = useState('');
@@ -159,7 +162,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     if (!currentUser) return users;
     if (currentUser.role === 0) return users; // CEO can assign to anyone
     if (currentUser.role === 1 || currentUser.role === 2) {
-      return users.filter((u: any) => {
+      return users.filter((u: User) => {
         const isManagerOrTL = u.role === 0 || u.role === 1 || u.role === 2;
         const isInSameTeam = currentUser.teamId && u.teamId && String(u.teamId) === String(currentUser.teamId);
         return isManagerOrTL || isInSameTeam;
@@ -177,7 +180,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
       if (task.assignedTo) {
         const raw = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo];
-        setSelectedNewAssignees(raw.map((a: any) => String(a._id || a)));
+        setSelectedNewAssignees(raw.map((a: unknown) => typeof a === 'string' ? a : (a as { _id?: string; id?: string })?._id || (a as { _id?: string; id?: string })?.id || ''));
       } else {
         setSelectedNewAssignees([]);
       }
@@ -251,7 +254,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   // Calculate total time logged including active session
   const totalBaseLoggedMinutes = (task.timeLogs || []).reduce(
-    (sum: number, log: any) => sum + (log.hours || 0) * 60 + (log.minutes || 0),
+    (sum: number, log) => sum + (log.hours || 0) * 60 + (log.minutes || 0),
     0,
   );
   const activeSessionMinutes = Math.floor(activeSessionSeconds / 60);
@@ -294,11 +297,19 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentInput.trim() || isSubmittingComment) return;
+    const result = commentInputSchema.safeParse(commentInput);
+    if (!result.success) {
+      addNotification({
+        type: 'error',
+        title: result.error.errors[0]?.message || 'Invalid comment content',
+      });
+      return;
+    }
+    if (isSubmittingComment) return;
 
     setIsSubmittingComment(true);
     try {
-      await api.post(`/tasks/${taskId}/comments`, { content: commentInput.trim() });
+      await api.post(`/tasks/${taskId}/comments`, { content: result.data });
       setCommentInput('');
       await taskQuery.refetch();
       addNotification({
@@ -330,16 +341,22 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   };
 
   const handleCreateSubtask = () => {
-    if (newSubtaskTitle.trim()) {
-      const updated = [...subTasks, { title: newSubtaskTitle.trim(), isCompleted: false }];
-      setSubTasks(updated);
-      updateTaskMutation.mutate({
-        taskId,
-        data: { subtasks: updated },
+    const result = subtaskInputSchema.safeParse(newSubtaskTitle);
+    if (!result.success) {
+      addNotification({
+        type: 'error',
+        title: result.error.errors[0]?.message || 'Invalid subtask title',
       });
-      setNewSubtaskTitle('');
-      setIsAddingSubtask(false);
+      return;
     }
+    const updated = [...subTasks, { title: result.data, isCompleted: false }];
+    setSubTasks(updated);
+    updateTaskMutation.mutate({
+      taskId,
+      data: { subtasks: updated },
+    });
+    setNewSubtaskTitle('');
+    setIsAddingSubtask(false);
   };
 
   const handleDeleteSubtask = (index: number) => {
@@ -379,19 +396,22 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      }) as any;
+      });
 
-      const uploadedFiles = Array.isArray(res) ? res : (res?.data || []);
+      const uploadedFiles = Array.isArray(res) ? res : ((res as { data?: unknown[] })?.data || []);
       if (uploadedFiles && uploadedFiles.length > 0) {
         const rawAttachments = [...(task.attachments || []), ...uploadedFiles];
-        const newAttachments = rawAttachments.map((att: any) => ({
-          originalName: att.originalName,
-          filename: att.filename,
-          mimetype: att.mimetype,
-          size: att.size,
-          path: att.path,
-          url: att.url,
-        }));
+        const newAttachments = rawAttachments.map((att: unknown) => {
+          const a = att as { originalName: string; filename: string; mimetype?: string; size?: number; path: string; url: string };
+          return {
+            originalName: a.originalName,
+            filename: a.filename,
+            mimetype: a.mimetype,
+            size: a.size,
+            path: a.path,
+            url: a.url,
+          };
+        });
         await api.patch(`/tasks/${taskId}`, { attachments: newAttachments });
         taskQuery.refetch();
       }
@@ -408,9 +428,9 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const handleDeleteAttachment = async (filename: string) => {
     try {
       const rawAttachments = (task.attachments || []).filter(
-        (att: any) => att.filename !== filename
+        (att) => att.filename !== filename
       );
-      const newAttachments = rawAttachments.map((att: any) => ({
+      const newAttachments = rawAttachments.map((att) => ({
         originalName: att.originalName,
         filename: att.filename,
         mimetype: att.mimetype,
@@ -680,7 +700,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
             {task.attachments && task.attachments.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {task.attachments.map((att: any) => (
+                {task.attachments.map((att) => (
                   <div
                     key={att.filename}
                     className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl text-left hover:bg-slate-100/50 transition-colors group"
@@ -742,7 +762,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   <span className="text-[10px] font-medium mt-0.5">Post a comment to start the conversation</span>
                 </div>
               ) : (
-                (task?.activities || []).map((act: any, idx: number) => {
+                (task?.activities || []).map((act, idx: number) => {
                   const isSystem = act.type === 'system';
                   return (
                     <div key={act._id || idx} className="flex gap-3 items-start text-xs text-left animate-fade-up">
@@ -854,12 +874,12 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   <select
                     onChange={(e) => handleReassignUser(e.target.value ? [e.target.value] : [])}
                     onBlur={() => setShowReassignMenu(false)}
-                    defaultValue={task.assignedTo || ''}
+                    defaultValue={typeof task.assignedTo === 'string' ? task.assignedTo : ''}
                     className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
                     autoFocus
                   >
                     <option value="">Unassigned</option>
-                    {availableAssignees.map((u: any) => (
+                    {availableAssignees.map((u: User) => (
                       <option key={u.id || u._id} value={u.id || u._id}>
                         {u.firstName} {u.lastName} ({u.department ? u.department : (u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'User')})
                       </option>
@@ -881,7 +901,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                         if (assignees.length === 0) return <span className="text-slate-400 font-medium italic">Unassigned</span>;
                         return (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {assignees.map((u: any, idx: number) => (
+                            {assignees.map((u: { firstName: string; lastName: string }, idx: number) => (
                               <span key={idx} className="inline-flex items-center gap-1 bg-sky-50 text-[#0EA5E9] px-2.5 py-0.5 rounded-full text-xs font-bold border border-sky-100">
                                 {u.firstName} {u.lastName}
                               </span>
@@ -1131,7 +1151,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             {/* List of Time Logs */}
             {task.timeLogs && task.timeLogs.length > 0 ? (
               <div className="space-y-3 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                {task.timeLogs.map((log: any, idx: number) => (
+                {task.timeLogs.map((log, idx: number) => (
                   <div key={log._id || idx} className="flex justify-between items-start text-xs border-b border-slate-50 pb-2 last:border-0 last:pb-0">
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5">
@@ -1230,7 +1250,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   <span className="text-slate-400 text-xs italic">No assignees selected (Unassigned)</span>
                 ) : (
                   selectedNewAssignees.map((id) => {
-                    const u = users.find((user: any) => (user.id || user._id) === id);
+                    const u = users.find((user: User) => (user.id || user._id) === id);
                     if (!u) return null;
                     return (
                       <span
@@ -1256,8 +1276,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 {availableAssignees.length === 0 ? (
                   <span className="text-slate-400 text-xs italic block p-1">No assignees available</span>
                 ) : (
-                  availableAssignees.map((u: any) => {
-                    const uId = u.id || u._id;
+                  availableAssignees.map((u: User) => {
+                    const uId = u.id || u._id || '';
                     const isSelected = selectedNewAssignees.includes(uId);
                     const roleBadge = u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'Employee';
                     return (

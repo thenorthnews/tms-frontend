@@ -120,14 +120,15 @@ export const UsersList = () => {
       title: 'Name',
       field: 'firstName',
       Cell({ entry: { firstName, lastName } }: { entry: User }) {
-        return <span className="font-medium text-slate-900">{`${firstName} ${lastName}`}</span>;
+        const nameStr = `${firstName || ''} ${lastName || ''}`.trim() || 'No Name';
+        return <span className="font-medium text-slate-900">{nameStr}</span>;
       },
     },
     {
       title: 'Email',
       field: 'email',
       Cell({ entry: { email } }: { entry: User }) {
-        const emailStr = typeof email === 'object' && email !== null ? (email as any).id || '' : email;
+        const emailStr = typeof email === 'string' ? email : String(email || '');
         return <a href={`mailto:${emailStr}`} className="text-slate-500 hover:text-indigo-600 transition-colors">{emailStr}</a>;
       },
     },
@@ -152,7 +153,7 @@ export const UsersList = () => {
       title: 'Status',
       field: 'status',
       Cell({ entry: { id, status } }: { entry: User }) {
-        const getStatusColor = (s: number) => {
+        const getStatusColor = (s?: number) => {
           switch(s) {
             case UserStatus.ACTIVE: return 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/20'; // Active
             case UserStatus.INACTIVE: return 'bg-rose-50 text-rose-700 border-rose-200 focus:ring-rose-500/20'; // Inactive
@@ -163,7 +164,7 @@ export const UsersList = () => {
 
         return (
           <select
-            className={`block w-28 rounded-full border px-3 py-1.5 shadow-sm text-xs font-semibold focus:ring-4 transition-all cursor-pointer ${getStatusColor(status as number)}`}
+            className={`block w-28 rounded-full border px-3 py-1.5 shadow-sm text-xs font-semibold focus:ring-4 transition-all cursor-pointer ${getStatusColor(status)}`}
             value={status}
             onChange={(e) => {
               updateStatusMutation.mutate({
@@ -184,7 +185,8 @@ export const UsersList = () => {
       title: 'Created At',
       field: 'createdAt',
       Cell({ entry: { createdAt } }: { entry: User }) {
-        return <span>{formatDate(createdAt as number)}</span>;
+        const createdTime = typeof createdAt === 'number' ? createdAt : typeof createdAt === 'string' ? new Date(createdAt).getTime() : 0;
+        return <span>{formatDate(createdTime)}</span>;
       },
     },
     {

@@ -8,12 +8,14 @@ import { useNotifications } from '@/components/ui/notifications';
 import { paths } from '@/config/paths';
 import { useUploadFile } from '@/features/file/api/upload-file';
 
+import { User } from '@/types/api';
 import { useGetUser } from '../api/get-user';
 import {
   updateUserInputSchema,
   UpdateUserInput,
   useUpdateUser,
 } from '../api/update-user';
+import { UseFormSetValue } from 'react-hook-form';
 
 const GENDER_LABELS: Record<number, string> = {
   0: 'Male',
@@ -45,7 +47,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
         });
         navigate(-1);
       },
-      onError: (err: any) => {
+      onError: (err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
         const backendMsg = err.response?.data?.message || err.message || '';
         if (backendMsg.toLowerCase().includes('email') || err.response?.status === 409) {
           setFormErrors((prev) => ({ ...prev, email: 'Email already exists' }));
@@ -58,7 +60,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
 
   const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    setValue: (field: keyof UpdateUserInput, value: string) => void,
+    setValue: UseFormSetValue<UpdateUserInput>,
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -82,7 +84,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
     );
   }
 
-  const userData = userQuery.data as any;
+  const userData = userQuery.data;
   if (!userData) {
     return (
       <div className="text-center text-gray-500 py-8">User not found</div>
@@ -90,6 +92,18 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
   }
 
   const userInfo = userData.userInfo || {};
+
+  const defaultValues: UpdateUserInput = {
+    email: typeof userData.email === 'string' ? userData.email : String(userData.email || ''),
+    countryCode: typeof userData.phoneNumber === 'object' && userData.phoneNumber !== null ? userData.phoneNumber.countryCode || '+91' : '+91',
+    phoneNumber: typeof userData.phoneNumber === 'object' && userData.phoneNumber !== null ? userData.phoneNumber.number || '' : (typeof userData.phoneNumber === 'string' ? userData.phoneNumber : ''),
+    firstName: userData.firstName || userInfo.firstName || '',
+    lastName: userData.lastName || userInfo.lastName || '',
+    gender: userData.gender ?? userInfo.gender ?? 0,
+    department: userData.department || 'Engineering',
+    image: userData.image || userInfo.image || '',
+    role: Number(userData.role ?? 4),
+  };
 
   return (
     <div className="space-y-6 pb-10">
@@ -102,17 +116,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
         }}
         schema={updateUserInputSchema}
         options={{
-          defaultValues: {
-            email: userData.email?.id || (typeof userData.email === 'string' ? userData.email : ''),
-            countryCode: userData.phoneNumber?.countryCode || '+91',
-            phoneNumber: userData.phoneNumber?.number || (typeof userData.phoneNumber === 'string' ? userData.phoneNumber : ''),
-            firstName: userData.firstName || userInfo.firstName || '',
-            lastName: userData.lastName || userInfo.lastName || '',
-            gender: userData.gender ?? userInfo.gender ?? 0,
-            department: userData.department || 'Engineering',
-            image: userData.image || userInfo.image || '',
-            role: userData.role ?? 4,
-          } as UpdateUserInput,
+          defaultValues,
         }}
       >
         {({ register, formState, setValue }) => (
@@ -215,7 +219,7 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleImageUpload(e, setValue as any)}
+                      onChange={(e) => handleImageUpload(e, setValue)}
                       className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                     />
                     {uploading && (
@@ -230,9 +234,9 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                         />
                       </div>
                     )}
-                    {(formState.errors as any)['image'] && (
+                    {formState.errors.image && (
                       <p className="mt-2 text-sm text-red-600">
-                        {(formState.errors as any)['image']?.message as string}
+                        {formState.errors.image.message}
                       </p>
                     )}
                   </div>

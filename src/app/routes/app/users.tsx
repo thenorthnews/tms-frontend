@@ -34,7 +34,7 @@ export const clientLoader =
 const UsersRoute = () => {
   const navigate = useNavigate();
   const user = useUser();
-  const isCEO = (user.data?.role as any) === 0 || (user.data?.role as any) === 'CEO';
+  const isCEO = user.data?.role === 0 || user.data?.role === 'CEO';
 
   return (
     <ContentLayout title="Users">

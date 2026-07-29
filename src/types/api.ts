@@ -34,6 +34,12 @@ export type User = {
   status: number;
   createdAt?: string | number;
   updatedAt?: string | number;
+  userInfo?: {
+    firstName?: string;
+    lastName?: string;
+    gender?: number;
+    image?: string;
+  };
 };
 
 export type AuthResponse = {
@@ -42,14 +48,23 @@ export type AuthResponse = {
   user: User;
 };
 
-export type TeamMember = User | any;
+export type PopulatedUserSummary = {
+  _id?: string;
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  image?: string;
+};
+
+export type TeamMember = User | PopulatedUserSummary | string;
 
 export type Team = {
   id?: string;
   _id?: string;
   name: string;
-  managerId: User | any;
-  members: TeamMember[];
+  managerId?: User | PopulatedUserSummary | string;
+  members?: TeamMember[];
   createdAt?: string | number;
   updatedAt?: string | number;
 };

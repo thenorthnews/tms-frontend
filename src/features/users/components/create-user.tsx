@@ -42,7 +42,7 @@ export const CreateUserForm = () => {
 
   const handleImageUpload = useCallback(async (
     e: React.ChangeEvent<HTMLInputElement>,
-    setValue: UseFormSetValue<CreateUserInput>,
+    setValue: (name: keyof CreateUserInput, value: string) => void,
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -138,7 +138,7 @@ export const CreateUserForm = () => {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => handleImageUpload(e, setValue as any)}
+                    onChange={(e) => handleImageUpload(e, setValue)}
                     className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                   />
                   {uploading && <p className="text-sm text-indigo-600 mt-2">Uploading...</p>}

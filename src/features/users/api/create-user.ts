@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
+import { User } from '@/types/api';
 
 export const createUserInputSchema = z.object({
   // User credentials
@@ -25,9 +26,9 @@ export const createUser = ({
   data,
 }: {
   data: CreateUserInput;
-}): Promise<any> => {
+}): Promise<User> => {
   // Transform flat form data to the backend DTO structure
-  const payload: any = {
+  const payload: Record<string, unknown> = {
     UserDto: {
       email: data.email,
       password: data.password,

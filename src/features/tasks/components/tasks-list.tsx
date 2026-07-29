@@ -47,6 +47,7 @@ import {
   getStatusSelectStyle,
   getStatusLabel,
 } from '../utils/task-utils';
+import { User } from '@/types/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -252,7 +253,7 @@ export const TasksList = () => {
 
   const selectedClient = useMemo(() => {
     if (!clientVal || clientVal === 'all') return null;
-    return clients.find((c: any) => (c._id || c.id) === clientVal);
+    return clients.find((c) => (c._id || c.id) === clientVal);
   }, [clients, clientVal]);
 
   const tasksQuery = useTasks({
@@ -324,7 +325,7 @@ export const TasksList = () => {
         }
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {assignees.map((u: any, idx: number) => (
+            {assignees.map((u: { firstName?: string; lastName?: string; image?: string }, idx: number) => (
               <div key={idx} className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full" title={`${u.firstName || ''} ${u.lastName || ''}`}>
                 {u.image ? (
                   <img className="h-5 w-5 rounded-full object-cover" src={u.image} alt="" />
@@ -562,10 +563,10 @@ export const TasksList = () => {
                           {t.assigneeInfo ? (
                             (() => {
                               const assignees = Array.isArray(t.assigneeInfo) ? t.assigneeInfo : [t.assigneeInfo];
-                              const firstUser: any = assignees[0];
+                              const firstUser = assignees[0] as { firstName?: string; lastName?: string } | undefined;
                               if (!firstUser) return <div className="size-6 rounded-full bg-slate-50 text-slate-400 font-bold flex items-center justify-center text-[9px] border border-slate-100" title="Unassigned">--</div>;
                               return (
-                                <div className="size-6 rounded-full bg-indigo-50 text-indigo-700 font-extrabold flex items-center justify-center text-[9px] border border-slate-200" title={assignees.map((u: any) => `${u.firstName || ''} ${u.lastName || ''}`).join(', ')}>
+                                <div className="size-6 rounded-full bg-indigo-50 text-indigo-700 font-extrabold flex items-center justify-center text-[9px] border border-slate-200" title={assignees.map((u) => `${u.firstName || ''} ${u.lastName || ''}`).join(', ')}>
                                   {firstUser.firstName?.[0]}{firstUser.lastName?.[0]}
                                 </div>
                               );
@@ -802,8 +803,8 @@ export const TasksList = () => {
           </div>
 
           {/* Client Specific Cards */}
-          {clients.map((c: any) => {
-            const cId = c._id || c.id;
+          {clients.map((c) => {
+            const cId = c._id || c.id || '';
             return (
               <div
                 key={cId}
@@ -900,7 +901,7 @@ export const TasksList = () => {
               onChange={(e) => handleClientFilterChange(e.target.value)}
             >
               <option value="">All Clients</option>
-              {clients.map((c: any) => (
+              {clients.map((c) => (
                 <option key={c._id || c.id} value={c._id || c.id}>
                   {c.name} {c.companyName ? `(${c.companyName})` : ''}
                 </option>
@@ -916,7 +917,7 @@ export const TasksList = () => {
               onChange={(e) => handleAssigneeFilterChange(e.target.value)}
             >
               <option value="">All Members</option>
-              {usersList.map((u: any) => {
+              {usersList.map((u: User) => {
                 const uId = u._id || u.id;
                 const roleLabel =
                   u.role === 1 || u.role === 'MANAGER' || u.role === 'Manager'

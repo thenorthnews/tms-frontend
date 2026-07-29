@@ -28,6 +28,7 @@ import { useTeams } from '@/features/teams/api/teams';
 import { useUpdateTask } from '@/features/tasks/api/update-task';
 import { Spinner } from '@/components/ui/spinner';
 import { Task, TaskStatus, TaskPriority } from '@/features/tasks/types';
+import { TeamMember } from '@/types/api';
 import { Team, User } from '@/types/api';
 
 export const DashboardOverview = () => {
@@ -266,7 +267,7 @@ export const DashboardOverview = () => {
     const managerName = manager
       ? `${manager.firstName || ''} ${manager.lastName || ''}`.trim()
       : 'Unassigned';
-    const memberIds = (team.members || []).map((m: any) =>
+    const memberIds = (team.members || []).map((m: TeamMember) =>
       typeof m === 'object' && m !== null ? (m._id || m.id)?.toString() : m?.toString(),
     );
 
@@ -276,8 +277,14 @@ export const DashboardOverview = () => {
       if (taskTeamId && teamIdStr) {
         matchesTeam = taskTeamId === teamIdStr;
       } else {
-        const assignedId = t.assignedTo && typeof t.assignedTo === 'object' ? ((t.assignedTo as any)._id || (t.assignedTo as any).id) : t.assignedTo;
-        matchesTeam = !!(assignedId && memberIds.includes(assignedId?.toString()));
+        const assigned = t.assignedTo;
+        const assignedObj = (assigned && typeof assigned === 'object' && !Array.isArray(assigned)) ? (assigned as { _id?: string; id?: string }) : null;
+        const assignedId = typeof assigned === 'string'
+          ? assigned
+          : Array.isArray(assigned)
+          ? (typeof assigned[0] === 'string' ? assigned[0] : (assigned[0] as { _id?: string; id?: string })?._id || (assigned[0] as { _id?: string; id?: string })?.id || '')
+          : assignedObj ? (assignedObj._id || assignedObj.id || '') : '';
+        matchesTeam = !!(assignedId && memberIds.includes(assignedId.toString()));
       }
       if (!matchesTeam) return false;
 
@@ -286,16 +293,16 @@ export const DashboardOverview = () => {
 
     const total = teamTasks.length;
     const pending = teamTasks.filter(
-      (t: any) => t.status === TaskStatus.PENDING,
+      (t: Task) => t.status === TaskStatus.PENDING,
     ).length;
     const inProgress = teamTasks.filter(
-      (t: any) => t.status === TaskStatus.IN_PROGRESS,
+      (t: Task) => t.status === TaskStatus.IN_PROGRESS,
     ).length;
     const completed = teamTasks.filter(
-      (t: any) => t.status === TaskStatus.COMPLETED,
+      (t: Task) => t.status === TaskStatus.COMPLETED,
     ).length;
     const cancelled = teamTasks.filter(
-      (t: any) => t.status === TaskStatus.CANCELLED,
+      (t: Task) => t.status === TaskStatus.CANCELLED,
     ).length;
     const completionPercent =
       total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -314,11 +321,13 @@ export const DashboardOverview = () => {
     };
   });
 
-  const recentActivities = dbTasks.slice(0, 5).map((t: any) => {
+  const recentActivities = dbTasks.slice(0, 5).map((t: Task) => {
     const assignee = t.assigneeInfo || t.assignedTo;
-    const assigneeName = assignee ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() : 'Unassigned';
+    const assigneeObj = typeof assignee === 'object' && assignee !== null && !Array.isArray(assignee) ? assignee : null;
+    const assigneeName = assigneeObj ? `${assigneeObj.firstName || ''} ${assigneeObj.lastName || ''}`.trim() : 'Unassigned';
     const creator = t.creatorInfo || t.createdBy;
-    const creatorName = creator ? `${creator.firstName || ''} ${creator.lastName || ''}`.trim() : 'System';
+    const creatorObj = typeof creator === 'object' && creator !== null ? creator : null;
+    const creatorName = creatorObj ? `${creatorObj.firstName || ''} ${creatorObj.lastName || ''}`.trim() : 'System';
 
     let statusStr = 'Pending';
     let statusColor = 'bg-slate-100 text-slate-800 border-slate-200';
@@ -353,20 +362,23 @@ export const DashboardOverview = () => {
   // ==============================================
   // MANAGER DASHBOARD DATA
   // ==============================================
-  const managerTeam = dbTeams.find((t: any) => {
-    const mgrId = (t.managerId && typeof t.managerId === 'object' ? (t.managerId._id || t.managerId.id) : t.managerId)?.toString();
+  const managerTeam = dbTeams.find((t: Team) => {
+    const mgr = t.managerId;
+    const mgrId = (typeof mgr === 'object' && mgr !== null ? (mgr._id || mgr.id) : mgr)?.toString();
     const userIdStr = user.data?.id?.toString();
     return mgrId && mgrId === userIdStr;
   });
-  const teamMemberIds = (managerTeam?.members || []).map((m: any) =>
+  const teamMemberIds = (managerTeam?.members || []).map((m: TeamMember) =>
     (m && typeof m === 'object' ? (m._id || m.id) : m)?.toString()
   );
-  const managerTeamTasks = dbTasks.filter((t: any) => {
-    const assignedId = (t.assignedTo && typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo)?.toString();
+  const managerTeamTasks = dbTasks.filter((t: Task) => {
+    const assigned = t.assignedTo;
+    const assignedObj = (assigned && typeof assigned === 'object' && !Array.isArray(assigned)) ? (assigned as { _id?: string; id?: string }) : null;
+    const assignedId = (assignedObj ? (assignedObj._id || assignedObj.id) : (typeof assigned === 'string' ? assigned : ''))?.toString();
     return assignedId && teamMemberIds.includes(assignedId);
   });
-  const managerActiveTasks = managerTeamTasks.filter((t: any) => t.status !== TaskStatus.COMPLETED).length;
-  const managerCompletedTasks = managerTeamTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
+  const managerActiveTasks = managerTeamTasks.filter((t: Task) => t.status !== TaskStatus.COMPLETED).length;
+  const managerCompletedTasks = managerTeamTasks.filter((t: Task) => t.status === TaskStatus.COMPLETED).length;
 
   const managerMetrics = [
     {
@@ -398,32 +410,40 @@ export const DashboardOverview = () => {
     },
   ];
 
-  const teamMembers = (managerTeam?.members || []).map((m: any) => {
-    const memberIdStr = (m && typeof m === 'object' ? (m._id || m.id) : m)?.toString();
-    const assignedTasks = dbTasks.filter((t: any) => {
-      const assignedId = (t.assignedTo && typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo)?.toString();
+  const teamMembers = (managerTeam?.members || []).map((m: TeamMember) => {
+    const memberObj = typeof m === 'object' && m !== null ? m : null;
+    const memberIdStr = (memberObj ? (memberObj._id || memberObj.id) : m)?.toString();
+    const assignedTasks = dbTasks.filter((t: Task) => {
+      const assigned = t.assignedTo;
+      const assignedObj = (assigned && typeof assigned === 'object' && !Array.isArray(assigned)) ? (assigned as { _id?: string; id?: string }) : null;
+      const assignedId = (assignedObj ? (assignedObj._id || assignedObj.id) : (typeof assigned === 'string' ? assigned : ''))?.toString();
       return assignedId === memberIdStr;
     });
     const assigned = assignedTasks.length;
-    const completed = assignedTasks.filter((t: any) => t.status === TaskStatus.COMPLETED).length;
+    const completed = assignedTasks.filter((t: Task) => t.status === TaskStatus.COMPLETED).length;
     const progress = assigned > 0 ? Math.round((completed / assigned) * 100) : 0;
-    const initials = `${m.firstName?.[0] || 'U'}${m.lastName?.[0] || ''}`.toUpperCase();
+    const initials = memberObj ? `${memberObj.firstName?.[0] || 'U'}${memberObj.lastName?.[0] || ''}`.toUpperCase() : 'U';
 
     return {
-      id: m._id || m.id,
-      name: `${m.firstName || ''} ${m.lastName || ''}`.trim() || 'No Name',
-      role: m.role === 4 ? 'Developer' : 'Member',
-      tasksCount: assigned,
+      id: memberObj?._id || memberObj?.id || (typeof m === 'string' ? m : ''),
+      name: memberObj ? `${memberObj.firstName || ''} ${memberObj.lastName || ''}`.trim() : 'No Name',
+      role: (memberObj as { department?: string })?.department || 'Member',
+      assigned,
+      completed,
       progress,
+      status: completed === assigned && assigned > 0 ? 'Completed' : 'On Track',
+      initials,
       avatarInitials: initials,
       color: 'bg-emerald-500',
+      tasksCount: assigned,
     };
   });
 
-  const teamTasks = managerTeamTasks.map((t: any) => {
+  const teamTasks = managerTeamTasks.map((t: Task) => {
     const assignee = t.assigneeInfo || t.assignedTo;
-    const assigneeName = assignee ? `${assignee.firstName || ''} ${assignee.lastName || ''}`.trim() : 'Unassigned';
-    const initials = assignee ? `${assignee.firstName?.[0] || 'U'}${assignee.lastName?.[0] || ''}`.toUpperCase() : 'U';
+    const assigneeObj = typeof assignee === 'object' && assignee !== null && !Array.isArray(assignee) ? assignee : null;
+    const assigneeName = assigneeObj ? `${assigneeObj.firstName || ''} ${assigneeObj.lastName || ''}`.trim() : 'Unassigned';
+    const initials = assigneeObj ? `${assigneeObj.firstName?.[0] || 'U'}${assigneeObj.lastName?.[0] || ''}`.toUpperCase() : 'U';
 
     let statusStr = 'To Do';
     if (t.status === TaskStatus.IN_PROGRESS) statusStr = 'In Progress';
@@ -495,16 +515,19 @@ export const DashboardOverview = () => {
   // ===========================================
   // EMPLOYEE DASHBOARD DATA
   // ===========================================
-  const myAssignedTasks = dbTasks.filter((t: any) => {
-    const assignedId = (t.assignedTo && typeof t.assignedTo === 'object' ? (t.assignedTo._id || t.assignedTo.id) : t.assignedTo)?.toString();
+  const myAssignedTasks = dbTasks.filter((t: Task) => {
+    const assigned = t.assignedTo;
+    const assignedObj = (assigned && typeof assigned === 'object' && !Array.isArray(assigned)) ? (assigned as { _id?: string; id?: string }) : null;
+    const assignedId = (assignedObj ? (assignedObj._id || assignedObj.id) : (typeof assigned === 'string' ? assigned : ''))?.toString();
     const userIdStr = user.data?.id?.toString();
     return assignedId && assignedId === userIdStr;
   });
 
-  const employeeTasks = myAssignedTasks.map((t: any) => {
+  const employeeTasks = myAssignedTasks.map((t: Task) => {
     const creator = t.creatorInfo || t.createdBy;
-    const creatorName = creator ? `${creator.firstName || ''} ${creator.lastName || ''}`.trim() : 'System';
-    const initials = creator ? `${creator.firstName?.[0] || 'S'}${creator.lastName?.[0] || 'J'}`.toUpperCase() : 'S';
+    const creatorObj = typeof creator === 'object' && creator !== null ? creator : null;
+    const creatorName = creatorObj ? `${creatorObj.firstName || ''} ${creatorObj.lastName || ''}`.trim() : 'System';
+    const initials = creatorObj ? `${creatorObj.firstName?.[0] || 'S'}${creatorObj.lastName?.[0] || 'J'}`.toUpperCase() : 'S';
 
     let statusStr: 'To Do' | 'In Progress' | 'Done' = 'To Do';
     if (t.status === TaskStatus.IN_PROGRESS) statusStr = 'In Progress';
@@ -523,7 +546,7 @@ export const DashboardOverview = () => {
       status: statusStr,
       deadline: t.dueDate || '2026-07-20',
       deadlineFormatted: t.dueDate ? new Date(t.dueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'No Deadline',
-      comments: simulatedComments[t._id || t.id] || t.comments || [],
+      comments: (t._id || t.id) ? (simulatedComments[t._id || t.id] || []) : [],
     };
   });
 
@@ -1405,7 +1428,7 @@ export const DashboardOverview = () => {
                 {currentTask.comments.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-6 font-semibold">No comments posted on this task yet.</p>
                 ) : (
-                  currentTask.comments.map((comment: any, index: any) => (
+                  currentTask.comments.map((comment: string, index: number) => (
                     <div key={index} className="flex gap-2.5 items-start p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <div className="size-7 rounded-full bg-indigo-100 text-[#1E3A8A] font-bold flex items-center justify-center text-[10px] shrink-0">
                         {currentTask.avatarInitials}

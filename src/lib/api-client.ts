@@ -5,22 +5,25 @@ import { env } from '@/config/env';
 import { paths } from '@/config/paths';
 import { User } from '@/types/api';
 
-export const mapUser = (backendUser: Record<string, any>): User => {
-  if (!backendUser) return null as any;
-  const userInfo = backendUser.userInfo || {};
+export const mapUser = (backendUser: Record<string, unknown>): User => {
+  if (!backendUser) return {} as User;
+  const userInfo = (backendUser.userInfo || {}) as Record<string, unknown>;
+  const emailObj = backendUser.email as { id?: string } | string | undefined;
+  const phoneObj = backendUser.phoneNumber as { number?: string } | string | undefined;
+
   return {
-    id: backendUser._id || backendUser.id,
-    createdAt: backendUser.createdAt ? new Date(backendUser.createdAt).getTime() : Date.now(),
-    email: typeof backendUser.email === 'string' ? backendUser.email : (backendUser.email?.id || ''),
-    firstName: backendUser.firstName || userInfo.firstName || '',
-    lastName: backendUser.lastName || userInfo.lastName || '',
-    role: backendUser.role ?? 'USER',
-    teamId: backendUser.teamId || '',
-    bio: backendUser.bio || '',
-    phoneNumber: typeof backendUser.phoneNumber === 'string' ? backendUser.phoneNumber : (backendUser.phoneNumber?.number || userInfo.phoneNumber || ''),
-    department: backendUser.department || userInfo.department || 'Engineering',
-    image: backendUser.image || userInfo.image || '',
-    status: backendUser.status ?? 0,
+    id: String(backendUser._id || backendUser.id || ''),
+    createdAt: backendUser.createdAt ? new Date(String(backendUser.createdAt)).getTime() : Date.now(),
+    email: typeof emailObj === 'string' ? emailObj : (emailObj?.id || ''),
+    firstName: String(backendUser.firstName || userInfo.firstName || ''),
+    lastName: String(backendUser.lastName || userInfo.lastName || ''),
+    role: (backendUser.role as User['role']) ?? 4,
+    teamId: String(backendUser.teamId || ''),
+    bio: String(backendUser.bio || ''),
+    phoneNumber: typeof phoneObj === 'string' ? phoneObj : (phoneObj?.number || (userInfo.phoneNumber as string) || ''),
+    department: String(backendUser.department || userInfo.department || 'Engineering'),
+    image: String(backendUser.image || userInfo.image || ''),
+    status: (backendUser.status as number) ?? 0,
   };
 };
 

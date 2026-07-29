@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, Users, AlertCircle, X, Mail, Phone, Briefc
 import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { useClients } from '../api/get-clients';
-import { useCreateClient } from '../api/create-client';
+import { createClientInputSchema, useCreateClient } from '../api/create-client';
 import { useUpdateClient } from '../api/update-client';
 import { useDeleteClient } from '../api/delete-client';
 import { Client } from '../types';
@@ -25,6 +25,7 @@ export const ClientsList = () => {
   const [phone, setPhone] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState(0);
+  const [clientFormErrors, setClientFormErrors] = useState<Record<string, string>>({});
 
   const createMutation = useCreateClient({
     mutationConfig: {
@@ -63,6 +64,7 @@ export const ClientsList = () => {
     setPhone('');
     setDescription('');
     setStatus(0);
+    setClientFormErrors({});
   };
 
   const openCreateModal = () => {
@@ -72,6 +74,7 @@ export const ClientsList = () => {
     setPhone('');
     setDescription('');
     setStatus(0);
+    setClientFormErrors({});
     setIsCreateModalOpen(true);
   };
 
@@ -83,35 +86,66 @@ export const ClientsList = () => {
     setPhone(client.phone || '');
     setDescription(client.description || '');
     setStatus(client.status ?? 0);
+    setClientFormErrors({});
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    createMutation.mutate({
+    const payload = {
       name: name.trim(),
       companyName: companyName.trim(),
       email: email.trim(),
       phone: phone.trim(),
       description: description.trim(),
       status,
-    });
+    };
+
+    const result = createClientInputSchema.safeParse(payload);
+    if (!result.success) {
+      const errs: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errs[err.path[0] as string] = err.message;
+        }
+      });
+      setClientFormErrors(errs);
+      return;
+    }
+
+    setClientFormErrors({});
+    createMutation.mutate(payload);
   };
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingClient || !name.trim()) return;
+    if (!editingClient) return;
     const clientId = editingClient._id || editingClient.id || '';
+
+    const payload = {
+      name: name.trim(),
+      companyName: companyName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      description: description.trim(),
+      status,
+    };
+
+    const result = createClientInputSchema.safeParse(payload);
+    if (!result.success) {
+      const errs: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errs[err.path[0] as string] = err.message;
+        }
+      });
+      setClientFormErrors(errs);
+      return;
+    }
+
+    setClientFormErrors({});
     updateMutation.mutate({
       clientId,
-      data: {
-        name: name.trim(),
-        companyName: companyName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        description: description.trim(),
-        status,
-      },
+      data: payload,
     });
   };
 
@@ -309,12 +343,12 @@ export const ClientsList = () => {
                 <label className="text-xs font-bold text-slate-700 block">Client Name *</label>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all"
+                  className={`w-full text-xs p-3 bg-slate-50 border ${clientFormErrors.name ? 'border-rose-400' : 'border-slate-200'} rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all`}
                 />
+                {clientFormErrors.name && <p className="text-[11px] text-rose-500 font-medium">{clientFormErrors.name}</p>}
               </div>
 
               <div className="space-y-1">
@@ -332,12 +366,13 @@ export const ClientsList = () => {
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 block">Email</label>
                   <input
-                    type="email"
+                    type="text"
                     placeholder="client@acme.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all"
+                    className={`w-full text-xs p-3 bg-slate-50 border ${clientFormErrors.email ? 'border-rose-400' : 'border-slate-200'} rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all`}
                   />
+                  {clientFormErrors.email && <p className="text-[11px] text-rose-500 font-medium">{clientFormErrors.email}</p>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 block">Phone</label>
@@ -422,11 +457,11 @@ export const ClientsList = () => {
                 <label className="text-xs font-bold text-slate-700 block">Client Name *</label>
                 <input
                   type="text"
-                  required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all"
+                  className={`w-full text-xs p-3 bg-slate-50 border ${clientFormErrors.name ? 'border-rose-400' : 'border-slate-200'} rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all`}
                 />
+                {clientFormErrors.name && <p className="text-[11px] text-rose-500 font-medium">{clientFormErrors.name}</p>}
               </div>
 
               <div className="space-y-1">
@@ -443,11 +478,12 @@ export const ClientsList = () => {
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 block">Email</label>
                   <input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all"
+                    className={`w-full text-xs p-3 bg-slate-50 border ${clientFormErrors.email ? 'border-rose-400' : 'border-slate-200'} rounded-xl focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-800 transition-all`}
                   />
+                  {clientFormErrors.email && <p className="text-[11px] text-rose-500 font-medium">{clientFormErrors.email}</p>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 block">Phone</label>

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
+import { User } from '@/types/api';
 
 import { getUserQueryOptions } from './get-user';
 
@@ -29,8 +30,8 @@ export const updateUser = ({
 }: {
   userId: string;
   data: UpdateUserInput;
-}): Promise<any> => {
-  const payload: any = {
+}): Promise<User> => {
+  const payload: Record<string, unknown> = {
     UserDto: {
       email: data.email,
       phoneNumber: data.phoneNumber && data.phoneNumber.trim() ? data.phoneNumber.trim() : undefined,
