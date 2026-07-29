@@ -51,9 +51,11 @@ export const getPriorityDotColor = (p: number): string => {
 export const getStatusLabel = (status: number): string => {
   switch (status) {
     case TaskStatus.COMPLETED:
-      return 'Done';
+      return 'Completed';
     case TaskStatus.IN_PROGRESS:
       return 'In Progress';
+    case TaskStatus.ON_HOLD:
+      return 'Hold';
     case TaskStatus.CANCELLED:
       return 'Blocked';
     default:
@@ -67,6 +69,8 @@ export const getStatusBadgeStyle = (s: number): string => {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     case TaskStatus.IN_PROGRESS:
       return 'bg-blue-50 text-blue-700 border-blue-200';
+    case TaskStatus.ON_HOLD:
+      return 'bg-amber-50 text-amber-700 border-amber-200';
     case TaskStatus.CANCELLED:
       return 'bg-rose-50 text-rose-700 border-rose-200';
     default:
@@ -80,6 +84,8 @@ export const getStatusSelectStyle = (s: number): string => {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/20';
     case TaskStatus.IN_PROGRESS:
       return 'bg-blue-50 text-blue-700 border-blue-200 focus:ring-blue-500/20';
+    case TaskStatus.ON_HOLD:
+      return 'bg-amber-50 text-amber-700 border-amber-200 focus:ring-amber-500/20';
     case TaskStatus.CANCELLED:
       return 'bg-rose-50 text-rose-700 border-rose-200 focus:ring-rose-500/20';
     default:

@@ -3,6 +3,7 @@ export enum TaskStatus {
   IN_PROGRESS = 1,
   COMPLETED = 2,
   CANCELLED = 3,
+  ON_HOLD = 4,
 }
 
 export enum TaskPriority {
@@ -63,6 +64,7 @@ export type Task = {
   attachments?: Attachment[];
   activities?: Activity[];
   timeLogs?: TimeLog[];
+  lastStartedAt?: string;
   assigneeInfo?: {
     firstName: string;
     lastName: string;

@@ -34,7 +34,6 @@ export const CreateTask = () => {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [autoTeamIds, setAutoTeamIds] = useState<string[]>([]);
 
   // Fetch active users for the assignee dropdown
   const { data: users = [], isLoading: isLoadingUsers } = useQuery<User[]>({
@@ -47,7 +46,7 @@ export const CreateTask = () => {
     },
   });
 
-  // Fetch teams for the team dropdown
+  // Fetch teams for filtering assignees for Manager/TL
   const { data: teamsRes = [], isLoading: isLoadingTeams } = useQuery<any[]>({
     queryKey: ['teams-list'],
     queryFn: async () => {
@@ -74,14 +73,6 @@ export const CreateTask = () => {
       },
     },
   });
-
-  const teamOptions = [
-    { label: 'No Team (Independent)', value: '' },
-    ...teamsRes.map((t: Team) => ({
-      label: t.name,
-      value: (t._id || t.id) as string,
-    })),
-  ];
 
   const clientOptions = [
     { label: 'Select Client *', value: '' },
@@ -137,14 +128,14 @@ export const CreateTask = () => {
           const data = {
             ...values,
             assignedTo: selectedAssignees.length > 0 ? selectedAssignees : undefined,
-            teamIds: autoTeamIds.length > 0 ? autoTeamIds : undefined,
-            clientId: values.clientId,
+            clientId: values.clientId || undefined,
             status: Number(values.status),
             priority: Number(values.priority),
             subtasks,
             tags: parsedTags,
           };
           delete (data as any).teamId;
+          delete (data as any).teamIds;
           createTaskMutation.mutate({ data });
         }}
         schema={createTaskInputSchema}
@@ -156,34 +147,14 @@ export const CreateTask = () => {
             priority: TaskPriority.LOW,
             dueDate: '',
             assignedTo: '',
-            teamId: '',
             clientId: '',
           } as any,
         }}
       >
-        {({ register, formState, watch, setValue }) => {
-          const selectedTeamId = watch('teamId');
-          const selectedTeam = teamsRes.find(
-            (t: any) => (t._id || t.id) === selectedTeamId,
-          );
-
-          // Extract team members and manager IDs if a team is selected or user is Manager/TL
+        {({ register, formState }) => {
+          // Extract team members and manager IDs if user is Manager/TL
           const teamMemberIds = new Set<string>();
-          if (selectedTeam) {
-            if (selectedTeam.managerId) {
-              const mgrId =
-                typeof selectedTeam.managerId === 'object'
-                  ? selectedTeam.managerId._id || selectedTeam.managerId.id
-                  : selectedTeam.managerId;
-              if (mgrId) teamMemberIds.add(String(mgrId));
-            }
-            if (Array.isArray(selectedTeam.members)) {
-              selectedTeam.members.forEach((m: any) => {
-                const mId = typeof m === 'object' ? m._id || m.id : m;
-                if (mId) teamMemberIds.add(String(mId));
-              });
-            }
-          } else if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL) {
+          if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL) {
             // Find all teams managed by currentUser
             const managedTeams = teamsRes.filter((t: any) => {
               const mgrId = (
@@ -209,24 +180,11 @@ export const CreateTask = () => {
           }
 
           const filteredUsers =
-            selectedTeamId || currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL
+            currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL
               ? users.filter((u: any) =>
                 teamMemberIds.has(String(u.id || u._id)),
               )
               : users;
-
-          const userOptions = [
-            {
-              label: 'Unassigned',
-              value: '',
-            },
-            ...filteredUsers.map((u: any) => ({
-              label: `${u.firstName} ${u.lastName} (${u.email})`,
-              value: u.id || u._id,
-            })),
-          ];
-
-          const teamRegister = register('teamId');
 
           return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -384,6 +342,10 @@ export const CreateTask = () => {
                             value: String(TaskStatus.IN_PROGRESS),
                           },
                           {
+                            label: 'Hold',
+                            value: String(TaskStatus.ON_HOLD),
+                          },
+                          {
                             label: 'Completed',
                             value: String(TaskStatus.COMPLETED),
                           },
@@ -437,29 +399,8 @@ export const CreateTask = () => {
                                 const u = users.find((user: any) => (user.id || user._id) === id);
                                 if (!u) return null;
 
-                                const computeTeamIds = (list: string[]): string[] => {
-                                  const found: string[] = [];
-                                  for (const uid of list) {
-                                    for (const t of teamsRes) {
-                                      const tid = (t._id || t.id) as string;
-                                      const members: string[] = (t.members || []).map((m: any) =>
-                                        (typeof m === 'object' ? m._id || m.id : m)?.toString()
-                                      );
-                                      const mgrId = (typeof t.managerId === 'object'
-                                        ? t.managerId?._id || t.managerId?.id
-                                        : t.managerId)?.toString();
-                                      if (members.includes(uid) || mgrId === uid) {
-                                        if (!found.includes(tid)) found.push(tid);
-                                      }
-                                    }
-                                  }
-                                  return found;
-                                };
-
                                 const handleRemove = () => {
-                                  const newList = selectedAssignees.filter((aId) => aId !== id);
-                                  setSelectedAssignees(newList);
-                                  setAutoTeamIds(computeTeamIds(newList));
+                                  setSelectedAssignees(selectedAssignees.filter((aId) => aId !== id));
                                 };
 
                                 return (
@@ -491,31 +432,11 @@ export const CreateTask = () => {
                                 const isSelected = selectedAssignees.includes(uId);
                                 const roleBadge = u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'Employee';
 
-                                const computeTeamIds = (list: string[]): string[] => {
-                                  const found: string[] = [];
-                                  for (const uid of list) {
-                                    for (const t of teamsRes) {
-                                      const tid = (t._id || t.id) as string;
-                                      const members: string[] = (t.members || []).map((m: any) =>
-                                        (typeof m === 'object' ? m._id || m.id : m)?.toString()
-                                      );
-                                      const mgrId = (typeof t.managerId === 'object'
-                                        ? t.managerId?._id || t.managerId?.id
-                                        : t.managerId)?.toString();
-                                      if (members.includes(uid) || mgrId === uid) {
-                                        if (!found.includes(tid)) found.push(tid);
-                                      }
-                                    }
-                                  }
-                                  return found;
-                                };
-
                                 const handleAssigneeChange = (checked: boolean) => {
                                   const newList = checked
                                     ? [...selectedAssignees, uId]
                                     : selectedAssignees.filter((id) => id !== uId);
                                   setSelectedAssignees(newList);
-                                  setAutoTeamIds(computeTeamIds(newList));
                                 };
 
                                 return (
@@ -546,26 +467,6 @@ export const CreateTask = () => {
                           </div>
                         </div>
                       </div>
-
-                      {/* Auto-detected Teams (read-only) */}
-                      {autoTeamIds.length > 0 && (
-                        <div className="space-y-1.5">
-                          <label className="block text-xs font-bold text-slate-700">
-                            Team (Auto-detected)
-                          </label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {autoTeamIds.map((tid) => {
-                              const team = teamsRes.find((t: any) => (t._id || t.id) === tid);
-                              if (!team) return null;
-                              return (
-                                <span key={tid} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                                  {team.name}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </>
                   )}
                 </div>

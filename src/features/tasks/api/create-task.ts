@@ -7,7 +7,7 @@ import { Task } from '../types';
 export const createTaskInputSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
   description: z.string().optional(),
-  status: z.coerce.number().min(0).max(3).optional(),
+  status: z.coerce.number().min(0).max(4).optional(),
   priority: z.coerce.number().min(0).max(2).optional(),
   dueDate: z
     .string()

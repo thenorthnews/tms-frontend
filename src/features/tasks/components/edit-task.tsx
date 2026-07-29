@@ -32,7 +32,6 @@ import { useUser } from '@/lib/auth';
 import { useTask } from '../api/get-task';
 import { useUpdateTask } from '../api/update-task';
 import { useDeleteTask } from '../api/delete-task';
-import { useLogTime } from '../api/log-time';
 import { TaskStatus, TaskPriority, Subtask } from '../types';
 import {
   getPriorityLabel,
@@ -99,27 +98,9 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     },
   });
 
-  const logTimeMutation = useLogTime({
-    mutationConfig: {
-      onSuccess: () => {
-        addNotification({
-          type: 'success',
-          title: 'Time logged successfully',
-        });
-        setIsLoggingTime(false);
-        setLogHours(0);
-        setLogMinutes(0);
-        setLogDescription('');
-        taskQuery.refetch();
-      },
-    },
-  });
+
 
   // --- LOCAL INTERACTIVE STATES ---
-  const [isLoggingTime, setIsLoggingTime] = useState(false);
-  const [logHours, setLogHours] = useState<number>(0);
-  const [logMinutes, setLogMinutes] = useState<number>(0);
-  const [logDescription, setLogDescription] = useState('');
   const [commentInput, setCommentInput] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -128,8 +109,27 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const [showReassignMenu, setShowReassignMenu] = useState(false);
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
   const [selectedNewAssignees, setSelectedNewAssignees] = useState<string[]>([]);
-  const [showTeamMenu, setShowTeamMenu] = useState(false);
   const [showActionDropdown, setShowActionDropdown] = useState(false);
+
+  // Live Active Session Timer
+  const [activeSessionSeconds, setActiveSessionSeconds] = useState<number>(0);
+
+  const task = taskQuery.data;
+
+  useEffect(() => {
+    if (task?.status === TaskStatus.IN_PROGRESS && task?.lastStartedAt) {
+      const startTime = new Date(task.lastStartedAt).getTime();
+      const updateSeconds = () => {
+        const diffSec = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+        setActiveSessionSeconds(diffSec);
+      };
+      updateSeconds();
+      const interval = setInterval(updateSeconds, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setActiveSessionSeconds(0);
+    }
+  }, [task?.status, task?.lastStartedAt]);
 
   // Tags state
   const [tagsInput, setTagsInput] = useState('');
@@ -147,13 +147,12 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   // Refs for outside click detection
   const actionDropdownRef = useRef<HTMLDivElement>(null);
 
-  const task = taskQuery.data;
-
   const [searchParams] = useSearchParams();
 
   // Permission for reassigning task: Only CEO (0), Manager (1), and TL (2) can reassign tasks
   const currentUserId = String(currentUser?._id || currentUser?.id || '');
   const canReassign = currentUser?.role === 0 || currentUser?.role === 1 || currentUser?.role === 2;
+  const isEmployee = currentUser?.role === 4;
 
   // Filter available target assignees for Manager/TL
   const availableAssignees = useMemo(() => {
@@ -250,8 +249,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     ? Math.round((completedSubtasks / subTasks.length) * 100)
     : 0;
 
-  // Calculate total time logged
-  const timeDisplay = formatTimeLogged(task.timeLogs || []);
+  // Calculate total time logged including active session
+  const totalBaseLoggedMinutes = (task.timeLogs || []).reduce(
+    (sum: number, log: any) => sum + (log.hours || 0) * 60 + (log.minutes || 0),
+    0,
+  );
+  const activeSessionMinutes = Math.floor(activeSessionSeconds / 60);
+  const totalCombinedMinutes = totalBaseLoggedMinutes + activeSessionMinutes;
+  const totalDisplayHours = Math.floor(totalCombinedMinutes / 60);
+  const totalDisplayMinutes = totalCombinedMinutes % 60;
 
   // Overdue Check — uses live date instead of hardcoded value
   const overdue = isTaskOverdue(task.status, task.dueDate);
@@ -444,21 +450,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     setReassignModalOpen(false);
   };
 
-  const handleUpdateTeam = (teamId: string) => {
-    // Toggle: if team already in list remove it, else add it
-    const currentIds: string[] = ((task.teamIds || []) as any[]).map((t: any) =>
-      typeof t === 'object' ? (t._id || t.id)?.toString() : t?.toString()
-    ).filter(Boolean);
-    const newIds = currentIds.includes(teamId)
-      ? currentIds.filter((id) => id !== teamId)
-      : teamId ? [...currentIds, teamId] : currentIds;
-    updateTaskMutation.mutate({
-      taskId,
-      data: { teamIds: newIds.length > 0 ? newIds : [] } as any,
-    });
-    setShowTeamMenu(false);
-  };
-
   return (
     <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -507,22 +498,43 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     onChange={(e) => handleStatusChange(Number(e.target.value))}
                     className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getStatusSelectStyle(task.status)}`}
                   >
-                    <option value={TaskStatus.PENDING}>To Do</option>
-                    <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
-                    <option value={TaskStatus.COMPLETED}>Done</option>
-                    <option value={TaskStatus.CANCELLED}>Blocked</option>
+                    {isEmployee ? (
+                      <>
+                        {task.status !== TaskStatus.IN_PROGRESS && task.status !== TaskStatus.ON_HOLD && (
+                          <option value={task.status} disabled>
+                            {getStatusLabel(task.status)}
+                          </option>
+                        )}
+                        <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                        <option value={TaskStatus.ON_HOLD}>Hold</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value={TaskStatus.PENDING}>To Do</option>
+                        <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                        <option value={TaskStatus.ON_HOLD}>Hold</option>
+                        <option value={TaskStatus.COMPLETED}>Completed</option>
+                        <option value={TaskStatus.CANCELLED}>Blocked</option>
+                      </>
+                    )}
                   </select>
 
                   {/* Priority Selector Dropdown */}
-                  <select
-                    value={task.priority}
-                    onChange={(e) => handlePriorityChange(Number(e.target.value))}
-                    className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getPriorityBadgeStyle(task.priority)}`}
-                  >
-                    <option value={TaskPriority.LOW}>Low Priority</option>
-                    <option value={TaskPriority.MEDIUM}>Medium Priority</option>
-                    <option value={TaskPriority.HIGH}>High Priority</option>
-                  </select>
+                  {isEmployee ? (
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border shadow-xs ${getPriorityBadgeStyle(task.priority)}`}>
+                      {getPriorityLabel(task.priority)}
+                    </span>
+                  ) : (
+                    <select
+                      value={task.priority}
+                      onChange={(e) => handlePriorityChange(Number(e.target.value))}
+                      className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getPriorityBadgeStyle(task.priority)}`}
+                    >
+                      <option value={TaskPriority.LOW}>Low Priority</option>
+                      <option value={TaskPriority.MEDIUM}>Medium Priority</option>
+                      <option value={TaskPriority.HIGH}>High Priority</option>
+                    </select>
+                  )}
 
                   {/* Overdue indicator */}
                   {overdue && (
@@ -884,53 +896,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 )}
               </div>
 
-              {/* Team */}
-              <div className="flex items-center justify-between py-1 border-b border-slate-50 relative">
-                <span className="text-slate-400 font-bold">Team</span>
-
-                {showTeamMenu && (currentUser?.role === 0 || currentUser?.role === 1) ? (
-                  <div className="flex flex-col gap-1 items-end">
-                    <select
-                      onChange={(e) => handleUpdateTeam(e.target.value)}
-                      onBlur={() => setShowTeamMenu(false)}
-                      className="bg-white border border-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
-                      autoFocus
-                      defaultValue=""
-                    >
-                      <option value="">-- Add/Remove Team --</option>
-                      {teamsRes.map((t: any) => (
-                        <option key={t._id || t.id} value={t._id || t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-[9px] text-slate-400 italic">Select to toggle team</span>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => {
-                      if (currentUser?.role === 0 || currentUser?.role === 1) {
-                        setShowTeamMenu(true);
-                      }
-                    }}
-                    className={`flex flex-wrap items-center gap-1 px-2 py-1 rounded-lg border border-transparent transition-colors ${(currentUser?.role === 0 || currentUser?.role === 1)
-                        ? 'hover:bg-slate-50 hover:border-slate-100 cursor-pointer'
-                        : ''
-                      }`}
-                  >
-                    {((task.teamsInfo || []) as any[]).length > 0 ? (
-                      (task.teamsInfo as any[]).map((ti: any) => (
-                        <span key={ti._id || ti.id} className="font-bold text-[#1E3A8A] bg-[#1E3A8A]/5 px-2 py-0.5 rounded-md text-xs">
-                          {ti.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="font-bold text-slate-400 text-xs">No Team</span>
-                    )}
-                  </div>
-                )}
-              </div>
-
               {/* Deadline */}
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-bold">Deadline Date</span>
@@ -1141,9 +1106,27 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 Time Tracking
               </h3>
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                Total: {timeDisplay.hours}h {timeDisplay.minutes}m
+                Total: {totalDisplayHours}h {totalDisplayMinutes}m
               </span>
             </div>
+
+            {/* Active Session Banner if status is In Progress */}
+            {task.status === TaskStatus.IN_PROGRESS && task.lastStartedAt && (
+              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 flex items-center justify-between animate-card-enter">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-bold text-emerald-800">
+                    In Progress (Live Session)
+                  </span>
+                </div>
+                <span className="text-xs font-extrabold font-mono text-emerald-700 bg-white px-2 py-0.5 rounded-lg border border-emerald-200 shadow-2xs">
+                  {Math.floor(activeSessionSeconds / 3600)}h {Math.floor((activeSessionSeconds % 3600) / 60)}m {activeSessionSeconds % 60}s
+                </span>
+              </div>
+            )}
 
             {/* List of Time Logs */}
             {task.timeLogs && task.timeLogs.length > 0 ? (
@@ -1173,79 +1156,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               </div>
             )}
 
-            {/* Log Time Form */}
-            {isLoggingTime ? (
-              <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3 mt-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Hours</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={logHours}
-                      onChange={(e) => setLogHours(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-bold text-slate-700 transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Minutes</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={59}
-                      value={logMinutes}
-                      onChange={(e) => setLogMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
-                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-bold text-slate-700 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Notes / Description</label>
-                  <input
-                    type="text"
-                    placeholder="What did you work on?"
-                    value={logDescription}
-                    onChange={(e) => setLogDescription(e.target.value)}
-                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-medium text-slate-700 transition-all"
-                  />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsLoggingTime(false)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[10px] font-bold hover:bg-slate-100 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={logTimeMutation.isPending || (logHours === 0 && logMinutes === 0)}
-                    onClick={() => {
-                      logTimeMutation.mutate({
-                        taskId,
-                        data: {
-                          hours: logHours,
-                          minutes: logMinutes,
-                          description: logDescription.trim() || undefined,
-                        },
-                      });
-                    }}
-                    className="px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white text-[10px] font-bold hover:bg-[#152a63] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {logTimeMutation.isPending ? 'Saving...' : 'Save Log'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsLoggingTime(true)}
-                className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
-              >
-                + Log Work Time
-              </button>
-            )}
           </div>
 
         </div>
@@ -1353,9 +1263,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     return (
                       <label
                         key={uId}
-                        className={`flex items-center justify-between p-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-                          isSelected ? 'bg-indigo-50/80 border border-indigo-200 text-[#1E3A8A]' : 'hover:bg-slate-50 text-slate-700'
-                        }`}
+                        className={`flex items-center justify-between p-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50/80 border border-indigo-200 text-[#1E3A8A]' : 'hover:bg-slate-50 text-slate-700'
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <input
@@ -1372,9 +1281,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                           />
                           <span>{u.firstName} {u.lastName} <span className="text-slate-400 font-normal">({u.email})</span></span>
                         </div>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
-                          u.role === 1 ? 'bg-purple-100 text-purple-700' : u.role === 2 ? 'bg-blue-100 text-blue-700' : u.role === 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
-                        }`}>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${u.role === 1 ? 'bg-purple-100 text-purple-700' : u.role === 2 ? 'bg-blue-100 text-blue-700' : u.role === 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                          }`}>
                           {roleBadge}
                         </span>
                       </label>

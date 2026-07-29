@@ -45,6 +45,7 @@ import {
   getPriorityKanbanStyle,
   getPriorityDotColor,
   getStatusSelectStyle,
+  getStatusLabel,
 } from '../utils/task-utils';
 
 const MONTH_NAMES = [
@@ -408,10 +409,25 @@ export const TasksList = () => {
             }}
             disabled={updateTaskMutation.isPending}
           >
-            <option value={TaskStatus.PENDING}>Pending</option>
-            <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
-            <option value={TaskStatus.COMPLETED}>Completed</option>
-            <option value={TaskStatus.CANCELLED}>Cancelled</option>
+            {isEmployee ? (
+              <>
+                {status !== TaskStatus.IN_PROGRESS && status !== TaskStatus.ON_HOLD && (
+                  <option value={status} disabled>
+                    {getStatusLabel(status as number)}
+                  </option>
+                )}
+                <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                <option value={TaskStatus.ON_HOLD}>Hold</option>
+              </>
+            ) : (
+              <>
+                <option value={TaskStatus.PENDING}>Pending</option>
+                <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                <option value={TaskStatus.ON_HOLD}>Hold</option>
+                <option value={TaskStatus.COMPLETED}>Completed</option>
+                <option value={TaskStatus.CANCELLED}>Cancelled</option>
+              </>
+            )}
           </select>
         );
       },
@@ -496,13 +512,14 @@ export const TasksList = () => {
   const kanbanColumns = [
     { title: 'Pending', status: TaskStatus.PENDING, color: 'border-t-slate-400 bg-slate-50/50' },
     { title: 'In Progress', status: TaskStatus.IN_PROGRESS, color: 'border-t-blue-500 bg-blue-50/20' },
+    { title: 'Hold', status: TaskStatus.ON_HOLD, color: 'border-t-amber-500 bg-amber-50/20' },
     { title: 'Completed', status: TaskStatus.COMPLETED, color: 'border-t-emerald-500 bg-emerald-50/20' },
     { title: 'Cancelled', status: TaskStatus.CANCELLED, color: 'border-t-rose-400 bg-rose-50/20' },
   ];
 
   const renderKanbanBoard = (tasksList: Task[]) => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 animate-in fade-in duration-500">
         {kanbanColumns.map((col) => {
           const colTasks = tasksList.filter((t) => t.status === col.status);
           const isDragOver = dragOverColumn === col.status;
@@ -925,6 +942,7 @@ export const TasksList = () => {
             <option value="">All Statuses</option>
             <option value={TaskStatus.PENDING}>Pending</option>
             <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+            <option value={TaskStatus.ON_HOLD}>Hold</option>
             <option value={TaskStatus.COMPLETED}>Completed</option>
             <option value={TaskStatus.CANCELLED}>Cancelled</option>
           </select>
