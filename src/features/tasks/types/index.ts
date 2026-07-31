@@ -60,7 +60,6 @@ export type Task = {
   createdAt: number;
   updatedAt: number;
   subtasks?: Subtask[];
-  tags?: string[];
   attachments?: Attachment[];
   activities?: Activity[];
   timeLogs?: TimeLog[];

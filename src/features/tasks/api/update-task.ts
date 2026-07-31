@@ -20,7 +20,6 @@ export const updateTaskInputSchema = z.object({
       }),
     )
     .optional(),
-  tags: z.array(z.string()).optional(),
   attachments: z
     .array(
       z.object({

@@ -287,7 +287,7 @@ export const TasksList = () => {
     {
       title: 'Title',
       field: 'title',
-      Cell({ entry: { title, description, tags } }: { entry: Task }) {
+      Cell({ entry: { title, description } }: { entry: Task }) {
         return (
           <div className="space-y-1">
             <span className="font-bold text-slate-800 block">{title}</span>
@@ -295,18 +295,6 @@ export const TasksList = () => {
               <span className="text-xs text-slate-400 font-medium block max-w-xs truncate">
                 {description}
               </span>
-            )}
-            {tags && tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {tags.map((tag: string) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-150"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
             )}
           </div>
         );

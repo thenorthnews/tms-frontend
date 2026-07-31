@@ -134,10 +134,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   }, [task?.status, task?.lastStartedAt]);
 
-  // Tags state
-  const [tagsInput, setTagsInput] = useState('');
-  const [isEditingTags, setIsEditingTags] = useState(false);
-
   // File upload state
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
@@ -176,7 +172,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     if (task) {
       setTempDescription(task.description || '');
       setSubTasks(task.subtasks || []);
-      setTagsInput(task.tags?.join(', ') || '');
 
       if (task.assignedTo) {
         const raw = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo];
@@ -366,19 +361,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       taskId,
       data: { subtasks: updated },
     });
-  };
-
-  const handleTagsSave = () => {
-    const parsedTags = tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
-    updateTaskMutation.mutate({
-      taskId,
-      data: { tags: parsedTags },
-    });
-    setIsEditingTags(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -949,64 +931,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     year: 'numeric'
                   })}
                 </span>
-              </div>
-
-              {/* Tags / Labels */}
-              <div className="flex flex-col gap-2 py-2 border-b border-slate-50">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-bold">Tags / Labels</span>
-                  {isEditingTags ? (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={handleTagsSave}
-                        className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                      >
-                        Save
-                      </button>
-                      <span className="text-slate-300">|</span>
-                      <button
-                        onClick={() => {
-                          setIsEditingTags(false);
-                          setTagsInput(task.tags?.join(', ') || '');
-                        }}
-                        className="text-[10px] font-bold text-slate-500 hover:text-slate-700 cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setIsEditingTags(true)}
-                      className="text-[10px] font-bold text-[#1E3A8A] hover:text-[#0EA5E9] cursor-pointer"
-                    >
-                      Edit Tags
-                    </button>
-                  )}
-                </div>
-                {isEditingTags ? (
-                  <input
-                    type="text"
-                    value={tagsInput}
-                    onChange={(e) => setTagsInput(e.target.value)}
-                    placeholder="e.g. Bug, Feature, Design (comma separated)"
-                    className="w-full text-[11px] p-1.5 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700"
-                  />
-                ) : (
-                  <div className="flex flex-wrap gap-1">
-                    {task.tags && task.tags.length > 0 ? (
-                      task.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-150"
-                        >
-                          {tag}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-slate-400 italic font-medium">No tags</span>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* Progress bar */}

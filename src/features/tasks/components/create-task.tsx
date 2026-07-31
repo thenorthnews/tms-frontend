@@ -32,7 +32,6 @@ export const CreateTask = () => {
     { title: string; isCompleted: boolean }[]
   >([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
 
   // Fetch active users for the assignee dropdown
@@ -120,11 +119,6 @@ export const CreateTask = () => {
       <Form
         id="create-task"
         onSubmit={(values) => {
-          const parsedTags = tagsInput
-            .split(',')
-            .map((t: string) => t.trim())
-            .filter((t: string) => t.length > 0);
-
           const data = {
             ...values,
             assignedTo: selectedAssignees.length > 0 ? selectedAssignees : undefined,
@@ -132,7 +126,6 @@ export const CreateTask = () => {
             status: Number(values.status),
             priority: Number(values.priority),
             subtasks,
-            tags: parsedTags,
           };
           delete (data as Record<string, unknown>).teamId;
           delete (data as Record<string, unknown>).teamIds;
@@ -207,37 +200,8 @@ export const CreateTask = () => {
                   </div>
                 </div>
 
-                {/* Tags and Subtasks Checklist Section */}
+                {/* Subtasks Checklist Section */}
                 <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6 animate-card-enter">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">
-                      Tags / Labels
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Bug, Feature, Design (comma separated)"
-                      value={tagsInput}
-                      onChange={(e) => setTagsInput(e.target.value)}
-                      className="w-full text-sm px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-semibold text-slate-700 transition-all"
-                    />
-                    {tagsInput && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {tagsInput.split(',').map((tag, i) => {
-                          const trimmed = tag.trim();
-                          if (!trimmed) return null;
-                          return (
-                            <span
-                              key={i}
-                              className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-150"
-                            >
-                              {trimmed}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
                   <div>
                     <label className="block text-sm font-bold text-slate-800 mb-2">
                       Initial Subtasks Checklist
