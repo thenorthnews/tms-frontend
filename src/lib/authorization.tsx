@@ -58,15 +58,15 @@ type AuthorizationProps = {
   forbiddenFallback?: React.ReactNode;
   children: React.ReactNode;
 } & (
-  | {
+    | {
       allowedRoles: RoleTypes[];
       policyCheck?: never;
     }
-  | {
+    | {
       allowedRoles?: never;
       policyCheck: boolean;
     }
-);
+  );
 
 export const Authorization = ({
   policyCheck,

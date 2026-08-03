@@ -911,8 +911,8 @@ export const TasksList = () => {
                   u.role === 1 || u.role === 'MANAGER' || u.role === 'Manager'
                     ? 'Manager'
                     : u.role === 2 || u.role === 'TL'
-                    ? 'TL'
-                    : 'Employee';
+                      ? 'TL'
+                      : 'Employee';
                 return (
                   <option key={uId} value={uId}>
                     {u.firstName} {u.lastName} ({roleLabel})
@@ -984,8 +984,8 @@ export const TasksList = () => {
         <button
           onClick={() => handleViewChange('list')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'list'
-              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
-              : 'text-slate-500 hover:text-slate-800'
+            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
+            : 'text-slate-500 hover:text-slate-800'
             }`}
         >
           <List className="size-3.5" />
@@ -994,8 +994,8 @@ export const TasksList = () => {
         <button
           onClick={() => handleViewChange('kanban')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'kanban'
-              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
-              : 'text-slate-500 hover:text-slate-800'
+            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
+            : 'text-slate-500 hover:text-slate-800'
             }`}
         >
           <Columns className="size-3.5" />
@@ -1004,8 +1004,8 @@ export const TasksList = () => {
         <button
           onClick={() => handleViewChange('calendar')}
           className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'calendar'
-              ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
-              : 'text-slate-500 hover:text-slate-800'
+            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
+            : 'text-slate-500 hover:text-slate-800'
             }`}
         >
           <CalendarIcon className="size-3.5" />
