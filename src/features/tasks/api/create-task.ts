@@ -28,8 +28,12 @@ export const createTaskInputSchema = z.object({
   subtasks: z
     .array(
       z.object({
+        _id: z.string().optional(),
         title: z.string().min(1),
         isCompleted: z.boolean().default(false),
+        status: z.coerce.number().min(0).max(4).optional(),
+        assignedTo: z.string().optional().nullable(),
+        dueDate: z.string().optional().nullable(),
       }),
     )
     .optional(),

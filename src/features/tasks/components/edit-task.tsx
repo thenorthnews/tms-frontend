@@ -19,7 +19,9 @@ import {
   AlertCircle,
   Paperclip,
   FileText,
-  X
+  X,
+  PauseCircle,
+  PlayCircle
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -42,15 +44,58 @@ import {
   getPriorityLabel,
   getPriorityBadgeStyle,
   getStatusLabel,
-  getStatusBadgeStyle,
   getStatusSelectStyle,
   getUserInitials,
   isTaskOverdue,
-  formatTimeLogged,
 } from '../utils/task-utils';
 
 type EditTaskProps = {
   taskId: string;
+};
+
+const getStatusModalInfo = (status: number) => {
+  switch (status) {
+    case TaskStatus.IN_PROGRESS:
+      return {
+        title: 'Start Work Comment Required',
+        prompt: 'Add a note/comment for starting work session *',
+        placeholder: 'Enter work session note (e.g. Starting code implementation)...',
+        icon: <PlayCircle className="size-6 text-blue-600" />,
+        iconBg: 'bg-blue-50',
+      };
+    case TaskStatus.ON_HOLD:
+      return {
+        title: 'Reason for Hold Required',
+        prompt: 'Why is this item being placed on hold? *',
+        placeholder: 'Enter detailed reason for hold (e.g. Waiting for client requirements)...',
+        icon: <PauseCircle className="size-6 text-amber-600" />,
+        iconBg: 'bg-amber-50',
+      };
+    case TaskStatus.COMPLETED:
+      return {
+        title: 'Completion Note Required',
+        prompt: 'Add a summary note/comment for completion *',
+        placeholder: 'Enter completion details (e.g. All requirements tested and verified)...',
+        icon: <CheckCircle className="size-6 text-emerald-600" />,
+        iconBg: 'bg-emerald-50',
+      };
+    case TaskStatus.CANCELLED:
+      return {
+        title: 'Reason for Blocking Required',
+        prompt: 'Why is this item being blocked/cancelled? *',
+        placeholder: 'Enter details for blocking or cancelling this task...',
+        icon: <AlertCircle className="size-6 text-rose-600" />,
+        iconBg: 'bg-rose-50',
+      };
+    default:
+      return {
+        title: 'Reason for Moving to To Do Required',
+        prompt: 'Why is this item being moved back to To Do? *',
+        placeholder: 'Enter details for moving this task back to To Do...',
+        icon: <Clock className="size-6 text-slate-600" />,
+        iconBg: 'bg-slate-50',
+      };
+  }
 };
 
 export const EditTask = ({ taskId }: EditTaskProps) => {
@@ -133,15 +178,72 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       setActiveSessionSeconds(0);
     }
   }, [task?.status, task?.lastStartedAt]);
-
-  // File upload state
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
-
   // Sub-task list (connected to task query)
   const [subTasks, setSubTasks] = useState<Subtask[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [newSubtaskAssignee, setNewSubtaskAssignee] = useState('');
+  const [newSubtaskDueDate, setNewSubtaskDueDate] = useState('');
+  const [newSubtaskStatus, setNewSubtaskStatus] = useState<number>(0);
+
+  const [subtaskSessionSeconds, setSubtaskSessionSeconds] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const activeSubtasks = subTasks.filter(
+      (s) => Number(s.status) === TaskStatus.IN_PROGRESS && s.lastStartedAt,
+    );
+
+    if (activeSubtasks.length > 0) {
+      const updateSubSeconds = () => {
+        const now = Date.now();
+        const nextMap: Record<string, number> = {};
+        for (const s of activeSubtasks) {
+          const sId = s._id || s.id || '';
+          if (sId && s.lastStartedAt) {
+            const startTime = new Date(s.lastStartedAt).getTime();
+            const diffSec = Math.max(0, Math.floor((now - startTime) / 1000));
+            nextMap[sId] = diffSec;
+          }
+        }
+        setSubtaskSessionSeconds(nextMap);
+      };
+
+      updateSubSeconds();
+      const interval = setInterval(updateSubSeconds, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setSubtaskSessionSeconds({});
+    }
+  }, [subTasks]);
+
+  // File upload state
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [expandedSubtaskLogs, setExpandedSubtaskLogs] = useState<Record<string, boolean>>({});
+
+  // Status Change Required Comment Modal State
+  const [statusModalConfig, setStatusModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'main' | 'subtask';
+    newStatus: number;
+    subtaskIndex?: number;
+    subtaskTitle?: string;
+    comment: string;
+    error: string;
+  }>({
+    isOpen: false,
+    type: 'main',
+    newStatus: 0,
+    comment: '',
+    error: '',
+  });
+
+  const toggleSubtaskLogs = (subId: string) => {
+    setExpandedSubtaskLogs((prev) => ({
+      ...prev,
+      [subId]: !prev[subId],
+    }));
+  };
 
   // Refs for outside click detection
   const actionDropdownRef = useRef<HTMLDivElement>(null);
@@ -153,19 +255,35 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   const canReassign = currentUser?.role === 0 || currentUser?.role === 1 || currentUser?.role === 2;
   const isEmployee = currentUser?.role === 4;
 
-  // Filter available target assignees for Manager/TL
+  // Filter available target assignees for Manager/TL (CEO can assign to all; Manager/TL to all Manager/TL + team members)
   const availableAssignees = useMemo(() => {
     if (!currentUser) return users;
     if (currentUser.role === 0) return users; // CEO can assign to anyone
     if (currentUser.role === 1 || currentUser.role === 2) {
+      const teamMemberIds = new Set<string>();
+      const currentUserIdStr = String(currentUser._id || currentUser.id || '');
+
+      (teamsRes || []).forEach((t: Team) => {
+        const mgrId = typeof t.managerId === 'object' ? (t.managerId as any)?._id || (t.managerId as any)?.id : t.managerId;
+        const mgrIdStr = mgrId ? String(mgrId) : '';
+        const memberIdStrs = (t.members || []).map((m: any) => typeof m === 'object' ? String(m._id || m.id) : String(m));
+
+        if (mgrIdStr === currentUserIdStr || memberIdStrs.includes(currentUserIdStr)) {
+          if (mgrIdStr) teamMemberIds.add(mgrIdStr);
+          memberIdStrs.forEach((id) => teamMemberIds.add(id));
+        }
+      });
+
       return users.filter((u: User) => {
+        const uId = String(u._id || u.id || '');
         const isManagerOrTL = u.role === 0 || u.role === 1 || u.role === 2;
-        const isInSameTeam = currentUser.teamId && u.teamId && String(u.teamId) === String(currentUser.teamId);
-        return isManagerOrTL || isInSameTeam;
+        const isInTeam = teamMemberIds.has(uId);
+        const isInSameTeamProp = currentUser.teamId && u.teamId && String(u.teamId) === String(currentUser.teamId);
+        return isManagerOrTL || isInTeam || isInSameTeamProp;
       });
     }
     return [];
-  }, [users, currentUser]);
+  }, [users, currentUser, teamsRes]);
 
   // Initialize values from fetched task
   useEffect(() => {
@@ -247,24 +365,40 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     ? Math.round((completedSubtasks / subTasks.length) * 100)
     : 0;
 
-  // Calculate total time logged including active session
+  // Calculate total time logged including active session (main task + subtasks)
   const totalBaseLoggedMinutes = (task.timeLogs || []).reduce(
     (sum: number, log) => sum + (log.hours || 0) * 60 + (log.minutes || 0),
     0,
   );
-  const activeSessionMinutes = Math.floor(activeSessionSeconds / 60);
+  const activeSubtasksSecondsSum = Object.values(subtaskSessionSeconds).reduce((a, b) => a + b, 0);
+  const combinedActiveSeconds = activeSessionSeconds + activeSubtasksSecondsSum;
+  const activeSessionMinutes = Math.floor(combinedActiveSeconds / 60);
   const totalCombinedMinutes = totalBaseLoggedMinutes + activeSessionMinutes;
   const totalDisplayHours = Math.floor(totalCombinedMinutes / 60);
   const totalDisplayMinutes = totalCombinedMinutes % 60;
 
+  // Extract numeric status & priority values safely (handles both number and { id, label } object)
+  const taskStatusNum = typeof task.status === 'object' && task.status !== null ? Number((task.status as any).id ?? 0) : Number(task.status ?? 0);
+  const taskPriorityNum = typeof task.priority === 'object' && task.priority !== null ? Number((task.priority as any).id ?? 0) : Number(task.priority ?? 0);
+
   // Overdue Check — uses live date instead of hardcoded value
-  const overdue = isTaskOverdue(task.status, task.dueDate);
+  const overdue = isTaskOverdue(taskStatusNum, task.dueDate);
 
   // Actions
-  const handleStatusChange = (newStatus: number) => {
-    updateTaskMutation.mutate({
+  const executeMainStatusChange = async (newStatus: number) => {
+    return updateTaskMutation.mutateAsync({
       taskId,
       data: { status: newStatus },
+    });
+  };
+
+  const handleStatusChange = (newStatus: number) => {
+    setStatusModalConfig({
+      isOpen: true,
+      type: 'main',
+      newStatus,
+      comment: '',
+      error: '',
     });
   };
 
@@ -323,10 +457,154 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   };
 
+  const checkSubtaskPermission = (sub: Subtask) => {
+    if (!isEmployee) return true;
+    const subAssignee = sub.assignedTo ? String(sub.assignedTo) : null;
+    const taskAssignees = Array.isArray(task?.assignedTo) ? task.assignedTo.map(String) : (task?.assignedTo ? [String(task.assignedTo)] : []);
+    const creatorId = task?.createdBy ? String(task.createdBy) : null;
+
+    if (subAssignee === currentUserId || taskAssignees.includes(currentUserId) || creatorId === currentUserId) {
+      return true;
+    }
+    return false;
+  };
+
   const handleToggleSubtask = (subId: string, index: number) => {
+    const targetSub = subTasks[index];
+    if (targetSub && !checkSubtaskPermission(targetSub)) {
+      addNotification({
+        type: 'error',
+        title: 'Permission Denied',
+        message: 'Only the user assigned to this subtask or task can update it',
+      });
+      return;
+    }
+
     const id = subId || `subtask-${index}`;
+    const updated = subTasks.map((sub, idx) => {
+      if (sub._id === id || idx === index) {
+        const nextCompleted = !sub.isCompleted;
+        const nextStatus = nextCompleted ? TaskStatus.COMPLETED : TaskStatus.PENDING;
+        return { ...sub, isCompleted: nextCompleted, status: nextStatus };
+      }
+      return sub;
+    });
+    setSubTasks(updated);
+    updateTaskMutation.mutate({
+      taskId,
+      data: { subtasks: updated },
+    });
+  };
+
+  const executeSubtaskStatusChange = async (index: number, newStatus: number) => {
+    const nextCompleted = newStatus === TaskStatus.COMPLETED;
     const updated = subTasks.map((sub, idx) =>
-      (sub._id === id || idx === index) ? { ...sub, isCompleted: !sub.isCompleted } : sub
+      idx === index ? { ...sub, status: newStatus, isCompleted: nextCompleted } : sub
+    );
+    setSubTasks(updated);
+    return updateTaskMutation.mutateAsync({
+      taskId,
+      data: { subtasks: updated },
+    });
+  };
+
+  const handleSubtaskStatusChange = (index: number, newStatus: number) => {
+    const targetSub = subTasks[index];
+    if (targetSub && !checkSubtaskPermission(targetSub)) {
+      addNotification({
+        type: 'error',
+        title: 'Permission Denied',
+        message: 'Only the user assigned to this subtask or task can update it',
+      });
+      return;
+    }
+
+    if (isEmployee && newStatus !== TaskStatus.IN_PROGRESS && newStatus !== TaskStatus.ON_HOLD) {
+      addNotification({
+        type: 'error',
+        title: 'Permission Denied',
+        message: 'Employees can only change subtask status to In Progress or Hold',
+      });
+      return;
+    }
+
+    setStatusModalConfig({
+      isOpen: true,
+      type: 'subtask',
+      newStatus,
+      subtaskIndex: index,
+      subtaskTitle: targetSub?.title || 'Subtask',
+      comment: '',
+      error: '',
+    });
+  };
+
+  const handleConfirmStatusComment = async () => {
+    const trimmed = statusModalConfig.comment.trim();
+    if (!trimmed) {
+      setStatusModalConfig((prev) => ({
+        ...prev,
+        error: 'A comment/reason is required for this status change',
+      }));
+      return;
+    }
+
+    const { type, newStatus, subtaskIndex, subtaskTitle } = statusModalConfig;
+    setStatusModalConfig((prev) => ({ ...prev, isOpen: false }));
+
+    const statusLabels: Record<number, string> = {
+      [TaskStatus.PENDING]: 'To Do',
+      [TaskStatus.IN_PROGRESS]: 'In Progress',
+      [TaskStatus.COMPLETED]: 'Completed',
+      [TaskStatus.CANCELLED]: 'Blocked',
+      [TaskStatus.ON_HOLD]: 'Hold',
+    };
+    const statusLabel = statusLabels[newStatus] || 'New Status';
+
+    try {
+      if (type === 'main') {
+        await executeMainStatusChange(newStatus);
+        await api.post(`/tasks/${taskId}/comments`, {
+          content: `[Status: ${statusLabel}] ${trimmed}`,
+        });
+      } else if (type === 'subtask' && subtaskIndex !== undefined) {
+        await executeSubtaskStatusChange(subtaskIndex, newStatus);
+        await api.post(`/tasks/${taskId}/comments`, {
+          content: `[Subtask: ${subtaskTitle || 'Subtask'} - ${statusLabel}] ${trimmed}`,
+        });
+      }
+      await taskQuery.refetch();
+      setTimeout(scrollToLatestActivity, 150);
+      addNotification({
+        type: 'success',
+        title: 'Status updated & comment added',
+      });
+    } catch (err) {
+      console.error('Failed to update status or post comment:', err);
+      addNotification({
+        type: 'error',
+        title: 'Failed to update status or add comment',
+      });
+      taskQuery.refetch();
+    }
+  };
+
+  const handleSubtaskAssigneeChange = (index: number, newAssigneeId: string) => {
+    if (isEmployee) return;
+    const updated = subTasks.map((sub, idx) =>
+      idx === index ? { ...sub, assignedTo: newAssigneeId || undefined } : sub
+    );
+    setSubTasks(updated);
+    updateTaskMutation.mutate({
+      taskId,
+      data: { subtasks: updated },
+    });
+  };
+
+  const handleSubtaskDueDateChange = (index: number, dueDate: string) => {
+    if (isEmployee) return;
+    const updated = subTasks.map((sub, idx) =>
+      idx === index ? { ...sub, dueDate: dueDate || undefined } : sub
     );
     setSubTasks(updated);
     updateTaskMutation.mutate({
@@ -336,6 +614,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   };
 
   const handleCreateSubtask = () => {
+    if (isEmployee) return;
     const result = subtaskInputSchema.safeParse(newSubtaskTitle);
     if (!result.success) {
       addNotification({
@@ -344,17 +623,31 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       });
       return;
     }
-    const updated = [...subTasks, { title: result.data, isCompleted: false }];
+    const isComp = newSubtaskStatus === TaskStatus.COMPLETED;
+    const updated: Subtask[] = [
+      ...subTasks,
+      {
+        title: result.data,
+        isCompleted: isComp,
+        status: newSubtaskStatus,
+        assignedTo: newSubtaskAssignee || undefined,
+        dueDate: newSubtaskDueDate || undefined,
+      },
+    ];
     setSubTasks(updated);
     updateTaskMutation.mutate({
       taskId,
       data: { subtasks: updated },
     });
     setNewSubtaskTitle('');
+    setNewSubtaskAssignee('');
+    setNewSubtaskDueDate('');
+    setNewSubtaskStatus(0);
     setIsAddingSubtask(false);
   };
 
   const handleDeleteSubtask = (index: number) => {
+    if (isEmployee) return;
     const updated = subTasks.filter((_, idx) => idx !== index);
     setSubTasks(updated);
     updateTaskMutation.mutate({
@@ -496,15 +789,15 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Status Selector Dropdown */}
                   <select
-                    value={task.status}
+                    value={taskStatusNum}
                     onChange={(e) => handleStatusChange(Number(e.target.value))}
-                    className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getStatusSelectStyle(task.status)}`}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getStatusSelectStyle(taskStatusNum)}`}
                   >
                     {isEmployee ? (
                       <>
-                        {task.status !== TaskStatus.IN_PROGRESS && task.status !== TaskStatus.ON_HOLD && (
-                          <option value={task.status} disabled>
-                            {getStatusLabel(task.status)}
+                        {taskStatusNum !== TaskStatus.IN_PROGRESS && taskStatusNum !== TaskStatus.ON_HOLD && (
+                          <option value={taskStatusNum} disabled>
+                            {getStatusLabel(taskStatusNum)}
                           </option>
                         )}
                         <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
@@ -523,14 +816,14 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
                   {/* Priority Selector Dropdown */}
                   {isEmployee ? (
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border shadow-xs ${getPriorityBadgeStyle(task.priority)}`}>
-                      {getPriorityLabel(task.priority)}
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border shadow-xs ${getPriorityBadgeStyle(taskPriorityNum)}`}>
+                      {getPriorityLabel(taskPriorityNum)}
                     </span>
                   ) : (
                     <select
-                      value={task.priority}
+                      value={taskPriorityNum}
                       onChange={(e) => handlePriorityChange(Number(e.target.value))}
-                      className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getPriorityBadgeStyle(task.priority)}`}
+                      className={`rounded-full border px-3 py-1 text-xs font-bold shadow-sm focus:outline-none transition-all cursor-pointer ${getPriorityBadgeStyle(taskPriorityNum)}`}
                     >
                       <option value={TaskPriority.LOW}>Low Priority</option>
                       <option value={TaskPriority.MEDIUM}>Medium Priority</option>
@@ -964,81 +1257,271 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
             <div className="space-y-3">
               {subTasks.map((sub, index) => {
-                const subId = sub._id || `subtask-${index}`;
+                const subId = sub._id || sub.id || `subtask-${index}`;
+                const subStatusNum = sub.status !== undefined ? Number(sub.status) : (sub.isCompleted ? TaskStatus.COMPLETED : TaskStatus.PENDING);
+                const subAssigneeId = typeof sub.assignedTo === 'string' ? sub.assignedTo : sub.assignedToInfo?._id || '';
+
                 return (
                   <div
                     key={subId}
-                    className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors group text-xs"
+                    className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl space-y-2 group text-xs transition-colors hover:bg-slate-100/40"
                   >
-                    <input
-                      type="checkbox"
-                      checked={sub.isCompleted}
-                      onChange={() => handleToggleSubtask(subId, index)}
-                      className="mt-0.5 rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 cursor-pointer"
-                    />
-                    <span
-                      className={`font-semibold text-slate-700 transition-colors select-none flex-1 cursor-pointer ${sub.isCompleted ? 'line-through text-slate-400' : ''
-                        }`}
-                      onClick={() => handleToggleSubtask(subId, index)}
-                    >
-                      {sub.title}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSubtask(index);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-0.5"
-                      title="Remove subtask"
-                    >
-                      <X className="size-3.5" />
-                    </button>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={sub.isCompleted}
+                          disabled={isEmployee}
+                          onChange={() => !isEmployee && handleToggleSubtask(subId, index)}
+                          className={`rounded border-slate-300 text-[#1E3A8A] focus:ring-blue-900/10 shrink-0 ${isEmployee ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                        />
+                        <span
+                          className={`font-semibold text-slate-800 truncate ${isEmployee ? 'cursor-default' : 'cursor-pointer'} ${sub.isCompleted ? 'line-through text-slate-400' : ''}`}
+                          onClick={() => !isEmployee && handleToggleSubtask(subId, index)}
+                          title={sub.title}
+                        >
+                          {sub.title}
+                        </span>
+                      </div>
+
+                      {/* Status Dropdown Pill */}
+                      <select
+                        value={subStatusNum}
+                        onChange={(e) => handleSubtaskStatusChange(index, Number(e.target.value))}
+                        className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold shadow-2xs focus:outline-none cursor-pointer ${subStatusNum === 1 ? 'bg-sky-50 text-[#0EA5E9] border-sky-200' :
+                          subStatusNum === 2 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            subStatusNum === 3 ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                              subStatusNum === 4 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
+                      >
+                        {isEmployee ? (
+                          <>
+                            {subStatusNum !== TaskStatus.IN_PROGRESS && subStatusNum !== TaskStatus.ON_HOLD && (
+                              <option value={subStatusNum} disabled>
+                                {getStatusLabel(subStatusNum)}
+                              </option>
+                            )}
+                            <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                            <option value={TaskStatus.ON_HOLD}>Hold</option>
+                          </>
+                        ) : (
+                          <>
+                            <option value={TaskStatus.PENDING}>To Do</option>
+                            <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                            <option value={TaskStatus.COMPLETED}>Completed</option>
+                            <option value={TaskStatus.ON_HOLD}>Hold</option>
+                            <option value={TaskStatus.CANCELLED}>Blocked</option>
+                          </>
+                        )}
+                      </select>
+
+                      {!isEmployee && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSubtask(index);
+                          }}
+                          className="opacity-60 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-0.5 shrink-0 cursor-pointer"
+                          title="Remove subtask"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Subtask Assignee and Due Date row */}
+                    <div className="flex items-center gap-2 flex-wrap text-[11px] pt-1 border-t border-slate-200/50">
+                      {/* Assignee select */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 font-bold">Assign:</span>
+                        {isEmployee ? (
+                          <span className="font-semibold text-slate-700 text-[10px]">
+                            {(() => {
+                              const found = users.find((u: User) => (u.id || u._id) === subAssigneeId);
+                              return found ? `${found.firstName} ${found.lastName}` : (sub.assignedToInfo ? `${sub.assignedToInfo.firstName || ''} ${sub.assignedToInfo.lastName || ''}`.trim() : 'Unassigned');
+                            })()}
+                          </span>
+                        ) : (
+                          <select
+                            value={subAssigneeId}
+                            onChange={(e) => handleSubtaskAssigneeChange(index, e.target.value)}
+                            className="bg-white border border-slate-200 rounded px-2 py-0.5 font-medium text-slate-700 focus:outline-none focus:border-[#1E3A8A] text-[10px]"
+                          >
+                            <option value="">Unassigned</option>
+                            {availableAssignees.map((u: User) => (
+                              <option key={u.id || u._id} value={u.id || u._id}>
+                                {u.firstName} {u.lastName}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      {/* Due Date picker */}
+                      <div className="flex items-center gap-1 ml-auto">
+                        <span className="text-slate-400 font-bold">Due:</span>
+                        {isEmployee ? (
+                          <span className="font-semibold text-slate-700 text-[10px]">
+                            {sub.dueDate ? new Date(sub.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Deadline'}
+                          </span>
+                        ) : (
+                          <input
+                            type="date"
+                            value={sub.dueDate ? new Date(sub.dueDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) => handleSubtaskDueDateChange(index, e.target.value)}
+                            className="bg-white border border-slate-200 rounded px-2 py-0.5 font-medium text-slate-700 focus:outline-none focus:border-[#1E3A8A] text-[10px]"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Live Active Session, Total Logged Time, and Subtask Work History Logs display */}
+                    {((subStatusNum === TaskStatus.IN_PROGRESS && sub.lastStartedAt) || (sub.totalTimeSpent && (sub.totalTimeSpent.hours > 0 || sub.totalTimeSpent.minutes > 0)) || (sub.timeLogs && sub.timeLogs.length > 0)) ? (
+                      <div className="flex flex-col gap-2 pt-1 border-t border-slate-200/40 text-[10px]">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          {subStatusNum === TaskStatus.IN_PROGRESS && sub.lastStartedAt ? (
+                            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              <span>
+                                Live: {Math.floor((subtaskSessionSeconds[subId] || 0) / 3600)}h {Math.floor(((subtaskSessionSeconds[subId] || 0) % 3600) / 60)}m {(subtaskSessionSeconds[subId] || 0) % 60}s
+                              </span>
+                            </div>
+                          ) : <div />}
+
+                          <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                            {sub.totalTimeSpent && (sub.totalTimeSpent.hours > 0 || sub.totalTimeSpent.minutes > 0) ? (
+                              <span className="font-extrabold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                                ⏱️ Logged: {sub.totalTimeSpent.formatted}
+                              </span>
+                            ) : null}
+
+                            {sub.timeLogs && sub.timeLogs.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => toggleSubtaskLogs(subId)}
+                                className="font-bold text-[#1E3A8A] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full hover:bg-blue-100 transition-colors cursor-pointer"
+                              >
+                                {expandedSubtaskLogs[subId] ? 'Hide Logs' : `Logs (${sub.timeLogs.length})`}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Detailed Subtask Time Logs Breakdown */}
+                        {sub.timeLogs && sub.timeLogs.length > 0 && expandedSubtaskLogs[subId] && (
+                          <div className="mt-1 space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200/80 shadow-2xs">
+                            <span className="font-extrabold text-slate-500 uppercase text-[9px] tracking-wider block border-b border-slate-100 pb-1">
+                              Subtask Work Logs ({sub.timeLogs.length})
+                            </span>
+                            <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar pt-1">
+                              {sub.timeLogs.map((log: any, lIdx: number) => (
+                                <div key={log._id || lIdx} className="flex items-center justify-between gap-2 text-[10px] bg-slate-50 p-2 rounded-md border border-slate-100">
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-bold text-slate-800">{log.userName || 'User'}</span>
+                                      <span className="text-[9px] text-slate-400 font-medium">
+                                        {log.createdAt ? new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                      </span>
+                                    </div>
+                                    {log.description && (
+                                      <span className="text-[9.5px] text-slate-500 italic font-medium">{log.description}</span>
+                                    )}
+                                  </div>
+                                  <span className="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[9.5px] border border-emerald-200 shrink-0">
+                                    {log.hours}h {log.minutes}m
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
             </div>
 
-            {isAddingSubtask ? (
-              <div className="flex gap-2 pt-1">
-                <input
-                  type="text"
-                  placeholder="Enter subtask title..."
-                  value={newSubtaskTitle}
-                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleCreateSubtask();
-                    }
-                  }}
-                  className="flex-1 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-semibold text-slate-700 transition-all"
-                  autoFocus
-                />
+            {!isEmployee && (
+              isAddingSubtask ? (
+                <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-xl pt-3">
+                  <input
+                    type="text"
+                    placeholder="Enter subtask title..."
+                    value={newSubtaskTitle}
+                    onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCreateSubtask();
+                      }
+                    }}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700 transition-all"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <select
+                      value={newSubtaskAssignee}
+                      onChange={(e) => setNewSubtaskAssignee(e.target.value)}
+                      className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                    >
+                      <option value="">Assign Subtask User (Optional)</option>
+                      {availableAssignees.map((u: User) => (
+                        <option key={u.id || u._id} value={u.id || u._id}>
+                          {u.firstName} {u.lastName} ({u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'CEO'})
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="date"
+                      value={newSubtaskDueDate}
+                      onChange={(e) => setNewSubtaskDueDate(e.target.value)}
+                      className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                    />
+                    <select
+                      value={newSubtaskStatus}
+                      onChange={(e) => setNewSubtaskStatus(Number(e.target.value))}
+                      className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                    >
+                      <option value={TaskStatus.PENDING}>To Do</option>
+                      <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
+                      <option value={TaskStatus.COMPLETED}>Completed</option>
+                      <option value={TaskStatus.ON_HOLD}>Hold</option>
+                      <option value={TaskStatus.CANCELLED}>Blocked</option>
+                    </select>
+                    <div className="flex gap-1.5 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingSubtask(false);
+                          setNewSubtaskTitle('');
+                        }}
+                        className="px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-100 cursor-pointer bg-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCreateSubtask}
+                        className="px-3.5 py-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        + Add Subtask
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <button
-                  type="button"
-                  onClick={handleCreateSubtask}
-                  className="px-3 py-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-lg cursor-pointer"
+                  onClick={() => setIsAddingSubtask(true)}
+                  className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
                 >
-                  Add
+                  + Add Subtask Item
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingSubtask(false);
-                    setNewSubtaskTitle('');
-                  }}
-                  className="px-3 py-1.5 border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-100 cursor-pointer bg-white"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setIsAddingSubtask(true)}
-                className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 font-bold rounded-lg text-[11px] border border-slate-200/50 hover:border-slate-300 transition-colors cursor-pointer text-center block"
-              >
-                + Add Subtask Item
-              </button>
+              )
             )}
           </div>
 
@@ -1055,7 +1538,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             </div>
 
             {/* Active Session Banner if status is In Progress */}
-            {task.status === TaskStatus.IN_PROGRESS && task.lastStartedAt && (
+            {taskStatusNum === TaskStatus.IN_PROGRESS && task.lastStartedAt && (
               <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 flex items-center justify-between animate-card-enter">
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2.5 w-2.5">
@@ -1259,6 +1742,90 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
           </div>
         </div>
       )}
+
+      {/* Status Change Required Comment Modal */}
+      {statusModalConfig.isOpen && (() => {
+        const modalInfo = getStatusModalInfo(statusModalConfig.newStatus);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2.5 rounded-2xl ${modalInfo.iconBg}`}>
+                    {modalInfo.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 text-base">
+                      {modalInfo.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {statusModalConfig.type === 'subtask'
+                        ? `Subtask: ${statusModalConfig.subtaskTitle}`
+                        : 'Main Task Status Update'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStatusModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  {modalInfo.prompt}
+                </label>
+                <textarea
+                  value={statusModalConfig.comment}
+                  onChange={(e) =>
+                    setStatusModalConfig((prev) => ({
+                      ...prev,
+                      comment: e.target.value,
+                      error: '',
+                    }))
+                  }
+                  placeholder={modalInfo.placeholder}
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200 p-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
+                  autoFocus
+                />
+                {statusModalConfig.error && (
+                  <p className="text-xs font-semibold text-rose-500 flex items-center gap-1">
+                    <AlertCircle className="size-3.5" />
+                    {statusModalConfig.error}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStatusModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                  className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-bold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleConfirmStatusComment}
+                  className={`rounded-xl text-white font-bold shadow-sm transition-all ${statusModalConfig.newStatus === TaskStatus.ON_HOLD
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                >
+                  Submit & Change Status
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

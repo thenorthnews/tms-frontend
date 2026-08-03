@@ -14,8 +14,28 @@ export enum TaskPriority {
 
 export type Subtask = {
   _id?: string;
+  id?: string;
   title: string;
   isCompleted: boolean;
+  status?: TaskStatus;
+  assignedTo?: string | null;
+  assignedToInfo?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    name?: string;
+    initials?: string;
+    role?: string;
+    roleId?: number;
+  } | null;
+  dueDate?: string | null;
+  lastStartedAt?: string | null;
+  timeLogs?: TimeLog[];
+  totalTimeSpent?: {
+    hours: number;
+    minutes: number;
+    formatted: string;
+  };
 };
 
 export type Attachment = {

@@ -1,9 +1,17 @@
 import { TaskStatus, TaskPriority } from '../types';
 
+const toNum = (val: any): number => {
+  if (val && typeof val === 'object' && 'id' in val) {
+    return Number(val.id ?? 0);
+  }
+  return Number(val ?? 0);
+};
+
 // ─── Priority Helpers ─────────────────────────────────────────────────────────
 
-export const getPriorityLabel = (p: number): string => {
-  switch (p) {
+export const getPriorityLabel = (p: any): string => {
+  const val = toNum(p);
+  switch (val) {
     case TaskPriority.HIGH:
       return 'High';
     case TaskPriority.MEDIUM:
@@ -13,8 +21,9 @@ export const getPriorityLabel = (p: number): string => {
   }
 };
 
-export const getPriorityBadgeStyle = (p: number): string => {
-  switch (p) {
+export const getPriorityBadgeStyle = (p: any): string => {
+  const val = toNum(p);
+  switch (val) {
     case TaskPriority.HIGH:
       return 'bg-red-50 text-red-700 border-red-200';
     case TaskPriority.MEDIUM:
@@ -24,8 +33,9 @@ export const getPriorityBadgeStyle = (p: number): string => {
   }
 };
 
-export const getPriorityKanbanStyle = (p: number): string => {
-  switch (p) {
+export const getPriorityKanbanStyle = (p: any): string => {
+  const val = toNum(p);
+  switch (val) {
     case TaskPriority.HIGH:
       return 'bg-rose-50 text-rose-700 border-rose-100';
     case TaskPriority.MEDIUM:
@@ -35,8 +45,9 @@ export const getPriorityKanbanStyle = (p: number): string => {
   }
 };
 
-export const getPriorityDotColor = (p: number): string => {
-  switch (p) {
+export const getPriorityDotColor = (p: any): string => {
+  const val = toNum(p);
+  switch (val) {
     case TaskPriority.HIGH:
       return 'bg-rose-500';
     case TaskPriority.MEDIUM:
@@ -48,8 +59,9 @@ export const getPriorityDotColor = (p: number): string => {
 
 // ─── Status Helpers ───────────────────────────────────────────────────────────
 
-export const getStatusLabel = (status: number): string => {
-  switch (status) {
+export const getStatusLabel = (status: any): string => {
+  const val = toNum(status);
+  switch (val) {
     case TaskStatus.COMPLETED:
       return 'Completed';
     case TaskStatus.IN_PROGRESS:
@@ -63,8 +75,9 @@ export const getStatusLabel = (status: number): string => {
   }
 };
 
-export const getStatusBadgeStyle = (s: number): string => {
-  switch (s) {
+export const getStatusBadgeStyle = (s: any): string => {
+  const val = toNum(s);
+  switch (val) {
     case TaskStatus.COMPLETED:
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     case TaskStatus.IN_PROGRESS:
@@ -78,8 +91,9 @@ export const getStatusBadgeStyle = (s: number): string => {
   }
 };
 
-export const getStatusSelectStyle = (s: number): string => {
-  switch (s) {
+export const getStatusSelectStyle = (s: any): string => {
+  const val = toNum(s);
+  switch (val) {
     case TaskStatus.COMPLETED:
       return 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/20';
     case TaskStatus.IN_PROGRESS:
@@ -108,10 +122,11 @@ export const getUserInitials = (
 // ─── Overdue Helper ───────────────────────────────────────────────────────────
 
 export const isTaskOverdue = (
-  status: number,
+  status: any,
   dueDate?: string | null,
 ): boolean => {
-  if (status === TaskStatus.COMPLETED) return false;
+  const val = toNum(status);
+  if (val === TaskStatus.COMPLETED) return false;
   if (!dueDate) return false;
   const deadline = new Date(dueDate);
   const today = new Date();

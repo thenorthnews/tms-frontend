@@ -15,8 +15,12 @@ export const updateTaskInputSchema = z.object({
     .array(
       z.object({
         _id: z.string().optional(),
+        id: z.string().optional(),
         title: z.string().min(1),
         isCompleted: z.boolean(),
+        status: z.coerce.number().min(0).max(4).optional(),
+        assignedTo: z.string().optional().nullable(),
+        dueDate: z.string().optional().nullable(),
       }),
     )
     .optional(),
@@ -62,7 +66,7 @@ export const useUpdateTask = ({
       queryClient.invalidateQueries({
         queryKey: ['tasks'],
       });
-      queryClient.removeQueries({
+      queryClient.invalidateQueries({
         queryKey: ['tasks', data.id || data._id],
       });
       onSuccess?.(data, ...args);

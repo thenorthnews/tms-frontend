@@ -27,11 +27,12 @@ export const CreateTask = () => {
     return <Navigate to={paths.app.tasks.getHref()} replace />;
   }
 
-  // Local state for tags and subtasks
   const [subtasks, setSubtasks] = useState<
-    { title: string; isCompleted: boolean }[]
+    { title: string; isCompleted: boolean; status?: number; assignedTo?: string; dueDate?: string }[]
   >([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [newSubtaskAssignee, setNewSubtaskAssignee] = useState('');
+  const [newSubtaskDueDate, setNewSubtaskDueDate] = useState('');
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
 
   // Fetch active users for the assignee dropdown
@@ -54,11 +55,20 @@ export const CreateTask = () => {
     },
   });
 
-  const isCEO = currentUser?.role === UserRole.CEO || currentUser?.role === 0 || currentUser?.role === 'CEO';
+  const canSelectClient =
+    currentUser?.role === UserRole.CEO ||
+    currentUser?.role === UserRole.MANAGER ||
+    currentUser?.role === UserRole.TL ||
+    currentUser?.role === 0 ||
+    currentUser?.role === 1 ||
+    currentUser?.role === 2 ||
+    currentUser?.role === 'CEO' ||
+    currentUser?.role === 'MANAGER' ||
+    currentUser?.role === 'TL';
 
-  // Fetch clients for the client dropdown only if user is CEO
+  // Fetch clients for the client dropdown if user is CEO, Manager, or TL
   const { data: clientsRes = [], isLoading: isLoadingClients } = useClients({
-    queryConfig: { enabled: isCEO },
+    queryConfig: { enabled: canSelectClient },
   });
 
   const createTaskMutation = useCreateTask({
@@ -209,33 +219,48 @@ export const CreateTask = () => {
 
                     {subtasks.length > 0 && (
                       <div className="space-y-2 mb-4">
-                        {subtasks.map((sub, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-100"
-                          >
-                            <span className="text-sm font-semibold text-slate-700">
-                              {sub.title}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSubtasks(
-                                  subtasks.filter(
-                                    (_, i) => i !== idx,
-                                  ),
-                                )
-                              }
-                              className="text-xs font-bold text-red-500 hover:text-red-700 cursor-pointer"
+                        {subtasks.map((sub, idx) => {
+                          const assignedUser = users.find((u: User) => (u.id || u._id) === sub.assignedTo);
+                          return (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-100 text-xs"
                             >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-slate-800">
+                                  {sub.title}
+                                </span>
+                                {assignedUser && (
+                                  <span className="bg-sky-50 text-[#0EA5E9] border border-sky-100 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                    Assigned: {assignedUser.firstName} {assignedUser.lastName}
+                                  </span>
+                                )}
+                                {sub.dueDate && (
+                                  <span className="bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                    Due: {sub.dueDate}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSubtasks(
+                                    subtasks.filter(
+                                      (_, i) => i !== idx,
+                                    ),
+                                  )
+                                }
+                                className="text-xs font-bold text-red-500 hover:text-red-700 cursor-pointer shrink-0"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
-                    <div className="flex gap-2">
+                    <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                       <input
                         type="text"
                         placeholder="Add step/subtask item..."
@@ -250,32 +275,60 @@ export const CreateTask = () => {
                                 {
                                   title: newSubtaskTitle.trim(),
                                   isCompleted: false,
+                                  assignedTo: newSubtaskAssignee || undefined,
+                                  dueDate: newSubtaskDueDate || undefined,
                                 },
                               ]);
                               setNewSubtaskTitle('');
+                              setNewSubtaskAssignee('');
+                              setNewSubtaskDueDate('');
                             }
                           }
                         }}
-                        className="flex-1 text-sm px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#1E3A8A] focus:ring-4 focus:ring-indigo-500/10 font-semibold text-slate-700 transition-all"
+                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700 transition-all"
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (newSubtaskTitle.trim()) {
-                            setSubtasks([
-                              ...subtasks,
-                              {
-                                title: newSubtaskTitle.trim(),
-                                isCompleted: false,
-                              },
-                            ]);
-                            setNewSubtaskTitle('');
-                          }
-                        }}
-                        className="px-4 py-2 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-xl cursor-pointer"
-                      >
-                        Add
-                      </button>
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <select
+                          value={newSubtaskAssignee}
+                          onChange={(e) => setNewSubtaskAssignee(e.target.value)}
+                          className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                        >
+                          <option value="">Assign Subtask User (Optional)</option>
+                          {filteredUsers.map((u: User) => (
+                            <option key={u.id || u._id} value={u.id || u._id}>
+                              {u.firstName} {u.lastName} ({u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'CEO'})
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          value={newSubtaskDueDate}
+                          onChange={(e) => setNewSubtaskDueDate(e.target.value)}
+                          className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newSubtaskTitle.trim()) {
+                              setSubtasks([
+                                ...subtasks,
+                                {
+                                  title: newSubtaskTitle.trim(),
+                                  isCompleted: false,
+                                  assignedTo: newSubtaskAssignee || undefined,
+                                  dueDate: newSubtaskDueDate || undefined,
+                                },
+                              ]);
+                              setNewSubtaskTitle('');
+                              setNewSubtaskAssignee('');
+                              setNewSubtaskDueDate('');
+                            }
+                          }}
+                          className="px-4 py-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-lg cursor-pointer ml-auto"
+                        >
+                          + Add Subtask
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -338,7 +391,7 @@ export const CreateTask = () => {
                         registration={register('dueDate')}
                       />
 
-                      {isCEO && (
+                      {canSelectClient && (
                         <Select
                           label="Client *"
                           error={formState.errors.clientId}
