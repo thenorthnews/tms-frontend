@@ -1395,11 +1395,11 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                           <div className="flex items-center gap-1.5 ml-auto flex-wrap">
                             {sub.totalTimeSpent && (sub.totalTimeSpent.hours > 0 || sub.totalTimeSpent.minutes > 0) ? (
                               <span className="font-extrabold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
-                                ⏱️ Logged: {sub.totalTimeSpent.formatted}
+                                ⏱️ Logged: {sub?.totalTimeSpent?.formatted}
                               </span>
                             ) : null}
 
-                            {sub.timeLogs && sub.timeLogs.length > 0 && (
+                            {sub?.timeLogs && sub?.timeLogs?.length > 0 && (
                               <button
                                 type="button"
                                 onClick={() => toggleSubtaskLogs(subId)}
