@@ -293,12 +293,18 @@ export const CreateTask = () => {
                           onChange={(e) => setNewSubtaskAssignee(e.target.value)}
                           className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
                         >
-                          <option value="">Assign Subtask User (Optional)</option>
-                          {filteredUsers.map((u: User) => (
-                            <option key={u.id || u._id} value={u.id || u._id}>
-                              {u.firstName} {u.lastName} ({u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'CEO'})
-                            </option>
-                          ))}
+                          <option value="">
+                            {selectedAssignees.length > 0
+                              ? 'Assign Subtask User (Optional)'
+                              : 'Select Main Task Assignees First'}
+                          </option>
+                          {filteredUsers
+                            .filter((u: User) => selectedAssignees.includes(String(u.id || u._id)))
+                            .map((u: User) => (
+                              <option key={u.id || u._id} value={u.id || u._id}>
+                                {u.firstName} {u.lastName} ({u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'CEO'})
+                              </option>
+                            ))}
                         </select>
                         <input
                           type="date"

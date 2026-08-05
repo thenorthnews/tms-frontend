@@ -285,18 +285,57 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     return [];
   }, [users, currentUser, teamsRes]);
 
+  // Filter available target subtask assignees: ONLY users assigned to the main task
+  const mainTaskAssignees = useMemo(() => {
+    if (!task) return [];
+    const rawAssignedTo = Array.isArray(task.assignedTo)
+      ? task.assignedTo
+      : (task.assignedTo ? [task.assignedTo] : []);
+
+    const assignedStrIds = new Set<string>();
+    rawAssignedTo.forEach((a: unknown) => {
+      const id = typeof a === 'string' ? a : (a as { _id?: string; id?: string })?._id || (a as { _id?: string; id?: string })?.id;
+      if (id) assignedStrIds.add(String(id));
+    });
+
+    if (task.assigneeInfo) {
+      const rawInfo = Array.isArray(task.assigneeInfo) ? task.assigneeInfo : [task.assigneeInfo];
+      rawInfo.forEach((u: any) => {
+        const id = u?._id || u?.id;
+        if (id) assignedStrIds.add(String(id));
+      });
+    }
+
+    if (assignedStrIds.size === 0) return [];
+
+    return users.filter((u: User) => {
+      const uId = String(u._id || u.id || '');
+      return assignedStrIds.has(uId);
+    });
+  }, [task, users]);
+
   // Initialize values from fetched task
   useEffect(() => {
     if (task) {
       setTempDescription(task.description || '');
       setSubTasks(task.subtasks || []);
 
-      if (task.assignedTo) {
-        const raw = Array.isArray(task.assignedTo) ? task.assignedTo : [task.assignedTo];
-        setSelectedNewAssignees(raw.map((a: unknown) => typeof a === 'string' ? a : (a as { _id?: string; id?: string })?._id || (a as { _id?: string; id?: string })?.id || ''));
-      } else {
-        setSelectedNewAssignees([]);
+      const assignedSet = new Set<string>();
+      const rawAssigned = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : []);
+      rawAssigned.forEach((a: unknown) => {
+        const id = typeof a === 'string' ? a : (a as { _id?: string; id?: string })?._id || (a as { _id?: string; id?: string })?.id;
+        if (id) assignedSet.add(String(id));
+      });
+
+      if (task.assigneeInfo) {
+        const rawInfo = Array.isArray(task.assigneeInfo) ? task.assigneeInfo : [task.assigneeInfo];
+        rawInfo.forEach((u: any) => {
+          const id = u?._id || u?.id;
+          if (id) assignedSet.add(String(id));
+        });
       }
+
+      setSelectedNewAssignees(Array.from(assignedSet));
 
       if (task.dueDate) {
         const dueDate = new Date(task.dueDate);
@@ -457,16 +496,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   };
 
-  const checkSubtaskPermission = (sub: Subtask) => {
-    if (!isEmployee) return true;
-    const subAssignee = sub.assignedTo ? String(sub.assignedTo) : null;
-    const taskAssignees = Array.isArray(task?.assignedTo) ? task.assignedTo.map(String) : (task?.assignedTo ? [String(task.assignedTo)] : []);
-    const creatorId = task?.createdBy ? String(task.createdBy) : null;
-
-    if (subAssignee === currentUserId || taskAssignees.includes(currentUserId) || creatorId === currentUserId) {
-      return true;
-    }
-    return false;
+  const checkSubtaskPermission = (_sub: Subtask) => {
+    return true;
   };
 
   const handleToggleSubtask = (subId: string, index: number) => {
@@ -1204,7 +1235,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               </div>
 
               {/* Committed Date (ETA) */}
-              <div className="flex items-center justify-between py-1 border-b border-slate-50">
+              {/* <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-400 font-bold">Committed ETA</span>
                 <input
                   type="date"
@@ -1212,7 +1243,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   onChange={(e) => setCommittedDate(e.target.value)}
                   className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-none focus:border-[#1E3A8A] text-xs font-bold text-slate-700"
                 />
-              </div>
+              </div> */}
 
               {/* Created Date */}
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
@@ -1349,7 +1380,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                             className="bg-white border border-slate-200 rounded px-2 py-0.5 font-medium text-slate-700 focus:outline-none focus:border-[#1E3A8A] text-[10px]"
                           >
                             <option value="">Unassigned</option>
-                            {availableAssignees.map((u: User) => (
+                            {mainTaskAssignees.map((u: User) => (
                               <option key={u.id || u._id} value={u.id || u._id}>
                                 {u.firstName} {u.lastName}
                               </option>
@@ -1470,7 +1501,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
                     >
                       <option value="">Assign Subtask User (Optional)</option>
-                      {availableAssignees.map((u: User) => (
+                      {mainTaskAssignees.map((u: User) => (
                         <option key={u.id || u._id} value={u.id || u._id}>
                           {u.firstName} {u.lastName} ({u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'CEO'})
                         </option>
