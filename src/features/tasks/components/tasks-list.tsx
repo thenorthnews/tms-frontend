@@ -20,6 +20,7 @@ import {
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,15 +30,16 @@ import {
 import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableColumn } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
 import { paths } from '@/config/paths';
-import { formatDate } from '@/utils/format';
 import { useClients } from '@/features/clients/api/get-clients';
 import { useUsers } from '@/features/users/api/get-users';
 import { useUser } from '@/lib/auth';
+import { User } from '@/types/api';
+import { formatDate } from '@/utils/format';
+
+import { useDeleteTask } from '../api/delete-task';
 import { useTasks } from '../api/get-tasks';
 import { useUpdateTask } from '../api/update-task';
-import { useDeleteTask } from '../api/delete-task';
 import { TaskStatus, TaskPriority, Task } from '../types';
 import {
   getPriorityLabel,
@@ -47,11 +49,20 @@ import {
   getStatusSelectStyle,
   getStatusLabel,
 } from '../utils/task-utils';
-import { User } from '@/types/api';
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const getDaysInMonth = (year: number, month: number) => {
@@ -67,7 +78,8 @@ export const TasksList = () => {
   const { addNotification } = useNotifications();
   const currentUserQuery = useUser();
   const currentUser = currentUserQuery.data;
-  const isEmployee = currentUser?.role === 4 || currentUser?.role === 'Employee';
+  const isEmployee =
+    currentUser?.role === 4 || currentUser?.role === 'Employee';
   const isCEO = currentUser?.role === 0 || currentUser?.role === 'CEO';
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,7 +98,9 @@ export const TasksList = () => {
   const [priorityVal, setPriorityVal] = useState(priorityFilter || '');
   const [clientVal, setClientVal] = useState(clientFilterParam || '');
   const [assigneeVal, setAssigneeVal] = useState(assigneeFilterParam || '');
-  const [dateVal, setDateVal] = useState(dateFilterParam || (currentView === 'kanban' ? 'today' : ''));
+  const [dateVal, setDateVal] = useState(
+    dateFilterParam || (currentView === 'kanban' ? 'today' : ''),
+  );
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
@@ -249,7 +263,18 @@ export const TasksList = () => {
       }
     }
     return params;
-  }, [page, search, statusVal, priorityVal, clientVal, assigneeVal, currentView, dateVal, currentMonth, currentYear]);
+  }, [
+    page,
+    search,
+    statusVal,
+    priorityVal,
+    clientVal,
+    assigneeVal,
+    currentView,
+    dateVal,
+    currentMonth,
+    currentYear,
+  ]);
 
   const selectedClient = useMemo(() => {
     if (!clientVal || clientVal === 'all') return null;
@@ -258,7 +283,9 @@ export const TasksList = () => {
 
   const tasksQuery = useTasks({
     params: queryParams,
-    queryConfig: { enabled: !isCEO || Boolean(clientVal) || Boolean(assigneeVal) },
+    queryConfig: {
+      enabled: !isCEO || Boolean(clientVal) || Boolean(assigneeVal),
+    },
   });
 
   if (tasksQuery.isLoading) {
@@ -271,7 +298,7 @@ export const TasksList = () => {
 
   if (tasksQuery.isError) {
     return (
-      <div className="flex h-48 w-full items-center justify-center text-red-500 gap-2">
+      <div className="flex h-48 w-full items-center justify-center gap-2 text-red-500">
         <AlertCircle className="size-5" />
         Failed to load tasks.
       </div>
@@ -290,9 +317,9 @@ export const TasksList = () => {
       Cell({ entry: { title, description } }: { entry: Task }) {
         return (
           <div className="space-y-1">
-            <span className="font-bold text-slate-800 block">{title}</span>
+            <span className="block font-bold text-slate-800">{title}</span>
             {description && (
-              <span className="text-xs text-slate-400 font-medium block max-w-xs truncate">
+              <span className="block max-w-xs truncate text-xs font-medium text-slate-400">
                 {description}
               </span>
             )}
@@ -305,26 +332,51 @@ export const TasksList = () => {
       field: 'assignedTo',
       Cell({ entry: { assigneeInfo } }: { entry: Task }) {
         if (!assigneeInfo) {
-          return <span className="text-slate-400 text-sm font-medium">Unassigned</span>;
+          return (
+            <span className="text-sm font-medium text-slate-400">
+              Unassigned
+            </span>
+          );
         }
-        const assignees = Array.isArray(assigneeInfo) ? assigneeInfo : [assigneeInfo];
+        const assignees = Array.isArray(assigneeInfo)
+          ? assigneeInfo
+          : [assigneeInfo];
         if (assignees.length === 0) {
-          return <span className="text-slate-400 text-sm font-medium">Unassigned</span>;
+          return (
+            <span className="text-sm font-medium text-slate-400">
+              Unassigned
+            </span>
+          );
         }
         return (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {assignees.map((u: { firstName?: string; lastName?: string; image?: string }, idx: number) => (
-              <div key={idx} className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full" title={`${u.firstName || ''} ${u.lastName || ''}`}>
-                {u.image ? (
-                  <img className="h-5 w-5 rounded-full object-cover" src={u.image} alt="" />
-                ) : (
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600">
-                    {u.firstName?.[0] || 'U'}
-                  </div>
-                )}
-                <span className="font-semibold text-slate-700 text-xs">{u.firstName || 'User'}</span>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {assignees.map(
+              (
+                u: { firstName?: string; lastName?: string; image?: string },
+                idx: number,
+              ) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5"
+                  title={`${u.firstName || ''} ${u.lastName || ''}`}
+                >
+                  {u.image ? (
+                    <img
+                      className="size-5 rounded-full object-cover"
+                      src={u.image}
+                      alt=""
+                    />
+                  ) : (
+                    <div className="flex size-5 items-center justify-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-600">
+                      {u.firstName?.[0] || 'U'}
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold text-slate-700">
+                    {u.firstName || 'User'}
+                  </span>
+                </div>
+              ),
+            )}
           </div>
         );
       },
@@ -334,10 +386,12 @@ export const TasksList = () => {
       field: 'clientId',
       Cell({ entry: { clientInfo } }: { entry: Task }) {
         if (!clientInfo) {
-          return <span className="text-slate-400 text-xs font-medium">N/A</span>;
+          return (
+            <span className="text-xs font-medium text-slate-400">N/A</span>
+          );
         }
         return (
-          <span className="font-semibold text-slate-800 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-xs border border-indigo-150 inline-flex items-center gap-1">
+          <span className="border-indigo-150 inline-flex items-center gap-1 rounded-full border bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 text-slate-800">
             <Briefcase className="size-3 text-indigo-500" />
             {clientInfo.name}
           </span>
@@ -349,20 +403,26 @@ export const TasksList = () => {
       field: 'subtasks',
       Cell({ entry: { subtasks } }: { entry: Task }) {
         if (!subtasks || subtasks.length === 0) {
-          return <span className="text-slate-400 text-xs font-medium">No subtasks</span>;
+          return (
+            <span className="text-xs font-medium text-slate-400">
+              No subtasks
+            </span>
+          );
         }
         const completed = subtasks.filter((s) => s.isCompleted).length;
         const total = subtasks.length;
         const percent = Math.round((completed / total) * 100);
         return (
-          <div className="space-y-1 w-24">
-            <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-              <span>{completed}/{total} Done</span>
+          <div className="w-24 space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+              <span>
+                {completed}/{total} Done
+              </span>
               <span>{percent}%</span>
             </div>
-            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden flex">
+            <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
               <div
-                className="bg-[#0EA5E9] h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full bg-[#0EA5E9] transition-all duration-500"
                 style={{ width: `${percent}%` }}
               />
             </div>
@@ -375,7 +435,9 @@ export const TasksList = () => {
       field: 'priority',
       Cell({ entry: { priority } }: { entry: Task }) {
         return (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getPriorityBadgeStyle(priority)}`}>
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getPriorityBadgeStyle(priority)}`}
+          >
             {getPriorityLabel(priority)}
           </span>
         );
@@ -388,7 +450,7 @@ export const TasksList = () => {
         const taskId = id || _id || '';
         return (
           <select
-            className={`block w-32 rounded-full border px-3 py-1.5 shadow-sm text-xs font-semibold focus:ring-4 transition-all cursor-pointer ${getStatusSelectStyle(status as number)}`}
+            className={`block w-32 cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition-all focus:ring-4 ${getStatusSelectStyle(status as number)}`}
             value={status}
             onChange={(e) => {
               updateTaskMutation.mutate({
@@ -400,11 +462,12 @@ export const TasksList = () => {
           >
             {isEmployee ? (
               <>
-                {status !== TaskStatus.IN_PROGRESS && status !== TaskStatus.ON_HOLD && (
-                  <option value={status} disabled>
-                    {getStatusLabel(status as number)}
-                  </option>
-                )}
+                {status !== TaskStatus.IN_PROGRESS &&
+                  status !== TaskStatus.ON_HOLD && (
+                    <option value={status} disabled>
+                      {getStatusLabel(status as number)}
+                    </option>
+                  )}
                 <option value={TaskStatus.IN_PROGRESS}>In Progress</option>
                 <option value={TaskStatus.ON_HOLD}>Hold</option>
               </>
@@ -425,9 +488,14 @@ export const TasksList = () => {
       title: 'Due Date',
       field: 'dueDate',
       Cell({ entry: { dueDate } }: { entry: Task }) {
-        if (!dueDate) return <span className="text-slate-400 text-xs font-medium">No due date</span>;
+        if (!dueDate)
+          return (
+            <span className="text-xs font-medium text-slate-400">
+              No due date
+            </span>
+          );
         return (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
             <CalendarIcon className="size-3.5 text-slate-400" />
             {formatDate(new Date(dueDate).getTime())}
           </div>
@@ -441,7 +509,7 @@ export const TasksList = () => {
         const taskId = id || _id || '';
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-gray-200">
+            <DropdownMenuTrigger className="flex size-8 items-center justify-center rounded-md hover:bg-gray-200">
               <MoreVertical className="size-5 text-gray-600" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
@@ -454,7 +522,7 @@ export const TasksList = () => {
               </DropdownMenuItem>
               {!isEmployee && (
                 <DropdownMenuItem
-                  className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50 font-semibold"
+                  className="cursor-pointer font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700"
                   onClick={() => {
                     if (confirm('Are you sure you want to delete this task?')) {
                       deleteTaskMutation.mutate({ taskId });
@@ -499,16 +567,36 @@ export const TasksList = () => {
   };
 
   const kanbanColumns = [
-    { title: 'Pending', status: TaskStatus.PENDING, color: 'border-t-slate-400 bg-slate-50/50' },
-    { title: 'In Progress', status: TaskStatus.IN_PROGRESS, color: 'border-t-blue-500 bg-blue-50/20' },
-    { title: 'Hold', status: TaskStatus.ON_HOLD, color: 'border-t-amber-500 bg-amber-50/20' },
-    { title: 'Completed', status: TaskStatus.COMPLETED, color: 'border-t-emerald-500 bg-emerald-50/20' },
-    { title: 'Cancelled', status: TaskStatus.CANCELLED, color: 'border-t-rose-400 bg-rose-50/20' },
+    {
+      title: 'Pending',
+      status: TaskStatus.PENDING,
+      color: 'border-t-slate-400 bg-slate-50/50',
+    },
+    {
+      title: 'In Progress',
+      status: TaskStatus.IN_PROGRESS,
+      color: 'border-t-blue-500 bg-blue-50/20',
+    },
+    {
+      title: 'Hold',
+      status: TaskStatus.ON_HOLD,
+      color: 'border-t-amber-500 bg-amber-50/20',
+    },
+    {
+      title: 'Completed',
+      status: TaskStatus.COMPLETED,
+      color: 'border-t-emerald-500 bg-emerald-50/20',
+    },
+    {
+      title: 'Cancelled',
+      status: TaskStatus.CANCELLED,
+      color: 'border-t-rose-400 bg-rose-50/20',
+    },
   ];
 
   const renderKanbanBoard = (tasksList: Task[]) => {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 gap-6 duration-500 animate-in fade-in md:grid-cols-5">
         {kanbanColumns.map((col) => {
           const colTasks = tasksList.filter((t) => t.status === col.status);
           const isDragOver = dragOverColumn === col.status;
@@ -518,19 +606,29 @@ export const TasksList = () => {
               onDragOver={(e) => handleDragOver(e, col.status)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, col.status)}
-              className={`flex flex-col min-h-[550px] rounded-2xl border border-slate-200/60 p-4 border-t-4 ${col.color} shadow-sm transition-all ${isDragOver ? 'ring-2 ring-indigo-300/50 ring-offset-1 bg-indigo-50/10 scale-[1.01]' : ''
-                }`}
+              className={`flex min-h-[550px] flex-col rounded-2xl border border-t-4 border-slate-200/60 p-4 ${col.color} shadow-sm transition-all ${
+                isDragOver
+                  ? 'scale-[1.01] bg-indigo-50/10 ring-2 ring-indigo-300/50 ring-offset-1'
+                  : ''
+              }`}
             >
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-bold text-slate-800 text-sm">{col.title}</span>
-                <span className="text-[10px] bg-white border border-slate-200 px-2 py-0.5 rounded-full font-extrabold text-slate-500">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-800">
+                  {col.title}
+                </span>
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-extrabold text-slate-500">
                   {colTasks.length}
                 </span>
               </div>
-              <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-1 custom-scrollbar">
+              <div className="custom-scrollbar max-h-[600px] flex-1 space-y-3 overflow-y-auto pr-1">
                 {colTasks.length === 0 ? (
-                  <div className={`flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl text-[10px] font-bold transition-colors ${isDragOver ? 'border-indigo-300 text-indigo-400 bg-indigo-50/30' : 'border-slate-200/50 text-slate-400'
-                    }`}>
+                  <div
+                    className={`flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed text-[10px] font-bold transition-colors ${
+                      isDragOver
+                        ? 'border-indigo-300 bg-indigo-50/30 text-indigo-400'
+                        : 'border-slate-200/50 text-slate-400'
+                    }`}
+                  >
                     {isDragOver ? 'Drop here' : 'Drag tasks here'}
                   </div>
                 ) : (
@@ -541,56 +639,90 @@ export const TasksList = () => {
                         key={taskId}
                         draggable
                         onDragStart={(e) => handleDragStart(e, taskId)}
-                        onClick={() => navigate(paths.app.editTask.getHref(taskId))}
-                        className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-grab active:cursor-grabbing text-left space-y-2.5 relative group animate-card-enter"
+                        onClick={() =>
+                          navigate(paths.app.editTask.getHref(taskId))
+                        }
+                        className="animate-card-enter group relative cursor-grab space-y-2.5 rounded-xl border border-slate-200/80 bg-white p-3.5 text-left shadow-sm transition-all hover:border-slate-300 hover:shadow-md active:cursor-grabbing"
                       >
-                        <div className="flex justify-between items-start">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${getPriorityKanbanStyle(t.priority)}`}>
+                        <div className="flex items-start justify-between">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold ${getPriorityKanbanStyle(t.priority)}`}
+                          >
                             {getPriorityLabel(t.priority)}
                           </span>
                           {t.assigneeInfo ? (
                             (() => {
-                              const assignees = Array.isArray(t.assigneeInfo) ? t.assigneeInfo : [t.assigneeInfo];
-                              const firstUser = assignees[0] as { firstName?: string; lastName?: string } | undefined;
-                              if (!firstUser) return <div className="size-6 rounded-full bg-slate-50 text-slate-400 font-bold flex items-center justify-center text-[9px] border border-slate-100" title="Unassigned">--</div>;
+                              const assignees = Array.isArray(t.assigneeInfo)
+                                ? t.assigneeInfo
+                                : [t.assigneeInfo];
+                              const firstUser = assignees[0] as
+                                | { firstName?: string; lastName?: string }
+                                | undefined;
+                              if (!firstUser)
+                                return (
+                                  <div
+                                    className="flex size-6 items-center justify-center rounded-full border border-slate-100 bg-slate-50 text-[9px] font-bold text-slate-400"
+                                    title="Unassigned"
+                                  >
+                                    --
+                                  </div>
+                                );
                               return (
-                                <div className="size-6 rounded-full bg-indigo-50 text-indigo-700 font-extrabold flex items-center justify-center text-[9px] border border-slate-200" title={assignees.map((u) => `${u.firstName || ''} ${u.lastName || ''}`).join(', ')}>
-                                  {firstUser.firstName?.[0]}{firstUser.lastName?.[0]}
+                                <div
+                                  className="flex size-6 items-center justify-center rounded-full border border-slate-200 bg-indigo-50 text-[9px] font-extrabold text-indigo-700"
+                                  title={assignees
+                                    .map(
+                                      (u) =>
+                                        `${u.firstName || ''} ${u.lastName || ''}`,
+                                    )
+                                    .join(', ')}
+                                >
+                                  {firstUser.firstName?.[0]}
+                                  {firstUser.lastName?.[0]}
                                 </div>
                               );
                             })()
                           ) : (
-                            <div className="size-6 rounded-full bg-slate-50 text-slate-400 font-bold flex items-center justify-center text-[9px] border border-slate-100" title="Unassigned">
+                            <div
+                              className="flex size-6 items-center justify-center rounded-full border border-slate-100 bg-slate-50 text-[9px] font-bold text-slate-400"
+                              title="Unassigned"
+                            >
                               --
                             </div>
                           )}
                         </div>
-                        <h4 className="font-bold text-xs text-slate-800 line-clamp-2 leading-relaxed">
+                        <h4 className="line-clamp-2 text-xs font-bold leading-relaxed text-slate-800">
                           {t.title}
                         </h4>
                         {t.description && (
-                          <p className="text-[10px] text-slate-450 font-medium line-clamp-2 leading-normal">
+                          <p className="text-slate-450 line-clamp-2 text-[10px] font-medium leading-normal">
                             {t.description}
                           </p>
                         )}
                         {/* Subtask progress mini-bar */}
                         {t.subtasks && t.subtasks.length > 0 && (
                           <div className="flex items-center gap-1.5">
-                            <div className="flex-1 bg-slate-100 h-1 rounded-full overflow-hidden">
+                            <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
                               <div
-                                className="bg-[#0EA5E9] h-full rounded-full transition-all duration-300"
-                                style={{ width: `${Math.round((t.subtasks.filter(s => s.isCompleted).length / t.subtasks.length) * 100)}%` }}
+                                className="h-full rounded-full bg-[#0EA5E9] transition-all duration-300"
+                                style={{
+                                  width: `${Math.round((t.subtasks.filter((s) => s.isCompleted).length / t.subtasks.length) * 100)}%`,
+                                }}
                               />
                             </div>
                             <span className="text-[8px] font-bold text-slate-400">
-                              {t.subtasks.filter(s => s.isCompleted).length}/{t.subtasks.length}
+                              {t.subtasks.filter((s) => s.isCompleted).length}/
+                              {t.subtasks.length}
                             </span>
                           </div>
                         )}
                         {t.dueDate && (
-                          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold border-t border-slate-50 pt-2 mt-2">
+                          <div className="mt-2 flex items-center gap-1 border-t border-slate-50 pt-2 text-[10px] font-bold text-slate-400">
                             <Clock className="size-3" />
-                            {new Date(t.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            {new Date(t.dueDate).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
                           </div>
                         )}
                       </div>
@@ -648,42 +780,50 @@ export const TasksList = () => {
     const today = new Date();
 
     return (
-      <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-6 animate-in fade-in duration-500">
-        <div className="flex justify-between items-center">
+      <div className="space-y-6 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm duration-500 animate-in fade-in">
+        <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-800">
             {MONTH_NAMES[currentMonth]} {currentYear}
           </h3>
           <div className="flex gap-2">
             <button
               onClick={handlePrevMonth}
-              className="p-2 border border-slate-200 rounded-full hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+              className="cursor-pointer rounded-full border border-slate-200 p-2 text-slate-600 transition-colors hover:bg-slate-50"
             >
               <ChevronLeft className="size-4" />
             </button>
             <button
               onClick={handleToday}
-              className="px-4 py-2 border border-slate-200 rounded-full hover:bg-slate-50 text-xs font-bold text-slate-650 transition-colors cursor-pointer"
+              className="text-slate-650 cursor-pointer rounded-full border border-slate-200 px-4 py-2 text-xs font-bold transition-colors hover:bg-slate-50"
             >
               Today
             </button>
             <button
               onClick={handleNextMonth}
-              className="p-2 border border-slate-200 rounded-full hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+              className="cursor-pointer rounded-full border border-slate-200 p-2 text-slate-600 transition-colors hover:bg-slate-50"
             >
               <ChevronRight className="size-4" />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-slate-100 border border-slate-200/80 rounded-2xl overflow-hidden shadow-inner">
+        <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-inner">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-            <div key={d} className="bg-slate-50/50 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <div
+              key={d}
+              className="bg-slate-50/50 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500"
+            >
               {d}
             </div>
           ))}
           {days.map((day, idx) => {
             if (!day) {
-              return <div key={`empty-${idx}`} className="bg-white min-h-[110px] p-2" />;
+              return (
+                <div
+                  key={`empty-${idx}`}
+                  className="min-h-[110px] bg-white p-2"
+                />
+              );
             }
             const dateStr = day.getDate();
             const isToday =
@@ -704,30 +844,37 @@ export const TasksList = () => {
             return (
               <div
                 key={day.toISOString()}
-                className={`bg-white min-h-[110px] p-2 flex flex-col justify-between hover:bg-slate-50/30 transition-colors group relative border-t border-slate-100 text-left`}
+                className={`group relative flex min-h-[110px] flex-col justify-between border-t border-slate-100 bg-white p-2 text-left transition-colors hover:bg-slate-50/30`}
               >
-                <div className="flex justify-between items-center mb-1">
-                  <span className={`text-xs font-extrabold flex items-center justify-center size-6 rounded-full ${isToday ? 'bg-[#1E3A8A] text-white' : 'text-slate-700'
-                    }`}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span
+                    className={`flex size-6 items-center justify-center rounded-full text-xs font-extrabold ${
+                      isToday ? 'bg-[#1E3A8A] text-white' : 'text-slate-700'
+                    }`}
+                  >
                     {dateStr}
                   </span>
                   {dayTasks.length > 0 && (
-                    <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">
+                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
                       {dayTasks.length}
                     </span>
                   )}
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-1 max-h-[80px] pr-0.5 custom-scrollbar">
+                <div className="custom-scrollbar max-h-[80px] flex-1 space-y-1 overflow-y-auto pr-0.5">
                   {dayTasks.map((t) => {
                     const taskId = t.id || t._id || '';
                     return (
                       <div
                         key={taskId}
-                        onClick={() => navigate(paths.app.editTask.getHref(taskId))}
-                        className="text-[9px] font-bold text-slate-700 truncate cursor-pointer hover:text-indigo-600 bg-slate-50 border border-slate-105 rounded-md p-1 flex items-center gap-1 transition-all"
+                        onClick={() =>
+                          navigate(paths.app.editTask.getHref(taskId))
+                        }
+                        className="border-slate-105 flex cursor-pointer items-center gap-1 truncate rounded-md border bg-slate-50 p-1 text-[9px] font-bold text-slate-700 transition-all hover:text-indigo-600"
                         title={t.title}
                       >
-                        <span className={`size-1.5 rounded-full ${getPriorityDotColor(t.priority)} shrink-0`} />
+                        <span
+                          className={`size-1.5 rounded-full ${getPriorityDotColor(t.priority)} shrink-0`}
+                        />
                         <span className="truncate">{t.title}</span>
                       </div>
                     );
@@ -751,42 +898,46 @@ export const TasksList = () => {
   // Initial state: ONLY for CEO, if no client is selected yet, show the "Which client's tasks would you like to view?" selection screen!
   if (isCEO && !clientVal) {
     return (
-      <div className="space-y-8 max-w-5xl mx-auto py-4 animate-card-enter">
+      <div className="animate-card-enter mx-auto max-w-5xl space-y-8 py-4">
         {/* Header Title */}
-        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-slate-100 shadow-sm text-center space-y-3">
-          <div className="size-16 rounded-3xl bg-gradient-to-tr from-[#1E3A8A] to-[#0EA5E9] text-white flex items-center justify-center mx-auto shadow-lg shadow-blue-500/20">
+        <div className="space-y-3 rounded-3xl border border-slate-100 bg-white/80 p-8 text-center shadow-sm backdrop-blur-md">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-3xl bg-gradient-to-tr from-[#1E3A8A] to-[#0EA5E9] text-white shadow-lg shadow-blue-500/20">
             <Briefcase className="size-8" />
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight">
+          <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">
             Which client's tasks would you like to view?
           </h2>
-          <p className="text-sm text-slate-500 font-medium max-w-lg mx-auto">
-            Please select a client below to view their associated tasks, project status, and team assignments.
+          <p className="mx-auto max-w-lg text-sm font-medium text-slate-500">
+            Please select a client below to view their associated tasks, project
+            status, and team assignments.
           </p>
         </div>
 
         {/* Client Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Card 0: All Clients */}
           <div
             onClick={() => handleClientFilterChange('all')}
-            className="group relative bg-gradient-to-br from-[#1E3A8A] to-[#0EA5E9] text-white rounded-3xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-between overflow-hidden border border-blue-800/20 transform hover:-translate-y-1"
+            className="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border border-blue-800/20 bg-gradient-to-br from-[#1E3A8A] to-[#0EA5E9] p-6 text-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
           >
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] uppercase font-bold tracking-widest bg-white/20 px-3 py-1 rounded-full text-white backdrop-blur-md">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-white/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-md">
                   All Projects
                 </span>
                 <Building className="size-6 text-white/80" />
               </div>
-              <h3 className="text-xl font-extrabold text-white">All Clients Tasks</h3>
-              <p className="text-xs text-blue-100 leading-relaxed font-medium">
-                View consolidated tasks across all clients in one unified table view.
+              <h3 className="text-xl font-extrabold text-white">
+                All Clients Tasks
+              </h3>
+              <p className="text-xs font-medium leading-relaxed text-blue-100">
+                View consolidated tasks across all clients in one unified table
+                view.
               </p>
             </div>
-            <div className="pt-6 flex items-center text-xs font-bold text-white group-hover:translate-x-1 transition-transform">
+            <div className="flex items-center pt-6 text-xs font-bold text-white transition-transform group-hover:translate-x-1">
               <span>View All Tasks</span>
-              <ArrowRight className="size-4 ml-2" />
+              <ArrowRight className="ml-2 size-4" />
             </div>
           </div>
 
@@ -797,35 +948,36 @@ export const TasksList = () => {
               <div
                 key={cId}
                 onClick={() => handleClientFilterChange(cId)}
-                className="group relative bg-white hover:bg-slate-50/80 rounded-3xl p-6 shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300 cursor-pointer flex flex-col justify-between transform hover:-translate-y-1"
+                className="group relative flex cursor-pointer flex-col justify-between rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-slate-50/80 hover:shadow-xl"
               >
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-extrabold tracking-wider bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-100">
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[10px] font-extrabold tracking-wider text-indigo-700">
                       {c.status === 0 ? 'Active Client' : 'Inactive'}
                     </span>
-                    <div className="size-10 rounded-2xl bg-indigo-50/80 text-indigo-600 flex items-center justify-center font-bold text-sm group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <div className="flex size-10 items-center justify-center rounded-2xl bg-indigo-50/80 text-sm font-bold text-indigo-600 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
                       <Briefcase className="size-5" />
                     </div>
                   </div>
-                  <h3 className="text-lg font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                  <h3 className="text-lg font-extrabold text-slate-800 transition-colors group-hover:text-indigo-600">
                     {c.name}
                   </h3>
                   {c.companyName && (
                     <p className="text-xs font-semibold text-slate-500">
-                      Company: <span className="text-slate-700">{c.companyName}</span>
+                      Company:{' '}
+                      <span className="text-slate-700">{c.companyName}</span>
                     </p>
                   )}
                   {c.description && (
-                    <p className="text-xs text-slate-400 font-medium line-clamp-2 leading-relaxed">
+                    <p className="line-clamp-2 text-xs font-medium leading-relaxed text-slate-400">
                       {c.description}
                     </p>
                   )}
                 </div>
 
-                <div className="pt-6 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:text-indigo-700">
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-6 text-xs font-bold text-indigo-600 group-hover:text-indigo-700">
                   <span>Open Client Tasks</span>
-                  <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </div>
             );
@@ -839,13 +991,13 @@ export const TasksList = () => {
     <div className="space-y-6">
       {/* Active Client Selection Bar */}
       {isCEO && (
-        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 animate-card-enter">
+        <div className="animate-card-enter flex flex-col items-stretch justify-between gap-4 rounded-3xl border border-slate-100 bg-white/80 p-4 shadow-sm backdrop-blur-md sm:flex-row sm:items-center">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/20 shrink-0">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-sm font-bold text-white shadow-md shadow-indigo-600/20">
               <Briefcase className="size-5" />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 Viewing Tasks For
               </span>
               <h3 className="text-base font-extrabold text-slate-800">
@@ -860,7 +1012,7 @@ export const TasksList = () => {
 
           <button
             onClick={() => handleClientFilterChange('')}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer border-0 shrink-0"
+            className="flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full border-0 bg-slate-100 px-5 py-2.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-200"
           >
             <RotateCcw className="size-4 text-slate-500" />
             Switch Client
@@ -869,7 +1021,7 @@ export const TasksList = () => {
       )}
 
       {/* Header section with search & creation */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 bg-white/70 backdrop-blur-md border border-slate-100 p-4 rounded-3xl shadow-sm">
+      <div className="flex flex-col items-stretch justify-between gap-4 rounded-3xl border border-slate-100 bg-white/70 p-4 shadow-sm backdrop-blur-md sm:flex-row sm:items-center">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <div className="w-full sm:max-w-xs">
             <input
@@ -877,14 +1029,14 @@ export const TasksList = () => {
               placeholder="Search tasks..."
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
-              className="block w-full rounded-full px-5 py-2 border border-slate-200 bg-white shadow-inner focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 text-sm transition-all"
+              className="block w-full rounded-full border border-slate-200 bg-white px-5 py-2 text-sm shadow-inner transition-all focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
             />
           </div>
 
           {/* Client Select Dropdown */}
           {isCEO && (
             <select
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer max-w-[180px] truncate"
+              className="max-w-[180px] cursor-pointer truncate rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
               value={clientVal}
               onChange={(e) => handleClientFilterChange(e.target.value)}
             >
@@ -900,7 +1052,7 @@ export const TasksList = () => {
           {/* Member / Employee Select Dropdown */}
           {!isEmployee && (
             <select
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer max-w-[200px] truncate"
+              className="max-w-[200px] cursor-pointer truncate rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
               value={assigneeVal}
               onChange={(e) => handleAssigneeFilterChange(e.target.value)}
             >
@@ -924,7 +1076,7 @@ export const TasksList = () => {
 
           {/* Status Filter */}
           <select
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+            className="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
             value={statusVal}
             onChange={(e) => handleStatusFilterChange(e.target.value)}
           >
@@ -938,7 +1090,7 @@ export const TasksList = () => {
 
           {/* Priority Filter */}
           <select
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+            className="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
             value={priorityVal}
             onChange={(e) => handlePriorityFilterChange(e.target.value)}
           >
@@ -951,8 +1103,10 @@ export const TasksList = () => {
           {/* Date Filter (only visible for List and Kanban view) */}
           {currentView !== 'calendar' && (
             <select
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
-              value={currentView === 'kanban' ? (dateVal || 'today') : (dateVal || 'all')}
+              className="cursor-pointer rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+              value={
+                currentView === 'kanban' ? dateVal || 'today' : dateVal || 'all'
+              }
               onChange={(e) => handleDateFilterChange(e.target.value)}
             >
               <option value="today">Today's Tasks</option>
@@ -963,7 +1117,7 @@ export const TasksList = () => {
           )}
 
           {/* Task count badge */}
-          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full hidden sm:inline-flex">
+          <span className="hidden rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 sm:inline-flex">
             {total} task{total !== 1 ? 's' : ''}
           </span>
         </div>
@@ -972,7 +1126,7 @@ export const TasksList = () => {
           <Button
             onClick={() => navigate(paths.app.createTask.getHref())}
             icon={<Plus className="size-4" />}
-            className="rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/15 border-0 cursor-pointer transition-all shrink-0 h-10 px-6"
+            className="h-10 shrink-0 cursor-pointer rounded-full border-0 bg-indigo-600 px-6 font-semibold text-white shadow-lg shadow-indigo-600/15 transition-all hover:bg-indigo-500"
           >
             Create Task
           </Button>
@@ -980,33 +1134,36 @@ export const TasksList = () => {
       </div>
 
       {/* View tabs */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl w-fit border border-slate-200/40">
+      <div className="flex w-fit rounded-2xl border border-slate-200/40 bg-slate-100 p-1">
         <button
           onClick={() => handleViewChange('list')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'list'
-            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
-            : 'text-slate-500 hover:text-slate-800'
-            }`}
+          className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+            currentView === 'list'
+              ? 'border border-slate-200/20 bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
         >
           <List className="size-3.5" />
           List
         </button>
         <button
           onClick={() => handleViewChange('kanban')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'kanban'
-            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
-            : 'text-slate-500 hover:text-slate-800'
-            }`}
+          className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+            currentView === 'kanban'
+              ? 'border border-slate-200/20 bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
         >
           <Columns className="size-3.5" />
           Kanban Board
         </button>
         <button
           onClick={() => handleViewChange('calendar')}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'calendar'
-            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/20'
-            : 'text-slate-500 hover:text-slate-800'
-            }`}
+          className={`flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+            currentView === 'calendar'
+              ? 'border border-slate-200/20 bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
         >
           <CalendarIcon className="size-3.5" />
           Calendar
@@ -1018,17 +1175,31 @@ export const TasksList = () => {
       ) : currentView === 'calendar' ? (
         renderCalendar(tasks || [])
       ) : !tasks || tasks.length === 0 ? (
-        <div className="flex h-64 w-full flex-col items-center justify-center bg-white border border-slate-100 rounded-3xl p-8 text-slate-500 shadow-sm animate-in fade-in duration-500">
-          <div className="rounded-full bg-slate-50 p-4 mb-4 border border-slate-100">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        <div className="flex h-64 w-full flex-col items-center justify-center rounded-3xl border border-slate-100 bg-white p-8 text-slate-500 shadow-sm duration-500 animate-in fade-in">
+          <div className="mb-4 rounded-full border border-slate-100 bg-slate-50 p-4">
+            <svg
+              className="size-8 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
             </svg>
           </div>
-          <span className="text-lg font-bold text-slate-700">No tasks found</span>
-          <p className="text-sm text-slate-400 mt-1 font-medium">Create a new task to get started or adjust your filters.</p>
+          <span className="text-lg font-bold text-slate-700">
+            No tasks found
+          </span>
+          <p className="mt-1 text-sm font-medium text-slate-400">
+            Create a new task to get started or adjust your filters.
+          </p>
         </div>
       ) : (
-        <div className="animate-in fade-in duration-500">
+        <div className="duration-500 animate-in fade-in">
           <Table data={tasks} columns={columns} pagination={pagination} />
         </div>
       )}

@@ -8,12 +8,13 @@ const ReportsRoute = () => {
       <Authorization
         forbiddenFallback={
           <div className="p-4 text-center text-red-500">
-            Only CEOs and department managers are authorized to view analytics reports.
+            Only CEOs and department managers are authorized to view analytics
+            reports.
           </div>
         }
         allowedRoles={[ROLES.CEO, ROLES.MANAGER]}
       >
-        <div className="mt-4 animate-in fade-in duration-300">
+        <div className="mt-4 duration-300 animate-in fade-in">
           <ReportsDashboard />
         </div>
       </Authorization>

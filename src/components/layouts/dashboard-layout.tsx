@@ -1,4 +1,15 @@
-import { Home, PanelLeft, Users, Sparkles, Settings, User2, CheckSquare, FileText, LogOut, Briefcase } from 'lucide-react';
+import {
+  Home,
+  PanelLeft,
+  Users,
+  Sparkles,
+  Settings,
+  User2,
+  CheckSquare,
+  FileText,
+  LogOut,
+  Briefcase,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useNavigation, useLocation } from 'react-router';
 
@@ -26,12 +37,15 @@ type SideNavigationItem = {
 
 const Logo = ({ collapsed = false }: { collapsed?: boolean }) => {
   return (
-    <Link className="flex items-center gap-2 text-slate-900 transition-transform hover:opacity-80 px-2" to={paths.home.getHref()}>
-      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#1E3A8A] to-[#0EA5E9] shadow-md shadow-blue-500/10 shrink-0">
+    <Link
+      className="flex items-center gap-2 px-2 text-slate-900 transition-transform hover:opacity-80"
+      to={paths.home.getHref()}
+    >
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#1E3A8A] to-[#0EA5E9] shadow-md shadow-blue-500/10">
         <Sparkles className="size-4.5 text-white" />
       </div>
       {!collapsed && (
-        <span className="text-xl font-extrabold tracking-tight text-[#1E3A8A] lg:inline hidden">
+        <span className="hidden text-xl font-extrabold tracking-tight text-[#1E3A8A] lg:inline">
           Task<span className="text-[#0EA5E9]">Flow</span>
         </span>
       )}
@@ -72,7 +86,7 @@ const Progress = () => {
 
   return (
     <div
-      className="fixed left-0 top-0 h-1 bg-[#0EA5E9] transition-all duration-200 ease-in-out z-50"
+      className="fixed left-0 top-0 z-50 h-1 bg-[#0EA5E9] transition-all duration-200 ease-in-out"
       style={{ width: `${progress}%` }}
     ></div>
   );
@@ -89,7 +103,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   const userRole = user.data?.role;
   const isEmployee = userRole === 4 || userRole === 'Employee';
-  const isManagerOrAbove = userRole === 0 || userRole === 1 || userRole === 2 || userRole === 'CEO' || userRole === 'Manager' || userRole === 'Team Lead';
+  const isManagerOrAbove =
+    userRole === 0 ||
+    userRole === 1 ||
+    userRole === 2 ||
+    userRole === 'CEO' ||
+    userRole === 'Manager' ||
+    userRole === 'Team Lead';
   const isCEO = userRole === 0 || userRole === 'CEO';
 
   const actualRoleString = (() => {
@@ -105,12 +125,28 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     {
       name: isEmployee ? 'My Tasks' : 'Tasks',
       to: paths.app.tasks.getHref(),
-      icon: CheckSquare
+      icon: CheckSquare,
     },
-    !isEmployee && { name: 'Teams', to: paths.app.teams.getHref(), icon: Users },
-    isManagerOrAbove && { name: 'Reports', to: paths.app.reports.getHref(), icon: FileText },
-    isCEO && { name: 'Clients', to: paths.app.clients.getHref(), icon: Briefcase },
-    { name: 'Profile/Settings', to: paths.app.profile.getHref(), icon: Settings },
+    !isEmployee && {
+      name: 'Teams',
+      to: paths.app.teams.getHref(),
+      icon: Users,
+    },
+    isManagerOrAbove && {
+      name: 'Reports',
+      to: paths.app.reports.getHref(),
+      icon: FileText,
+    },
+    isCEO && {
+      name: 'Clients',
+      to: paths.app.clients.getHref(),
+      icon: Briefcase,
+    },
+    {
+      name: 'Profile/Settings',
+      to: paths.app.profile.getHref(),
+      icon: Settings,
+    },
   ].filter(Boolean) as SideNavigationItem[];
 
   return (
@@ -118,12 +154,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <Progress />
 
       {/* Sidebar (Desktop & Tablet) */}
-      <aside className="fixed inset-y-0 left-0 z-20 hidden flex-col bg-white border-r border-slate-100 shadow-sm sm:flex sm:w-20 lg:w-60 transition-all duration-300">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-slate-100 bg-white shadow-sm transition-all duration-300 sm:flex sm:w-20 lg:w-60">
         <div className="flex h-20 shrink-0 items-center justify-center lg:justify-start lg:px-6">
           <Logo collapsed={false} />
         </div>
 
-        <nav className="flex flex-col gap-2 px-3 flex-1 mt-6">
+        <nav className="mt-6 flex flex-1 flex-col gap-2 px-3">
           {navigation.map((item) => (
             <NavLink
               key={item.name}
@@ -132,7 +168,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               onClick={(e) => {
                 if (item.to.startsWith('#')) {
                   e.preventDefault();
-                  addNotification({ type: 'info', title: item.name, message: `${item.name} module is active.` });
+                  addNotification({
+                    type: 'info',
+                    title: item.name,
+                    message: `${item.name} module is active.`,
+                  });
                 }
               }}
               className={({ isActive }) =>
@@ -154,10 +194,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Sidebar Footer Logout (at bottom) */}
-        <div className="px-3 pb-6 mt-auto">
+        <div className="mt-auto px-3 pb-6">
           <button
             onClick={() => logout.mutate({})}
-            className="group flex w-full items-center justify-center lg:justify-start rounded-xl p-3 lg:px-4 lg:py-3.5 text-sm font-bold text-rose-600 hover:bg-rose-50/50 transition-all duration-200 cursor-pointer"
+            className="group flex w-full cursor-pointer items-center justify-center rounded-xl p-3 text-sm font-bold text-rose-600 transition-all duration-200 hover:bg-rose-50/50 lg:justify-start lg:px-4 lg:py-3.5"
           >
             <LogOut className="size-5 shrink-0 lg:mr-3.5" />
             <span className="hidden lg:inline">Logout</span>
@@ -166,22 +206,27 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Wrapper */}
-      <div className="flex w-full flex-col sm:pl-20 lg:pl-60 transition-all duration-300">
-
+      <div className="flex w-full flex-col transition-all duration-300 sm:pl-20 lg:pl-60">
         {/* Top Header */}
-        <header className="sticky top-0 z-10 flex h-20 items-center justify-between gap-4 px-4 sm:px-8 bg-[#F5F6FA]/90 backdrop-blur-md border-b border-slate-100">
-
+        <header className="sticky top-0 z-10 flex h-20 items-center justify-between gap-4 border-b border-slate-100 bg-[#F5F6FA]/90 px-4 backdrop-blur-md sm:px-8">
           {/* Mobile Menu Trigger */}
           <Drawer>
             <DrawerTrigger asChild>
-              <Button size="icon" variant="ghost" className="sm:hidden text-slate-500 hover:bg-slate-100 rounded-xl">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="rounded-xl text-slate-500 hover:bg-slate-100 sm:hidden"
+              >
                 <PanelLeft className="size-6" />
                 <span className="sr-only">Toggle Menu</span>
               </Button>
             </DrawerTrigger>
-            <DrawerContent side="left" className="bg-white pt-10 text-slate-950 sm:max-w-60 border-r-0">
+            <DrawerContent
+              side="left"
+              className="border-r-0 bg-white pt-10 text-slate-950 sm:max-w-60"
+            >
               <nav className="grid gap-3 px-4 text-base font-semibold">
-                <div className="flex h-16 shrink-0 items-center mb-6">
+                <div className="mb-6 flex h-16 shrink-0 items-center">
                   <Logo />
                 </div>
                 {navigation.map((item) => (
@@ -192,17 +237,26 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     onClick={(e) => {
                       if (item.to.startsWith('#')) {
                         e.preventDefault();
-                        addNotification({ type: 'info', title: item.name, message: `${item.name} module is active.` });
+                        addNotification({
+                          type: 'info',
+                          title: item.name,
+                          message: `${item.name} module is active.`,
+                        });
                       }
                     }}
                     className={({ isActive }) =>
                       cn(
                         'group flex w-full items-center rounded-xl px-4 py-3 text-sm font-semibold transition-all',
-                        isActive ? 'bg-[#1E3A8A] text-white' : 'text-slate-600 hover:bg-slate-50'
+                        isActive
+                          ? 'bg-[#1E3A8A] text-white'
+                          : 'text-slate-600 hover:bg-slate-50',
                       )
                     }
                   >
-                    <item.icon className="mr-3.5 size-5 shrink-0" aria-hidden="true" />
+                    <item.icon
+                      className="mr-3.5 size-5 shrink-0"
+                      aria-hidden="true"
+                    />
                     {item.name}
                   </NavLink>
                 ))}
@@ -221,49 +275,52 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           {/* Left page title */}
           <div className="flex items-center gap-4">
-            <h2 className="text-lg font-extrabold text-slate-800 hidden md:block">
+            <h2 className="hidden text-lg font-extrabold text-slate-800 md:block">
               {isEmployee ? 'My Dashboard' : 'Dashboard'}
             </h2>
           </div>
 
           {/* Right Action Icons & Profile */}
-          <div className="flex items-center gap-3 ml-auto">
-
-
-
+          <div className="ml-auto flex items-center gap-3">
             {/* User Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-xl hover:bg-white p-1 pr-3 border border-transparent hover:border-slate-100 transition-all">
-                  <div className="flex size-9.5 items-center justify-center rounded-xl bg-[#0EA5E9]/10 border border-[#0EA5E9]/20 overflow-hidden shrink-0">
+                <button className="flex items-center gap-3 rounded-xl border border-transparent p-1 pr-3 transition-all hover:border-slate-100 hover:bg-white">
+                  <div className="size-9.5 flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#0EA5E9]/20 bg-[#0EA5E9]/10">
                     <User2 className="size-5 text-[#0EA5E9]" />
                   </div>
-                  <div className="hidden sm:flex flex-col items-start text-left">
-                    <span className="text-sm font-bold text-slate-900 leading-tight">
+                  <div className="hidden flex-col items-start text-left sm:flex">
+                    <span className="text-sm font-bold leading-tight text-slate-900">
                       {user.data?.firstName} {user.data?.lastName}
                     </span>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold mt-0.5 uppercase tracking-wide ${actualRoleString === 'CEO'
-                      ? 'bg-[#1E3A8A]/10 text-[#1E3A8A]'
-                      : actualRoleString === 'Manager' || actualRoleString === 'Team Lead'
-                        ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]'
-                        : 'bg-emerald-50/15 text-emerald-600'
-                      }`}>
+                    <span
+                      className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        actualRoleString === 'CEO'
+                          ? 'bg-[#1E3A8A]/10 text-[#1E3A8A]'
+                          : actualRoleString === 'Manager' ||
+                              actualRoleString === 'Team Lead'
+                            ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]'
+                            : 'bg-emerald-50/15 text-emerald-600'
+                      }`}
+                    >
                       {actualRoleString}
                     </span>
                   </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-xl border-slate-100 py-1 z-30">
-
+              <DropdownMenuContent
+                align="end"
+                className="z-30 w-56 rounded-xl border-slate-100 py-1 shadow-xl"
+              >
                 <DropdownMenuItem
                   onClick={() => navigate(paths.app.profile.getHref())}
-                  className="cursor-pointer font-semibold py-2.5 text-slate-700 focus:bg-slate-50"
+                  className="cursor-pointer py-2.5 font-semibold text-slate-700 focus:bg-slate-50"
                 >
                   Your Profile
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="cursor-pointer font-bold py-2.5 text-rose-600 focus:text-rose-600 focus:bg-rose-50/50"
+                  className="cursor-pointer py-2.5 font-bold text-rose-600 focus:bg-rose-50/50 focus:text-rose-600"
                   onClick={() => logout.mutate({})}
                 >
                   Sign Out
@@ -274,15 +331,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 sm:p-8">
-          {children}
-        </main>
+        <main className="flex-1 p-4 sm:p-8">{children}</main>
 
         {/* Footer */}
-        <footer className="border-t border-slate-200/40 bg-[#F5F6FA] py-6 px-4 sm:px-8 text-center text-xs font-bold text-slate-400">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <footer className="border-t border-slate-200/40 bg-[#F5F6FA] px-4 py-6 text-center text-xs font-bold text-slate-400 sm:px-8">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <span className="tracking-tight">
-              &copy; {new Date().getFullYear()} TaskFlow B2B Portal. All rights reserved.
+              &copy; {new Date().getFullYear()} TaskFlow B2B Portal. All rights
+              reserved.
             </span>
           </div>
         </footer>

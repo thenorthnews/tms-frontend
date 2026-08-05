@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
+
 import { Client, UpdateClientInput } from '../types';
 
 export const updateClient = ({
@@ -17,7 +19,9 @@ type UseUpdateClientOptions = {
   mutationConfig?: MutationConfig<typeof updateClient>;
 };
 
-export const useUpdateClient = ({ mutationConfig }: UseUpdateClientOptions = {}) => {
+export const useUpdateClient = ({
+  mutationConfig,
+}: UseUpdateClientOptions = {}) => {
   const queryClient = useQueryClient();
   const { onSuccess, ...restConfig } = mutationConfig || {};
 

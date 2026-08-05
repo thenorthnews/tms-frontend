@@ -12,7 +12,7 @@ import { api, mapUser } from './api-client';
 
 const getUser = async (): Promise<User | null> => {
   try {
-    const response = await api.get('/admin/auth/me') as Record<string, any>;
+    const response = (await api.get('/admin/auth/me')) as Record<string, any>;
     return mapUser(response);
   } catch (error) {
     return null;
@@ -31,11 +31,13 @@ export const loginInputSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginInputSchema>;
-const loginWithEmailAndPassword = async (data: LoginInput): Promise<AuthResponse> => {
-  const response = await api.post('/admin/auth/login', {
+const loginWithEmailAndPassword = async (
+  data: LoginInput,
+): Promise<AuthResponse> => {
+  const response = (await api.post('/admin/auth/login', {
     email: data.email,
     password: data.password,
-  }) as Record<string, any>;
+  })) as Record<string, any>;
 
   if (response.access_token) {
     localStorage.setItem('token', response.access_token);

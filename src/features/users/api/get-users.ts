@@ -19,7 +19,12 @@ export const getUsers = async (
     total: number;
   };
 }> => {
-  const response: { users?: Record<string, unknown>[]; total?: number; limit?: number; page?: number } = await api.get(`/admin/users`, {
+  const response: {
+    users?: Record<string, unknown>[];
+    total?: number;
+    limit?: number;
+    page?: number;
+  } = await api.get(`/admin/users`, {
     params: {
       page,
       search,
@@ -50,7 +55,13 @@ export const getUsersQueryOptions = ({
   limit,
   role,
   teamId,
-}: { page?: number; search?: string; limit?: number; role?: number; teamId?: string } = {}) => {
+}: {
+  page?: number;
+  search?: string;
+  limit?: number;
+  role?: number;
+  teamId?: string;
+} = {}) => {
   return queryOptions({
     queryKey: ['users', { page, search, limit, role, teamId }],
     queryFn: () => getUsers(page, search, limit, role, teamId),
@@ -66,7 +77,14 @@ type UseUsersOptions = {
   queryConfig?: QueryConfig<typeof getUsersQueryOptions>;
 };
 
-export const useUsers = ({ page, search, limit, role, teamId, queryConfig }: UseUsersOptions = {}) => {
+export const useUsers = ({
+  page,
+  search,
+  limit,
+  role,
+  teamId,
+  queryConfig,
+}: UseUsersOptions = {}) => {
   return useQuery({
     ...getUsersQueryOptions({ page, search, limit, role, teamId }),
     ...queryConfig,

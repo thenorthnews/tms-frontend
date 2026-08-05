@@ -1,14 +1,10 @@
 import { useQuery, queryOptions } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
-import { User } from '@/types/api';
 import { QueryConfig } from '@/lib/react-query';
+import { User } from '@/types/api';
 
-export const getUser = ({
-  userId,
-}: {
-  userId: string;
-}): Promise<User> => {
+export const getUser = ({ userId }: { userId: string }): Promise<User> => {
   return api.get(`/admin/users/${userId}`);
 };
 
@@ -24,10 +20,7 @@ type UseUserOptions = {
   queryConfig?: QueryConfig<typeof getUserQueryOptions>;
 };
 
-export const useGetUser = ({
-  userId,
-  queryConfig,
-}: UseUserOptions) => {
+export const useGetUser = ({ userId, queryConfig }: UseUserOptions) => {
   return useQuery({
     ...getUserQueryOptions(userId),
     ...queryConfig,

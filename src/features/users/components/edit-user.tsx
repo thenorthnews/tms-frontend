@@ -1,27 +1,19 @@
 import { useState } from 'react';
+import { UseFormSetValue } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { Form, Input, Select } from '@/components/ui/form';
-import { Spinner } from '@/components/ui/spinner';
 import { useNotifications } from '@/components/ui/notifications';
-import { paths } from '@/config/paths';
 import { useUploadFile } from '@/features/file/api/upload-file';
 
-import { User } from '@/types/api';
 import { useGetUser } from '../api/get-user';
 import {
   updateUserInputSchema,
   UpdateUserInput,
   useUpdateUser,
 } from '../api/update-user';
-import { UseFormSetValue } from 'react-hook-form';
-
-const GENDER_LABELS: Record<number, string> = {
-  0: 'Male',
-  1: 'Female',
-  2: 'Other',
-};
+import { Spinner } from '@/components/ui/spinner';
 
 type EditUserFormProps = {
   userId: string;
@@ -47,12 +39,21 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
         });
         navigate(-1);
       },
-      onError: (err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
+      onError: (err: {
+        response?: { data?: { message?: string }; status?: number };
+        message?: string;
+      }) => {
         const backendMsg = err.response?.data?.message || err.message || '';
-        if (backendMsg.toLowerCase().includes('email') || err.response?.status === 409) {
+        if (
+          backendMsg.toLowerCase().includes('email') ||
+          err.response?.status === 409
+        ) {
           setFormErrors((prev) => ({ ...prev, email: 'Email already exists' }));
         } else if (backendMsg.toLowerCase().includes('phone')) {
-          setFormErrors((prev) => ({ ...prev, phoneNumber: 'Phone number already exists' }));
+          setFormErrors((prev) => ({
+            ...prev,
+            phoneNumber: 'Phone number already exists',
+          }));
         }
       },
     },
@@ -86,17 +87,26 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
 
   const userData = userQuery.data;
   if (!userData) {
-    return (
-      <div className="text-center text-gray-500 py-8">User not found</div>
-    );
+    return <div className="py-8 text-center text-gray-500">User not found</div>;
   }
 
   const userInfo = userData.userInfo || {};
 
   const defaultValues: UpdateUserInput = {
-    email: typeof userData.email === 'string' ? userData.email : String(userData.email || ''),
-    countryCode: typeof userData.phoneNumber === 'object' && userData.phoneNumber !== null ? userData.phoneNumber.countryCode || '+91' : '+91',
-    phoneNumber: typeof userData.phoneNumber === 'object' && userData.phoneNumber !== null ? userData.phoneNumber.number || '' : (typeof userData.phoneNumber === 'string' ? userData.phoneNumber : ''),
+    email:
+      typeof userData.email === 'string'
+        ? userData.email
+        : String(userData.email || ''),
+    countryCode:
+      typeof userData.phoneNumber === 'object' && userData.phoneNumber !== null
+        ? userData.phoneNumber.countryCode || '+91'
+        : '+91',
+    phoneNumber:
+      typeof userData.phoneNumber === 'object' && userData.phoneNumber !== null
+        ? userData.phoneNumber.number || ''
+        : typeof userData.phoneNumber === 'string'
+          ? userData.phoneNumber
+          : '',
     firstName: userData.firstName || userInfo.firstName || '',
     lastName: userData.lastName || userInfo.lastName || '',
     gender: userData.gender ?? userInfo.gender ?? 0,
@@ -121,11 +131,13 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
       >
         {({ register, formState, setValue }) => (
           <div className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="space-y-6">
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 h-full">
-                  <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Personal Details</h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
+                <div className="h-full rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+                  <h3 className="mb-5 ml-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Personal Details
+                  </h3>
+                  <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Input
                       label="First Name"
                       error={formState.errors['firstName']}
@@ -143,7 +155,9 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                       label="Gender"
                       error={formState.errors['gender']}
                       registration={register('gender')}
-                      defaultValue={String(userData.gender ?? userInfo.gender ?? 0)}
+                      defaultValue={String(
+                        userData.gender ?? userInfo.gender ?? 0,
+                      )}
                       options={[
                         { label: 'Male', value: '0' },
                         { label: 'Female', value: '1' },
@@ -155,51 +169,55 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
               </div>
 
               <div className="space-y-6">
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
-                  <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Account Details</h3>
-                <div className="mb-4">
-                  <Input
-                    label="Email"
-                    type="email"
-                    error={formState.errors['email']}
-                    registration={register('email')}
-                  />
-                </div>
-                <div className="mb-4">
-                  <Select
-                    label="Role"
-                    error={formState.errors['role']}
-                    registration={register('role')}
-                    defaultValue={String(userData.role ?? 4)}
-                    options={[
-                      { label: 'Employee', value: '4' },
-                      { label: 'Team Lead', value: '2' },
-                      { label: 'Manager', value: '1' },
-                      { label: 'CEO', value: '0' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <Select
-                    label="Department"
-                    error={formState.errors['department']}
-                    registration={register('department')}
-                    defaultValue={userData.department || 'Engineering'}
-                    options={[
-                      { label: 'Engineering', value: 'Engineering' },
-                      { label: 'Marketing', value: 'Marketing' },
-                      { label: 'Sales', value: 'Sales' },
-                      { label: 'Human Resources', value: 'Human Resources' },
-                      { label: 'Design', value: 'Design' },
-                      { label: 'Operations', value: 'Operations' },
-                    ]}
-                  />
-                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+                  <h3 className="mb-5 ml-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Account Details
+                  </h3>
+                  <div className="mb-4">
+                    <Input
+                      label="Email"
+                      type="email"
+                      error={formState.errors['email']}
+                      registration={register('email')}
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <Select
+                      label="Role"
+                      error={formState.errors['role']}
+                      registration={register('role')}
+                      defaultValue={String(userData.role ?? 4)}
+                      options={[
+                        { label: 'Employee', value: '4' },
+                        { label: 'Team Lead', value: '2' },
+                        { label: 'Manager', value: '1' },
+                        { label: 'CEO', value: '0' },
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <Select
+                      label="Department"
+                      error={formState.errors['department']}
+                      registration={register('department')}
+                      defaultValue={userData.department || 'Engineering'}
+                      options={[
+                        { label: 'Engineering', value: 'Engineering' },
+                        { label: 'Marketing', value: 'Marketing' },
+                        { label: 'Sales', value: 'Sales' },
+                        { label: 'Human Resources', value: 'Human Resources' },
+                        { label: 'Design', value: 'Design' },
+                        { label: 'Operations', value: 'Operations' },
+                      ]}
+                    />
+                  </div>
                 </div>
 
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
-                  <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Contact & Profile</h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-6">
+                <div className="rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+                  <h3 className="mb-5 ml-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Contact & Profile
+                  </h3>
+                  <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Input
                       label="Country Code"
                       error={formState.errors['countryCode']}
@@ -213,24 +231,26 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider ml-1">
+                    <label className="mb-3 ml-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Profile Image
                     </label>
                     <input
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleImageUpload(e, setValue)}
-                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                      className="block w-full cursor-pointer text-sm text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-indigo-50 file:px-5 file:py-2.5 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
                     />
                     {uploading && (
-                      <p className="text-sm text-indigo-600 mt-2">Uploading...</p>
+                      <p className="mt-2 text-sm text-indigo-600">
+                        Uploading...
+                      </p>
                     )}
                     {(imageUrl || userInfo.image) && (
                       <div className="mt-4">
                         <img
                           src={imageUrl || userInfo.image}
                           alt="Preview"
-                          className="h-20 w-20 rounded-full object-cover border-2 border-white shadow-sm"
+                          className="size-20 rounded-full border-2 border-white object-cover shadow-sm"
                         />
                       </div>
                     )}

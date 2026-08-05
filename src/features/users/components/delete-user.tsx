@@ -31,7 +31,9 @@ export const DeleteUser = ({ id, triggerButton }: DeleteUserProps) => {
       icon="danger"
       title="Delete User"
       body="Are you sure you want to delete this user?"
-      triggerButton={triggerButton || <Button variant="destructive">Delete</Button>}
+      triggerButton={
+        triggerButton || <Button variant="destructive">Delete</Button>
+      }
       isDone={deleteUserMutation.isSuccess}
       confirmButton={
         <Button

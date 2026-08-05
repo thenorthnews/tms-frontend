@@ -1,7 +1,9 @@
 import { useQuery, queryOptions } from '@tanstack/react-query';
+
 import { api } from '@/lib/api-client';
-import { Task } from '../types';
 import { QueryConfig } from '@/lib/react-query';
+
+import { Task } from '../types';
 
 export const getTask = async (taskId: string): Promise<Task> => {
   return api.get(`/tasks/${taskId}`);

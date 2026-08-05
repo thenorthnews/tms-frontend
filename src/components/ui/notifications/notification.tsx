@@ -35,12 +35,20 @@ export const Notification = ({
   }, [id, duration, onDismiss]);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-3 overflow-hidden rounded-full bg-white px-5 py-3 shadow-lg ring-1 ring-black/5 animate-in slide-in-from-top-5 fade-in duration-300">
+    <div className="pointer-events-auto flex items-center gap-3 overflow-hidden rounded-full bg-white px-5 py-3 shadow-lg ring-1 ring-black/5 duration-300 animate-in fade-in slide-in-from-top-5">
       <div className="flex items-center gap-3" role="alert" aria-label={title}>
-        <div className="shrink-0 flex items-center justify-center">{icons[type]}</div>
+        <div className="flex shrink-0 items-center justify-center">
+          {icons[type]}
+        </div>
         <div className="flex flex-col justify-center">
-          <p className="text-sm font-medium text-gray-900 leading-tight">{title}</p>
-          {message && <p className="mt-0.5 text-sm text-gray-500 leading-tight">{message}</p>}
+          <p className="text-sm font-medium leading-tight text-gray-900">
+            {title}
+          </p>
+          {message && (
+            <p className="mt-0.5 text-sm leading-tight text-gray-500">
+              {message}
+            </p>
+          )}
         </div>
       </div>
       <button

@@ -14,7 +14,10 @@ export const updateUserInputSchema = z.object({
   phoneNumber: z.string().trim().optional(),
 
   // UserInfo fields
-  firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
+  firstName: z
+    .string()
+    .trim()
+    .min(2, 'First name must be at least 2 characters'),
   lastName: z.string().trim().min(2, 'Last name must be at least 2 characters'),
   gender: z.coerce.number().min(0).max(2),
   department: z.string().optional(),
@@ -34,7 +37,10 @@ export const updateUser = ({
   const payload: Record<string, unknown> = {
     UserDto: {
       email: data.email,
-      phoneNumber: data.phoneNumber && data.phoneNumber.trim() ? data.phoneNumber.trim() : undefined,
+      phoneNumber:
+        data.phoneNumber && data.phoneNumber.trim()
+          ? data.phoneNumber.trim()
+          : undefined,
     },
     UserInfo: {
       firstName: data.firstName,

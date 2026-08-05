@@ -30,7 +30,7 @@ const EditTaskRoute = () => {
   if (!taskId) {
     return (
       <ContentLayout title="Edit Task">
-        <div className="text-center text-red-500 py-8 font-semibold">
+        <div className="py-8 text-center font-semibold text-red-500">
           No task ID provided.
         </div>
       </ContentLayout>
@@ -39,7 +39,7 @@ const EditTaskRoute = () => {
 
   return (
     <ContentLayout title="Edit Task">
-      <div className="mt-4 animate-in fade-in duration-300">
+      <div className="mt-4 duration-300 animate-in fade-in">
         <EditTask taskId={taskId} />
       </div>
     </ContentLayout>

@@ -9,19 +9,29 @@ export const mapUser = (backendUser: Record<string, unknown>): User => {
   if (!backendUser) return {} as User;
   const userInfo = (backendUser.userInfo || {}) as Record<string, unknown>;
   const emailObj = backendUser.email as { id?: string } | string | undefined;
-  const phoneObj = backendUser.phoneNumber as { number?: string } | string | undefined;
+  const phoneObj = backendUser.phoneNumber as
+    | { number?: string }
+    | string
+    | undefined;
 
   return {
     id: String(backendUser._id || backendUser.id || ''),
-    createdAt: backendUser.createdAt ? new Date(String(backendUser.createdAt)).getTime() : Date.now(),
-    email: typeof emailObj === 'string' ? emailObj : (emailObj?.id || ''),
+    createdAt: backendUser.createdAt
+      ? new Date(String(backendUser.createdAt)).getTime()
+      : Date.now(),
+    email: typeof emailObj === 'string' ? emailObj : emailObj?.id || '',
     firstName: String(backendUser.firstName || userInfo.firstName || ''),
     lastName: String(backendUser.lastName || userInfo.lastName || ''),
     role: (backendUser.role as User['role']) ?? 4,
     teamId: String(backendUser.teamId || ''),
     bio: String(backendUser.bio || ''),
-    phoneNumber: typeof phoneObj === 'string' ? phoneObj : (phoneObj?.number || (userInfo.phoneNumber as string) || ''),
-    department: String(backendUser.department || userInfo.department || 'Engineering'),
+    phoneNumber:
+      typeof phoneObj === 'string'
+        ? phoneObj
+        : phoneObj?.number,
+    department: String(
+      backendUser.department || userInfo.department || 'Engineering',
+    ),
     image: String(backendUser.image || userInfo.image || ''),
     status: (backendUser.status as number) ?? 0,
   };
@@ -43,7 +53,10 @@ export const api = Axios.create({
   baseURL: env.API_URL,
 });
 
-let refreshPromise: Promise<{ access_token: string; refresh_token: string }> | null = null;
+let refreshPromise: Promise<{
+  access_token: string;
+  refresh_token: string;
+}> | null = null;
 
 const refreshAccessToken = async (refreshToken: string) => {
   if (!refreshPromise) {
@@ -69,19 +82,31 @@ const refreshAccessToken = async (refreshToken: string) => {
 api.interceptors.request.use(authRequestInterceptor);
 api.interceptors.response.use(
   (response) => {
-    if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+    if (
+      response.data &&
+      typeof response.data === 'object' &&
+      'success' in response.data &&
+      'data' in response.data
+    ) {
       return response.data.data;
     }
     return response.data;
   },
   async (error) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
     const message = error.response?.data?.message || error.message;
     const isLoginRequest = originalRequest?.url?.includes('/admin/auth/login');
-    const isRefreshRequest = originalRequest?.url?.includes('/admin/auth/refresh');
+    const isRefreshRequest = originalRequest?.url?.includes(
+      '/admin/auth/refresh',
+    );
 
     // Display notification for non-401 and non-409 errors, or 401s during login
-    if ((error.response?.status !== 401 && error.response?.status !== 409) || isLoginRequest) {
+    if (
+      (error.response?.status !== 401 && error.response?.status !== 409) ||
+      isLoginRequest
+    ) {
       useNotifications.getState().addNotification({
         type: 'error',
         title: 'Error',
@@ -89,7 +114,12 @@ api.interceptors.response.use(
       });
     }
 
-    if (error.response?.status === 401 && !isLoginRequest && !isRefreshRequest && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !isLoginRequest &&
+      !isRefreshRequest &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
       const refreshToken = localStorage.getItem('refresh_token');
 
@@ -107,7 +137,8 @@ api.interceptors.response.use(
 
           if (!window.location.pathname.startsWith('/auth/login')) {
             const searchParams = new URLSearchParams(window.location.search);
-            const redirectTo = searchParams.get('redirectTo') || window.location.pathname;
+            const redirectTo =
+              searchParams.get('redirectTo') || window.location.pathname;
             window.location.href = paths.auth.login.getHref(redirectTo);
           }
           return Promise.reject(refreshError);
@@ -117,7 +148,8 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         if (!window.location.pathname.startsWith('/auth/login')) {
           const searchParams = new URLSearchParams(window.location.search);
-          const redirectTo = searchParams.get('redirectTo') || window.location.pathname;
+          const redirectTo =
+            searchParams.get('redirectTo') || window.location.pathname;
           window.location.href = paths.auth.login.getHref(redirectTo);
         }
       }

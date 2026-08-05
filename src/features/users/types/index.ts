@@ -1,4 +1,5 @@
 import { User } from '@/types/api';
+
 import { CreateUserInput } from '../api/create-user';
 import { UpdateUserInput } from '../api/update-user';
 

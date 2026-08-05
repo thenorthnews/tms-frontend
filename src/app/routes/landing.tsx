@@ -18,4 +18,3 @@ const LandingRoute = () => {
 };
 
 export default LandingRoute;
-

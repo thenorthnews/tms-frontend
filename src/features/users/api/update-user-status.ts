@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
 import { MutationConfig } from '@/lib/react-query';
-
 import { User } from '@/types/api';
 
 export type UpdateUserStatusDTO = {
@@ -10,7 +9,10 @@ export type UpdateUserStatusDTO = {
   status: number;
 };
 
-export const updateUserStatus = ({ userId, status }: UpdateUserStatusDTO): Promise<User> => {
+export const updateUserStatus = ({
+  userId,
+  status,
+}: UpdateUserStatusDTO): Promise<User> => {
   return api.patch(`/admin/users/${userId}/status`, { status });
 };
 

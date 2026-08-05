@@ -11,8 +11,12 @@ export const Head = ({ title = '', description = '' }: HeadProps = {}) => {
   return (
     <Helmet
       helmetData={helmetData}
-      title={title ? `${title} | 
-TaskFlow` : undefined}
+      title={
+        title
+          ? `${title} | 
+TaskFlow`
+          : undefined
+      }
       defaultTitle="
 TaskFlow"
     >

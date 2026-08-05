@@ -2,15 +2,22 @@ import { Eye, EyeOff, Mail, Lock, Sparkles, KanbanSquare } from 'lucide-react';
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { z } from 'zod';
 
 import { Head } from '@/components/seo';
 import { paths } from '@/config/paths';
 import { useLogin, useUser } from '@/lib/auth';
-import { z } from 'zod';
 
 const loginInputSchema = z.object({
-  email: z.string().trim().min(1, 'Email is required').email('Invalid email address'),
-  password: z.string().min(1, 'Password is required').min(5, 'Password must be at least 5 characters'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email is required')
+    .email('Invalid email address'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .min(5, 'Password must be at least 5 characters'),
 });
 
 const LoginRoute = () => {
@@ -58,13 +65,18 @@ const LoginRoute = () => {
     }
 
     setErrors({});
-    login.mutate({ email, password }, {
-      onError: (error: any) => {
-        setErrors({
-          api: error?.message || 'Invalid email or password. Use admin@gmail.com / admin123.',
-        });
-      }
-    });
+    login.mutate(
+      { email, password },
+      {
+        onError: (error: any) => {
+          setErrors({
+            api:
+              error?.message ||
+              'Invalid email or password. Use admin@gmail.com / admin123.',
+          });
+        },
+      },
+    );
   };
 
   return (
@@ -72,14 +84,12 @@ const LoginRoute = () => {
       <Head title="Login - TaskFlow" />
 
       <div className="flex min-h-screen bg-[#F8FAFC] font-sans antialiased">
-
         {/* Left Half (60%): Branded graphic panel */}
-        <div className="relative hidden w-full overflow-hidden bg-[#1E3A8A] lg:flex lg:w-3/5 flex-col justify-between p-12 xl:p-16">
-
+        <div className="relative hidden w-full flex-col justify-between overflow-hidden bg-[#1E3A8A] p-12 lg:flex lg:w-3/5 xl:p-16">
           {/* Graphic/Light FX Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1E3A8A] via-[#1E3B8B] to-[#0F172A] z-0"></div>
-          <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-[#0EA5E9] opacity-15 blur-[120px] pointer-events-none"></div>
-          <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-[#3B82F6] opacity-10 blur-[150px] pointer-events-none"></div>
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#1E3A8A] via-[#1E3B8B] to-[#0F172A]"></div>
+          <div className="pointer-events-none absolute right-[-10%] top-[-10%] size-[500px] rounded-full bg-[#0EA5E9] opacity-15 blur-[120px]"></div>
+          <div className="pointer-events-none absolute bottom-[-10%] left-[-10%] size-[600px] rounded-full bg-[#3B82F6] opacity-10 blur-[150px]"></div>
 
           {/* Header Logo */}
           <div className="relative z-10 flex items-center gap-3">
@@ -94,41 +104,54 @@ const LoginRoute = () => {
           {/* Center Graphic & Slogan */}
           <div className="relative z-10 my-auto max-w-lg space-y-8">
             <div className="space-y-4">
-              <h1 className="text-4xl xl:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                Manage tasks.<br />
-                Track teams.<br />
+              <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white xl:text-5xl">
+                Manage tasks.
+                <br />
+                Track teams.
+                <br />
                 Deliver on time.
               </h1>
               <p className="text-lg text-slate-300">
-                The all-in-one workspace for B2B operations, resource planning, and sprint analytics.
+                The all-in-one workspace for B2B operations, resource planning,
+                and sprint analytics.
               </p>
             </div>
 
             {/* Interactive Flow Diagram/Task Cards Demonstration */}
-            <div className="space-y-4 bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-slate-700/30 shadow-2xl">
+            <div className="space-y-4 rounded-2xl border border-slate-700/30 bg-slate-900/40 p-6 shadow-2xl backdrop-blur-md">
               <div className="flex items-center justify-between border-b border-slate-700/30 pb-3">
-                <span className="text-sm font-semibold text-slate-300">Active Board Project</span>
-                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#0EA5E9]/20 text-[#0EA5E9]">In Progress</span>
+                <span className="text-sm font-semibold text-slate-300">
+                  Active Board Project
+                </span>
+                <span className="rounded-full bg-[#0EA5E9]/20 px-2 py-0.5 text-xs font-semibold text-[#0EA5E9]">
+                  In Progress
+                </span>
               </div>
               <div className="space-y-3">
-                <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3 border border-slate-700/20">
+                <div className="flex items-center justify-between rounded-xl border border-slate-700/20 bg-slate-800/40 p-3">
                   <div className="flex items-center gap-3">
                     <div className="size-2 rounded-full bg-emerald-500"></div>
-                    <span className="text-sm font-medium text-white">Sync user module schemas</span>
+                    <span className="text-sm font-medium text-white">
+                      Sync user module schemas
+                    </span>
                   </div>
                   <span className="text-xs text-slate-400">Completed</span>
                 </div>
-                <div className="flex items-center justify-between bg-[#1E3A8A]/30 rounded-xl p-3 border border-[#0EA5E9]/30 shadow-inner">
+                <div className="flex items-center justify-between rounded-xl border border-[#0EA5E9]/30 bg-[#1E3A8A]/30 p-3 shadow-inner">
                   <div className="flex items-center gap-3">
-                    <div className="size-2 rounded-full bg-sky-400 animate-pulse"></div>
-                    <span className="text-sm font-medium text-white">Design dashboard auth forms</span>
+                    <div className="size-2 animate-pulse rounded-full bg-sky-400"></div>
+                    <span className="text-sm font-medium text-white">
+                      Design dashboard auth forms
+                    </span>
                   </div>
-                  <span className="text-xs text-sky-400 font-medium">92%</span>
+                  <span className="text-xs font-medium text-sky-400">92%</span>
                 </div>
-                <div className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3 border border-slate-700/20">
+                <div className="flex items-center justify-between rounded-xl border border-slate-700/20 bg-slate-800/40 p-3">
                   <div className="flex items-center gap-3">
                     <div className="size-2 rounded-full bg-amber-400"></div>
-                    <span className="text-sm font-medium text-white">Implement B2B task board</span>
+                    <span className="text-sm font-medium text-white">
+                      Implement B2B task board
+                    </span>
                   </div>
                   <span className="text-xs text-slate-400">Todo</span>
                 </div>
@@ -137,9 +160,12 @@ const LoginRoute = () => {
           </div>
 
           {/* Footer Notes & Responsive Guideline */}
-          <div className="relative z-10 flex items-center justify-between text-xs text-slate-400 border-t border-slate-800 pt-6">
-            <p>&copy; {new Date().getFullYear()} TaskFlow Inc. All rights reserved.</p>
-            <div className="flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-800">
+          <div className="relative z-10 flex items-center justify-between border-t border-slate-800 pt-6 text-xs text-slate-400">
+            <p>
+              &copy; {new Date().getFullYear()} TaskFlow Inc. All rights
+              reserved.
+            </p>
+            <div className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1.5">
               <span className="size-1.5 rounded-full bg-amber-400"></span>
               <span>1440x900 Optimized (Responsive Switcher Active)</span>
             </div>
@@ -147,10 +173,9 @@ const LoginRoute = () => {
         </div>
 
         {/* Right Half (40%): Login Form Container */}
-        <div className="w-full lg:w-2/5 flex flex-col justify-center items-center px-6 sm:px-12 md:px-20 py-12 bg-white relative">
-
+        <div className="relative flex w-full flex-col items-center justify-center bg-white px-6 py-12 sm:px-12 md:px-20 lg:w-2/5">
           {/* Logo representation on Mobile/Tablet screens */}
-          <div className="absolute top-8 left-8 flex items-center gap-2 lg:hidden">
+          <div className="absolute left-8 top-8 flex items-center gap-2 lg:hidden">
             <div className="flex size-8 items-center justify-center rounded-lg bg-[#1E3A8A]">
               <KanbanSquare className="size-5 text-white" />
             </div>
@@ -158,13 +183,12 @@ const LoginRoute = () => {
           </div>
 
           {/* Responsive Behavior Note Badge for Screen sizes */}
-          <div className="absolute top-8 right-8 hidden sm:block md:hidden lg:block text-[10px] text-slate-400 font-mono">
+          <div className="absolute right-8 top-8 hidden font-mono text-[10px] text-slate-400 sm:block md:hidden lg:block">
             * Collapses dynamically below 1024px
           </div>
 
           {/* Center Card Container */}
           <div className="w-full max-w-[420px] space-y-8">
-
             {/* Title Block */}
             <div className="space-y-2">
               <h2 className="text-3xl font-extrabold tracking-tight text-slate-950">
@@ -176,20 +200,21 @@ const LoginRoute = () => {
             </div>
 
             {errors.api && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-4 text-sm shadow-sm">
-                <p className="font-semibold mb-1">Authentication Failed</p>
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm">
+                <p className="mb-1 font-semibold">Authentication Failed</p>
                 <p className="text-xs text-rose-700">{errors.api}</p>
               </div>
             )}
 
             {/* LOGIN FORM */}
             <form onSubmit={handleLoginSubmit} className="space-y-5">
-
               {/* Email Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Email Address</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Email Address
+                </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                     <Mail className="size-4" />
                   </span>
                   <input
@@ -197,14 +222,23 @@ const LoginRoute = () => {
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
-                      if (errors.email) setErrors(prev => { const { email, ...rest } = prev; return rest; });
+                      if (errors.email)
+                        setErrors((prev) => {
+                          const { email, ...rest } = prev;
+                          return rest;
+                        });
                     }}
                     placeholder="name@company.com"
-                    className={`w-full h-11 pl-10 pr-4 bg-white border ${errors.email ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
+                    className={`h-11 w-full border bg-white pl-10 pr-4 ${
+                      errors.email
+                        ? 'border-rose-500 focus:ring-rose-200'
+                        : 'border-slate-200 focus:border-[#1E3A8A] focus:ring-sky-100'
+                    } rounded-[10px] text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:outline-none focus:ring-4`}
                   />
                 </div>
-                {errors.email && <p className="text-xs text-rose-500">{errors.email}</p>}
+                {errors.email && (
+                  <p className="text-xs text-rose-500">{errors.email}</p>
+                )}
               </div>
 
               {/* Password Input */}
@@ -223,7 +257,7 @@ const LoginRoute = () => {
                   </a>
                 </div> */}
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                  <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                     <Lock className="size-4" />
                   </span>
                   <input
@@ -231,38 +265,49 @@ const LoginRoute = () => {
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
-                      if (errors.password) setErrors(prev => { const { password, ...rest } = prev; return rest; });
+                      if (errors.password)
+                        setErrors((prev) => {
+                          const { password, ...rest } = prev;
+                          return rest;
+                        });
                     }}
                     placeholder="••••••••"
-                    className={`w-full h-11 pl-10 pr-10 bg-white border ${errors.password ? 'border-rose-500 focus:ring-rose-200' : 'border-slate-200 focus:ring-sky-100 focus:border-[#1E3A8A]'
-                      } rounded-[10px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-150`}
+                    className={`h-11 w-full border bg-white px-10 ${
+                      errors.password
+                        ? 'border-rose-500 focus:ring-rose-200'
+                        : 'border-slate-200 focus:border-[#1E3A8A] focus:ring-sky-100'
+                    } rounded-[10px] text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:outline-none focus:ring-4`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 focus:outline-none"
                   >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {showPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
                   </button>
                 </div>
-                {errors.password && <p className="text-xs text-rose-500">{errors.password}</p>}
+                {errors.password && (
+                  <p className="text-xs text-rose-500">{errors.password}</p>
+                )}
               </div>
 
               {/* Submit button */}
               <button
                 type="submit"
                 disabled={login.isPending}
-                className="w-full h-11 bg-[#1E3A8A] hover:bg-[#152a63] text-white font-semibold rounded-[10px] text-sm shadow-lg shadow-blue-900/10 hover:shadow-blue-900/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[#1E3A8A] text-sm font-semibold text-white shadow-lg shadow-blue-900/10 transition-all hover:bg-[#152a63] hover:shadow-blue-900/20 active:scale-[0.98]"
               >
                 {login.isPending ? (
-                  <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                  <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
                 ) : (
                   'Login'
                 )}
               </button>
-
             </form>
-
           </div>
 
           {/* Mobile Footer text */}
@@ -270,7 +315,6 @@ const LoginRoute = () => {
             &copy; {new Date().getFullYear()} TaskFlow. All rights reserved.
           </div>
         </div>
-
       </div>
     </>
   );

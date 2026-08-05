@@ -42,11 +42,13 @@ export const createAppRouter = (queryClient: QueryClient) =>
       children: [
         {
           path: paths.app.createUser.path,
-          lazy: () => import('./routes/app/create-user').then(convert(queryClient)),
+          lazy: () =>
+            import('./routes/app/create-user').then(convert(queryClient)),
         },
         {
           path: paths.app.editUser.path,
-          lazy: () => import('./routes/app/edit-user').then(convert(queryClient)),
+          lazy: () =>
+            import('./routes/app/edit-user').then(convert(queryClient)),
         },
         {
           path: paths.app.users.path,
@@ -75,16 +77,19 @@ export const createAppRouter = (queryClient: QueryClient) =>
 
         {
           path: paths.app.createTask.path,
-          lazy: () => import('./routes/app/create-task').then(convert(queryClient)),
+          lazy: () =>
+            import('./routes/app/create-task').then(convert(queryClient)),
         },
         {
           path: paths.app.editTask.path,
-          lazy: () => import('./routes/app/edit-task').then(convert(queryClient)),
+          lazy: () =>
+            import('./routes/app/edit-task').then(convert(queryClient)),
         },
 
         {
           path: paths.app.changePassword.path,
-          lazy: () => import('./routes/app/change-password').then(convert(queryClient)),
+          lazy: () =>
+            import('./routes/app/change-password').then(convert(queryClient)),
         },
         {
           path: paths.app.dashboard.path,

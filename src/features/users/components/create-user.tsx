@@ -1,6 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import { UseFormSetValue } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
 import { Form, Input, Select } from '@/components/ui/form';
@@ -40,23 +39,26 @@ export const CreateUserForm = () => {
     },
   });
 
-  const handleImageUpload = useCallback(async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setValue: (name: keyof CreateUserInput, value: string) => void,
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const result = await uploadFileMutation.mutateAsync({ file });
-      setImageUrl(result.url);
-      setValue('image', result.url);
-    } catch {
-      addNotification({ type: 'error', title: 'Image upload failed' });
-    } finally {
-      setUploading(false);
-    }
-  }, [uploadFileMutation, addNotification]);
+  const handleImageUpload = useCallback(
+    async (
+      e: React.ChangeEvent<HTMLInputElement>,
+      setValue: (name: keyof CreateUserInput, value: string) => void,
+    ) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const result = await uploadFileMutation.mutateAsync({ file });
+        setImageUrl(result.url);
+        setValue('image', result.url);
+      } catch {
+        addNotification({ type: 'error', title: 'Image upload failed' });
+      } finally {
+        setUploading(false);
+      }
+    },
+    [uploadFileMutation, addNotification],
+  );
 
   return (
     <Form
@@ -81,13 +83,23 @@ export const CreateUserForm = () => {
     >
       {({ register, formState, setValue }) => (
         <div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="space-y-6">
-              <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 h-full">
-                <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Personal Details</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                  <Input label="First Name" error={formState.errors['firstName']} registration={register('firstName')} />
-                  <Input label="Last Name" error={formState.errors['lastName']} registration={register('lastName')} />
+              <div className="h-full rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+                <h3 className="mb-5 ml-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Personal Details
+                </h3>
+                <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input
+                    label="First Name"
+                    error={formState.errors['firstName']}
+                    registration={register('firstName')}
+                  />
+                  <Input
+                    label="Last Name"
+                    error={formState.errors['lastName']}
+                    registration={register('lastName')}
+                  />
                 </div>
                 <div>
                   <Select
@@ -103,13 +115,25 @@ export const CreateUserForm = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="space-y-6">
-              <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
-                <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Account Details</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
-                  <Input label="Email" type="email" error={formState.errors['email']} registration={register('email')} />
-                  <Input label="Password" type="password" error={formState.errors['password']} registration={register('password')} />
+              <div className="rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+                <h3 className="mb-5 ml-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Account Details
+                </h3>
+                <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Email"
+                    type="email"
+                    error={formState.errors['email']}
+                    registration={register('email')}
+                  />
+                  <Input
+                    label="Password"
+                    type="password"
+                    error={formState.errors['password']}
+                    registration={register('password')}
+                  />
                 </div>
                 <div>
                   <Select
@@ -126,36 +150,71 @@ export const CreateUserForm = () => {
                 </div>
               </div>
 
-              <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200">
-                <h3 className="text-xs font-semibold text-slate-500 mb-5 uppercase tracking-wide ml-1">Contact & Profile</h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-6">
-                  <Input label="Country Code" error={formState.errors['countryCode']} registration={register('countryCode')} />
-                  <Input label="Phone Number" error={formState.errors['phoneNumber']} registration={register('phoneNumber')} />
+              <div className="rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+                <h3 className="mb-5 ml-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Contact & Profile
+                </h3>
+                <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <Input
+                    label="Country Code"
+                    error={formState.errors['countryCode']}
+                    registration={register('countryCode')}
+                  />
+                  <Input
+                    label="Phone Number"
+                    error={formState.errors['phoneNumber']}
+                    registration={register('phoneNumber')}
+                  />
                 </div>
-                
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider ml-1">Profile Image</label>
+                  <label className="mb-3 ml-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Profile Image
+                  </label>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleImageUpload(e, setValue)}
-                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                    className="block w-full cursor-pointer text-sm text-slate-500 file:mr-4 file:rounded-full file:border-0 file:bg-indigo-50 file:px-5 file:py-2.5 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
                   />
-                  {uploading && <p className="text-sm text-indigo-600 mt-2">Uploading...</p>}
+                  {uploading && (
+                    <p className="mt-2 text-sm text-indigo-600">Uploading...</p>
+                  )}
                   {imageUrl && (
                     <div className="mt-4">
-                      <img src={imageUrl} alt="Preview" className="h-20 w-20 rounded-full object-cover border-2 border-white shadow-sm" />
+                      <img
+                        src={imageUrl}
+                        alt="Preview"
+                        className="size-20 rounded-full border-2 border-white object-cover shadow-sm"
+                      />
                     </div>
                   )}
-                  {formState.errors['image'] && <p className="mt-2 text-sm text-red-600">{formState.errors['image']?.message}</p>}
+                  {formState.errors['image'] && (
+                    <p className="mt-2 text-sm text-red-600">
+                      {formState.errors['image']?.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 pt-6">
-            <Button type="button" variant="outline" className="rounded-full px-6" onClick={() => navigate(paths.app.users.getHref())}>Cancel</Button>
-            <Button type="submit" className="rounded-full px-6" isLoading={createUserMutation.isPending}>Create User</Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full px-6"
+              onClick={() => navigate(paths.app.users.getHref())}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="rounded-full px-6"
+              isLoading={createUserMutation.isPending}
+            >
+              Create User
+            </Button>
           </div>
         </div>
       )}

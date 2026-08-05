@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router';
+
 import { Button } from '@/components/ui/button';
 import { Form, Input } from '@/components/ui/form';
 import { useNotifications } from '@/components/ui/notifications';
-import { useNavigate } from 'react-router';
 import { paths } from '@/config/paths';
+
 import {
   changePasswordInputSchema,
   useChangePassword,
@@ -45,21 +47,21 @@ export const ChangePasswordForm = () => {
               label="Current Password"
               error={formState.errors['oldPassword']}
               registration={register('oldPassword')}
-              className="rounded-full h-11 px-5"
+              className="h-11 rounded-full px-5"
             />
             <Input
               type="password"
               label="New Password"
               error={formState.errors['newPassword']}
               registration={register('newPassword')}
-              className="rounded-full h-11 px-5"
+              className="h-11 rounded-full px-5"
             />
             <Input
               type="password"
               label="Confirm Password"
               error={formState.errors['confirmPassword']}
               registration={register('confirmPassword')}
-              className="rounded-full h-11 px-5"
+              className="h-11 rounded-full px-5"
             />
           </div>
 
@@ -67,7 +69,7 @@ export const ChangePasswordForm = () => {
             <Button
               type="submit"
               isLoading={changePasswordMutation.isPending}
-              className="w-full sm:w-auto rounded-full px-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all hover:shadow-lg"
+              className="w-full rounded-full bg-indigo-600 px-8 text-white shadow-md transition-all hover:bg-indigo-700 hover:shadow-lg sm:w-auto"
             >
               Change Password
             </Button>

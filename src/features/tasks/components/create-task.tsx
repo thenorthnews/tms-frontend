@@ -1,20 +1,20 @@
-import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronRight, X } from 'lucide-react';
-import { api, mapUser } from '@/lib/api-client';
-import { useUser } from '@/lib/auth';
-import { UserRole } from '@/lib/authorization';
+import { useState } from 'react';
+import { useNavigate, Navigate } from 'react-router';
+
 import { Button } from '@/components/ui/button';
 import { Form, Input, Select, Textarea } from '@/components/ui/form';
 import { useNotifications } from '@/components/ui/notifications';
-import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
-import { createTaskInputSchema, useCreateTask } from '../api/create-task';
-import { TaskStatus, TaskPriority, Subtask } from '../types';
+import { useClients } from '@/features/clients/api/get-clients';
+import { api, mapUser } from '@/lib/api-client';
+import { useUser } from '@/lib/auth';
+import { UserRole } from '@/lib/authorization';
 import { User, Team } from '@/types/api';
 
-import { useClients } from '@/features/clients/api/get-clients';
+import { createTaskInputSchema, useCreateTask } from '../api/create-task';
+import { TaskStatus, TaskPriority, Subtask } from '../types';
 
 export const CreateTask = () => {
   const navigate = useNavigate();
@@ -28,7 +28,13 @@ export const CreateTask = () => {
   }
 
   const [subtasks, setSubtasks] = useState<
-    { title: string; isCompleted: boolean; status?: number; assignedTo?: string; dueDate?: string }[]
+    {
+      title: string;
+      isCompleted: boolean;
+      status?: number;
+      assignedTo?: string;
+      dueDate?: string;
+    }[]
   >([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newSubtaskAssignee, setNewSubtaskAssignee] = useState('');
@@ -51,7 +57,9 @@ export const CreateTask = () => {
     queryKey: ['teams-list'],
     queryFn: async () => {
       const res = await api.get('/admin/teams');
-      return (Array.isArray(res) ? res : (res as { data?: Team[] })?.data || []) as Team[];
+      return (
+        Array.isArray(res) ? res : (res as { data?: Team[] })?.data || []
+      ) as Team[];
     },
   });
 
@@ -92,7 +100,8 @@ export const CreateTask = () => {
   ];
 
   // Loading skeleton for dropdown areas
-  const isLoadingDropdowns = isLoadingUsers || isLoadingTeams || isLoadingClients;
+  const isLoadingDropdowns =
+    isLoadingUsers || isLoadingTeams || isLoadingClients;
 
   return (
     <div className="space-y-6 pb-10">
@@ -101,7 +110,7 @@ export const CreateTask = () => {
         <div className="flex items-center gap-1 text-xs font-bold text-slate-400">
           <button
             onClick={() => navigate(paths.app.tasks.getHref())}
-            className="hover:text-[#1E3A8A] transition-colors"
+            className="transition-colors hover:text-[#1E3A8A]"
           >
             Tasks
           </button>
@@ -111,14 +120,14 @@ export const CreateTask = () => {
 
         <button
           onClick={() => navigate(paths.app.tasks.getHref())}
-          className="flex items-center gap-1.5 text-xs font-bold text-[#1E3A8A] hover:text-[#0EA5E9] transition-colors cursor-pointer"
+          className="flex cursor-pointer items-center gap-1.5 text-xs font-bold text-[#1E3A8A] transition-colors hover:text-[#0EA5E9]"
         >
           <ArrowLeft className="size-4" />
           Back to list
         </button>
       </div>
-      <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 animate-card-enter">
-        <h3 className="text-lg font-bold text-slate-800 mb-1">
+      <div className="animate-card-enter rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
+        <h3 className="mb-1 text-lg font-bold text-slate-800">
           Create New Task
         </h3>
         <p className="text-sm text-slate-500">
@@ -131,7 +140,8 @@ export const CreateTask = () => {
         onSubmit={(values) => {
           const data = {
             ...values,
-            assignedTo: selectedAssignees.length > 0 ? selectedAssignees : undefined,
+            assignedTo:
+              selectedAssignees.length > 0 ? selectedAssignees : undefined,
             clientId: values.clientId || undefined,
             status: Number(values.status),
             priority: Number(values.priority),
@@ -157,7 +167,10 @@ export const CreateTask = () => {
         {({ register, formState }) => {
           // Extract team members and manager IDs if user is Manager/TL
           const teamMemberIds = new Set<string>();
-          if (currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL) {
+          if (
+            currentUser?.role === UserRole.MANAGER ||
+            currentUser?.role === UserRole.TL
+          ) {
             // Find all teams managed by currentUser
             const managedTeams = teamsRes.filter((t: Team) => {
               const mgr = t.managerId;
@@ -174,7 +187,9 @@ export const CreateTask = () => {
               if (mgrId) teamMemberIds.add(mgrId);
               (t.members || []).forEach((m: unknown) => {
                 const mb = m as { _id?: string; id?: string } | string;
-                const mId = (typeof mb === 'object' ? mb._id || mb.id : mb)?.toString();
+                const mId = (
+                  typeof mb === 'object' ? mb._id || mb.id : mb
+                )?.toString();
                 if (mId) teamMemberIds.add(mId);
               });
             });
@@ -182,16 +197,17 @@ export const CreateTask = () => {
           }
 
           const filteredUsers =
-            currentUser?.role === UserRole.MANAGER || currentUser?.role === UserRole.TL
+            currentUser?.role === UserRole.MANAGER ||
+            currentUser?.role === UserRole.TL
               ? users.filter((u: User) =>
-                teamMemberIds.has(String(u.id || u._id)),
-              )
+                  teamMemberIds.has(String(u.id || u._id)),
+                )
               : users;
 
           return (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 animate-card-enter">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-6 lg:col-span-2">
+                <div className="animate-card-enter rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
                   <Input
                     label="Task Title"
                     error={formState.errors.title}
@@ -211,32 +227,35 @@ export const CreateTask = () => {
                 </div>
 
                 {/* Subtasks Checklist Section */}
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-6 animate-card-enter">
+                <div className="animate-card-enter space-y-6 rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
                   <div>
-                    <label className="block text-sm font-bold text-slate-800 mb-2">
+                    <label className="mb-2 block text-sm font-bold text-slate-800">
                       Initial Subtasks Checklist
                     </label>
 
                     {subtasks.length > 0 && (
-                      <div className="space-y-2 mb-4">
+                      <div className="mb-4 space-y-2">
                         {subtasks.map((sub, idx) => {
-                          const assignedUser = users.find((u: User) => (u.id || u._id) === sub.assignedTo);
+                          const assignedUser = users.find(
+                            (u: User) => (u.id || u._id) === sub.assignedTo,
+                          );
                           return (
                             <div
                               key={idx}
-                              className="flex items-center justify-between bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-100 text-xs"
+                              className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-2.5 text-xs"
                             >
-                              <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-semibold text-slate-800">
                                   {sub.title}
                                 </span>
                                 {assignedUser && (
-                                  <span className="bg-sky-50 text-[#0EA5E9] border border-sky-100 font-bold px-2 py-0.5 rounded-full text-[10px]">
-                                    Assigned: {assignedUser.firstName} {assignedUser.lastName}
+                                  <span className="rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-[#0EA5E9]">
+                                    Assigned: {assignedUser.firstName}{' '}
+                                    {assignedUser.lastName}
                                   </span>
                                 )}
                                 {sub.dueDate && (
-                                  <span className="bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                                     Due: {sub.dueDate}
                                   </span>
                                 )}
@@ -245,12 +264,10 @@ export const CreateTask = () => {
                                 type="button"
                                 onClick={() =>
                                   setSubtasks(
-                                    subtasks.filter(
-                                      (_, i) => i !== idx,
-                                    ),
+                                    subtasks.filter((_, i) => i !== idx),
                                   )
                                 }
-                                className="text-xs font-bold text-red-500 hover:text-red-700 cursor-pointer shrink-0"
+                                className="shrink-0 cursor-pointer text-xs font-bold text-red-500 hover:text-red-700"
                               >
                                 Remove
                               </button>
@@ -260,7 +277,7 @@ export const CreateTask = () => {
                       </div>
                     )}
 
-                    <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <input
                         type="text"
                         placeholder="Add step/subtask item..."
@@ -285,13 +302,15 @@ export const CreateTask = () => {
                             }
                           }
                         }}
-                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-[#1E3A8A] font-semibold text-slate-700 transition-all"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-all focus:border-[#1E3A8A] focus:outline-none"
                       />
-                      <div className="flex gap-2 flex-wrap items-center">
+                      <div className="flex flex-wrap items-center gap-2">
                         <select
                           value={newSubtaskAssignee}
-                          onChange={(e) => setNewSubtaskAssignee(e.target.value)}
-                          className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                          onChange={(e) =>
+                            setNewSubtaskAssignee(e.target.value)
+                          }
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:border-[#1E3A8A] focus:outline-none"
                         >
                           <option value="">
                             {selectedAssignees.length > 0
@@ -299,10 +318,20 @@ export const CreateTask = () => {
                               : 'Select Main Task Assignees First'}
                           </option>
                           {filteredUsers
-                            .filter((u: User) => selectedAssignees.includes(String(u.id || u._id)))
+                            .filter((u: User) =>
+                              selectedAssignees.includes(String(u.id || u._id)),
+                            )
                             .map((u: User) => (
                               <option key={u.id || u._id} value={u.id || u._id}>
-                                {u.firstName} {u.lastName} ({u.role === 4 ? 'Employee' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'CEO'})
+                                {u.firstName} {u.lastName} (
+                                {u.role === 4
+                                  ? 'Employee'
+                                  : u.role === 1
+                                    ? 'Manager'
+                                    : u.role === 2
+                                      ? 'TL'
+                                      : 'CEO'}
+                                )
                               </option>
                             ))}
                         </select>
@@ -310,7 +339,7 @@ export const CreateTask = () => {
                           type="date"
                           value={newSubtaskDueDate}
                           onChange={(e) => setNewSubtaskDueDate(e.target.value)}
-                          className="text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-slate-700 focus:outline-none focus:border-[#1E3A8A]"
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 focus:border-[#1E3A8A] focus:outline-none"
                         />
                         <button
                           type="button"
@@ -330,7 +359,7 @@ export const CreateTask = () => {
                               setNewSubtaskDueDate('');
                             }
                           }}
-                          className="px-4 py-1.5 bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold rounded-lg cursor-pointer ml-auto"
+                          className="ml-auto cursor-pointer rounded-lg bg-[#1E3A8A] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#152a63]"
                         >
                           + Add Subtask
                         </button>
@@ -341,13 +370,13 @@ export const CreateTask = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4 animate-card-enter">
+                <div className="animate-card-enter space-y-4 rounded-2xl border border-slate-200 bg-white/70 p-6 shadow-sm backdrop-blur-md">
                   {isLoadingDropdowns ? (
                     <div className="space-y-4">
                       {[...Array(5)].map((_, i) => (
                         <div key={i} className="space-y-2">
-                          <div className="h-3 w-20 bg-slate-200 rounded animate-skeleton" />
-                          <div className="h-11 w-full bg-slate-100 rounded-full animate-skeleton" />
+                          <div className="animate-skeleton h-3 w-20 rounded bg-slate-200" />
+                          <div className="animate-skeleton h-11 w-full rounded-full bg-slate-100" />
                         </div>
                       ))}
                     </div>
@@ -358,7 +387,10 @@ export const CreateTask = () => {
                         error={formState.errors.status}
                         registration={register('status')}
                         options={[
-                          { label: 'Pending', value: String(TaskStatus.PENDING) },
+                          {
+                            label: 'Pending',
+                            value: String(TaskStatus.PENDING),
+                          },
                           {
                             label: 'In Progress',
                             value: String(TaskStatus.IN_PROGRESS),
@@ -384,7 +416,10 @@ export const CreateTask = () => {
                         registration={register('priority')}
                         options={[
                           { label: 'Low', value: String(TaskPriority.LOW) },
-                          { label: 'Medium', value: String(TaskPriority.MEDIUM) },
+                          {
+                            label: 'Medium',
+                            value: String(TaskPriority.MEDIUM),
+                          },
                           { label: 'High', value: String(TaskPriority.HIGH) },
                         ]}
                       />
@@ -411,30 +446,38 @@ export const CreateTask = () => {
                         <label className="block text-xs font-bold text-slate-700">
                           Assign To (Select Multiple Users)
                         </label>
-                        <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-3">
+                        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
                           {/* Selected Assignees Badges */}
-                          <div className="flex flex-wrap gap-1.5 min-h-[32px] items-center">
+                          <div className="flex min-h-[32px] flex-wrap items-center gap-1.5">
                             {selectedAssignees.length === 0 ? (
-                              <span className="text-slate-400 text-xs italic">No users selected (Unassigned)</span>
+                              <span className="text-xs italic text-slate-400">
+                                No users selected (Unassigned)
+                              </span>
                             ) : (
                               selectedAssignees.map((id) => {
-                                const u = users.find((user: User) => (user.id || user._id) === id);
+                                const u = users.find(
+                                  (user: User) => (user.id || user._id) === id,
+                                );
                                 if (!u) return null;
 
                                 const handleRemove = () => {
-                                  setSelectedAssignees(selectedAssignees.filter((aId) => aId !== id));
+                                  setSelectedAssignees(
+                                    selectedAssignees.filter(
+                                      (aId) => aId !== id,
+                                    ),
+                                  );
                                 };
 
                                 return (
                                   <span
                                     key={id}
-                                    className="inline-flex items-center gap-1 bg-[#1E3A8A] text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-xs"
+                                    className="shadow-xs inline-flex items-center gap-1 rounded-full bg-[#1E3A8A] px-2.5 py-1 text-xs font-semibold text-white"
                                   >
                                     {u.firstName} {u.lastName}
                                     <button
                                       type="button"
                                       onClick={handleRemove}
-                                      className="hover:text-rose-300 ml-1 cursor-pointer"
+                                      className="ml-1 cursor-pointer hover:text-rose-300"
                                     >
                                       <X className="size-3.5" />
                                     </button>
@@ -445,41 +488,72 @@ export const CreateTask = () => {
                           </div>
 
                           {/* Checkbox List */}
-                          <div className="max-h-48 overflow-y-auto border-t border-slate-200 pt-2 space-y-1">
+                          <div className="max-h-48 space-y-1 overflow-y-auto border-t border-slate-200 pt-2">
                             {filteredUsers.length === 0 ? (
-                              <span className="text-slate-400 text-xs italic block p-1">No assignees available</span>
+                              <span className="block p-1 text-xs italic text-slate-400">
+                                No assignees available
+                              </span>
                             ) : (
                               filteredUsers.map((u: User) => {
                                 const uId = u.id || u._id || '';
-                                const isSelected = selectedAssignees.includes(uId);
-                                const roleBadge = u.role === 0 ? 'CEO' : u.role === 1 ? 'Manager' : u.role === 2 ? 'TL' : 'Employee';
+                                const isSelected =
+                                  selectedAssignees.includes(uId);
+                                const roleBadge =
+                                  u.role === 0
+                                    ? 'CEO'
+                                    : u.role === 1
+                                      ? 'Manager'
+                                      : u.role === 2
+                                        ? 'TL'
+                                        : 'Employee';
 
-                                const handleAssigneeChange = (checked: boolean) => {
+                                const handleAssigneeChange = (
+                                  checked: boolean,
+                                ) => {
                                   const newList = checked
                                     ? [...selectedAssignees, uId]
-                                    : selectedAssignees.filter((id) => id !== uId);
+                                    : selectedAssignees.filter(
+                                        (id) => id !== uId,
+                                      );
                                   setSelectedAssignees(newList);
                                 };
 
                                 return (
                                   <label
                                     key={uId}
-                                    className={`flex items-center justify-between p-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-                                      isSelected ? 'bg-indigo-50/80 border border-indigo-200 text-[#1E3A8A]' : 'hover:bg-slate-100 text-slate-700'
+                                    className={`flex cursor-pointer items-center justify-between rounded-lg p-2 text-xs font-semibold transition-colors ${
+                                      isSelected
+                                        ? 'border border-indigo-200 bg-indigo-50/80 text-[#1E3A8A]'
+                                        : 'text-slate-700 hover:bg-slate-100'
                                     }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       <input
                                         type="checkbox"
                                         checked={isSelected}
-                                        onChange={(e) => handleAssigneeChange(e.target.checked)}
+                                        onChange={(e) =>
+                                          handleAssigneeChange(e.target.checked)
+                                        }
                                         className="rounded text-indigo-600 focus:ring-indigo-500"
                                       />
-                                      <span>{u.firstName} {u.lastName} <span className="text-slate-400 font-normal">({u.email})</span></span>
+                                      <span>
+                                        {u.firstName} {u.lastName}{' '}
+                                        <span className="font-normal text-slate-400">
+                                          ({u.email})
+                                        </span>
+                                      </span>
                                     </div>
-                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${
-                                      u.role === 1 ? 'bg-purple-100 text-purple-700' : u.role === 2 ? 'bg-blue-100 text-blue-700' : u.role === 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
-                                    }`}>
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
+                                        u.role === 1
+                                          ? 'bg-purple-100 text-purple-700'
+                                          : u.role === 2
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : u.role === 0
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-slate-100 text-slate-600'
+                                      }`}
+                                    >
                                       {roleBadge}
                                     </span>
                                   </label>

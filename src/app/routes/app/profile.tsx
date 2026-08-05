@@ -1,6 +1,3 @@
-import * as React from 'react';
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router';
 import {
   User,
   Lock,
@@ -9,34 +6,51 @@ import {
   Upload,
   Check,
   AlertCircle,
-  ShieldAlert
+  ShieldAlert,
 } from 'lucide-react';
-
-import { ContentLayout } from '@/components/layouts';
-import { useNotifications } from '@/components/ui/notifications';
-import { Spinner } from '@/components/ui/spinner';
-import { useUser, useLogout } from '@/lib/auth';
-import { useUpdateProfile } from '@/features/auth/api/update-profile';
-import { useUploadFile } from '@/features/file/api/upload-file';
-import { useChangePassword } from '@/features/auth/api/change-password';
-import { Form, Input } from '@/components/ui/form';
+import * as React from 'react';
+import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { z } from 'zod';
 
+import { ContentLayout } from '@/components/layouts';
+import { Form, Input } from '@/components/ui/form';
+import { useNotifications } from '@/components/ui/notifications';
+import { Spinner } from '@/components/ui/spinner';
+import { useChangePassword } from '@/features/auth/api/change-password';
+import { useUpdateProfile } from '@/features/auth/api/update-profile';
+import { useUploadFile } from '@/features/file/api/upload-file';
+import { useUser, useLogout } from '@/lib/auth';
+
 const profileFormSchema = z.object({
-  firstName: z.string().trim().min(2, 'First name must be at least 2 characters'),
+  firstName: z
+    .string()
+    .trim()
+    .min(2, 'First name must be at least 2 characters'),
   lastName: z.string().trim().min(2, 'Last name must be at least 2 characters'),
-  phoneNumber: z.string().trim().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
+  phoneNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
   image: z.string().optional(),
 });
 
-const passwordFormSchema = z.object({
-  oldPassword: z.string().min(6, 'Current password must be at least 6 characters'),
-  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
-  confirmPassword: z.string().min(6, 'Confirm password must be at least 6 characters'),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "New passwords don't match",
-  path: ['confirmPassword'],
-});
+const passwordFormSchema = z
+  .object({
+    oldPassword: z
+      .string()
+      .min(6, 'Current password must be at least 6 characters'),
+    newPassword: z
+      .string()
+      .min(6, 'New password must be at least 6 characters'),
+    confirmPassword: z
+      .string()
+      .min(6, 'Confirm password must be at least 6 characters'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "New passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 const ProfileRoute = () => {
   const navigate = useNavigate();
@@ -45,7 +59,9 @@ const ProfileRoute = () => {
   const { addNotification } = useNotifications();
 
   // --- ACTIVE TAB ---
-  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'about'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'about'>(
+    'account',
+  );
 
   // --- MUTATIONS ---
   const updateProfileMutation = useUpdateProfile({
@@ -86,8 +102,8 @@ const ProfileRoute = () => {
           title: 'Failed to update password',
           message: err.message || 'Verification error.',
         });
-      }
-    }
+      },
+    },
   });
 
   const getPhoneStr = (p: unknown) => {
@@ -96,7 +112,9 @@ const ProfileRoute = () => {
     if (typeof p === 'object' && p !== null) {
       const pObj = p as Record<string, unknown>;
       const num = pObj.number || pObj.phoneNumber || pObj.phone || '';
-      return typeof num === 'string' ? num.replace(/\D/g, '').slice(0, 10) : String(num || '');
+      return typeof num === 'string'
+        ? num.replace(/\D/g, '').slice(0, 10)
+        : String(num || '');
     }
     return String(p).replace(/\D/g, '').slice(0, 10);
   };
@@ -142,7 +160,7 @@ const ProfileRoute = () => {
   if (!user.data) {
     return (
       <ContentLayout title="Settings">
-        <div className="text-center text-red-500 py-12 font-bold flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2 py-12 text-center font-bold text-red-500">
           <ShieldAlert className="size-8" />
           Please log in to view settings
         </div>
@@ -160,7 +178,10 @@ const ProfileRoute = () => {
 
   const role = user.data.role;
   const roleString = getRoleString(role);
-  const isEmployee = typeof role === 'number' ? role === 4 : String(role).toLowerCase() === 'employee';
+  const isEmployee =
+    typeof role === 'number'
+      ? role === 4
+      : String(role).toLowerCase() === 'employee';
 
   // Photo upload trigger
   const handlePhotoClick = () => {
@@ -174,13 +195,13 @@ const ProfileRoute = () => {
     try {
       const response = await uploadFileMutation.mutateAsync({ file });
       if (response?.url) {
-        setProfileData(prev => ({ ...prev, image: response.url }));
+        setProfileData((prev) => ({ ...prev, image: response.url }));
         // Save automatically
         updateProfileMutation.mutate({
           data: {
             ...profileData,
             image: response.url,
-          }
+          },
         });
       }
     } catch (err) {
@@ -200,39 +221,35 @@ const ProfileRoute = () => {
 
   return (
     <ContentLayout title="Settings">
-      <div className="max-w-5xl mx-auto w-full animate-in fade-in duration-500 pb-12">
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex flex-col lg:flex-row min-h-[600px]">
-
+      <div className="mx-auto w-full max-w-5xl pb-12 duration-500 animate-in fade-in">
+        <div className="flex min-h-[600px] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm lg:flex-row">
           {/* LEFT: Tab Navigation */}
-          <div className="w-full lg:w-64 bg-slate-50/50 border-r border-slate-100 p-5 flex flex-col justify-between select-none">
-
+          <div className="flex w-full select-none flex-col justify-between border-r border-slate-100 bg-slate-50/50 p-5 lg:w-64">
             {/* Nav list */}
             <div className="space-y-1">
-
               {/* Horizontal Scroll wrapper for mobile viewport, standard column layout for desktop */}
-              <div className="flex lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 pb-2 lg:pb-0 border-b border-slate-200/50 lg:border-b-0">
-
+              <div className="flex gap-2 overflow-x-auto border-b border-slate-200/50 pb-2 lg:flex-col lg:overflow-x-visible lg:border-b-0 lg:pb-0">
                 {/* Account tab */}
                 <button
                   onClick={() => setActiveTab('account')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${activeTab === 'account'
-                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                    }`}
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    activeTab === 'account'
+                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                      : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
+                  }`}
                 >
                   <User className="size-4" />
                   Account Profile
                 </button>
 
-
-
                 {/* Security tab */}
                 <button
                   onClick={() => setActiveTab('security')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${activeTab === 'security'
-                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                    }`}
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    activeTab === 'security'
+                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                      : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
+                  }`}
                 >
                   <Lock className="size-4" />
                   Security Lock
@@ -241,23 +258,21 @@ const ProfileRoute = () => {
                 {/* About tab */}
                 <button
                   onClick={() => setActiveTab('about')}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${activeTab === 'about'
-                    ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
-                    }`}
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    activeTab === 'about'
+                      ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
+                      : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
+                  }`}
                 >
                   <Info className="size-4" />
                   About TaskFlow
                 </button>
-
               </div>
             </div>
-
           </div>
 
           {/* RIGHT: Content panel */}
-          <div className="flex-1 p-6 sm:p-10 bg-white text-left">
-
+          <div className="flex-1 bg-white p-6 text-left sm:p-10">
             {/* ACCOUNT TAB PANEL */}
             {activeTab === 'account' && (
               <Form
@@ -271,29 +286,39 @@ const ProfileRoute = () => {
                 {({ register, formState }) => (
                   <>
                     <div className="border-b border-slate-100 pb-4">
-                      <h3 className="text-lg font-bold text-slate-800">Account Details</h3>
-                      <p className="text-xs text-slate-400 mt-0.5">Manage your personal details and avatar preferences</p>
+                      <h3 className="text-lg font-bold text-slate-800">
+                        Account Details
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Manage your personal details and avatar preferences
+                      </p>
                     </div>
 
                     {/* Avatar and file upload */}
-                    <div className="flex flex-col sm:flex-row items-center gap-4.5 border-b border-slate-50 pb-5">
-                      <div className="size-20 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 shadow-inner">
+                    <div className="gap-4.5 flex flex-col items-center border-b border-slate-50 pb-5 sm:flex-row">
+                      <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 shadow-inner">
                         {profileData.image ? (
-                          <img src={profileData.image} alt="Avatar" className="size-full object-cover" />
+                          <img
+                            src={profileData.image}
+                            alt="Avatar"
+                            className="size-full object-cover"
+                          />
                         ) : (
-                          <span className="text-slate-400 text-base font-bold">
+                          <span className="text-base font-bold text-slate-400">
                             {profileData.firstName?.[0] || 'U'}
                           </span>
                         )}
                       </div>
-                      <div className="text-center sm:text-left space-y-2">
-                        <label className="block text-xs font-bold text-slate-700">Avatar Photo</label>
-                        <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                      <div className="space-y-2 text-center sm:text-left">
+                        <label className="block text-xs font-bold text-slate-700">
+                          Avatar Photo
+                        </label>
+                        <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                           <button
                             type="button"
                             onClick={handlePhotoClick}
                             disabled={uploadFileMutation.isPending}
-                            className="inline-flex items-center gap-1.5 px-5 py-2 border border-slate-200 hover:border-slate-300 rounded-xl bg-white text-[11px] font-bold text-slate-600 shadow-sm cursor-pointer hover:bg-slate-50"
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-5 py-2 text-[11px] font-bold text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50"
                           >
                             <Upload className="size-3.5" />
                             Change Photo
@@ -307,14 +332,15 @@ const ProfileRoute = () => {
                           />
                         </div>
                         {uploadFileMutation.isPending && (
-                          <span className="text-[10px] text-[#0EA5E9] font-bold block animate-pulse">Uploading image file...</span>
+                          <span className="block animate-pulse text-[10px] font-bold text-[#0EA5E9]">
+                            Uploading image file...
+                          </span>
                         )}
                       </div>
                     </div>
 
                     {/* Fields row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {/* First Name */}
                       <Input
                         label="First Name"
@@ -342,25 +368,28 @@ const ProfileRoute = () => {
 
                       {/* Email (Read Only) */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-slate-400 pl-1">Email Address (Read-only)</label>
+                        <label className="block pl-1 text-xs font-bold text-slate-400">
+                          Email Address (Read-only)
+                        </label>
                         <input
                           type="text"
                           value={user.data?.email || ''}
                           disabled
-                          className="block w-full rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-400 cursor-not-allowed"
+                          className="block w-full cursor-not-allowed rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-400"
                         />
                       </div>
 
                       {/* Role Badge (Read Only) */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-slate-400 pl-1">Authority Role Badge</label>
+                        <label className="block pl-1 text-xs font-bold text-slate-400">
+                          Authority Role Badge
+                        </label>
                         <div className="flex h-10 items-center pl-2">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-[#1E3A8A]/10 text-[#1E3A8A] border border-blue-100 uppercase tracking-wide">
+                          <span className="inline-flex items-center rounded-full border border-blue-100 bg-[#1E3A8A]/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#1E3A8A]">
                             {roleString}
                           </span>
                         </div>
                       </div>
-
                     </div>
 
                     {/* Save button */}
@@ -368,7 +397,7 @@ const ProfileRoute = () => {
                       <button
                         type="submit"
                         disabled={updateProfileMutation.isPending}
-                        className="px-6 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50"
+                        className="cursor-pointer rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#152a63] disabled:opacity-50"
                       >
                         Save Changes
                       </button>
@@ -388,11 +417,15 @@ const ProfileRoute = () => {
                 {({ register, formState }) => (
                   <>
                     <div className="border-b border-slate-100 pb-4">
-                      <h3 className="text-lg font-bold text-slate-800">Update Password</h3>
-                      <p className="text-xs text-slate-400 mt-0.5">Keep your account credentials secured</p>
+                      <h3 className="text-lg font-bold text-slate-800">
+                        Update Password
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Keep your account credentials secured
+                      </p>
                     </div>
 
-                    <div className="space-y-4 max-w-md">
+                    <div className="max-w-md space-y-4">
                       <Input
                         label="Current Password"
                         type="password"
@@ -423,7 +456,7 @@ const ProfileRoute = () => {
                       <button
                         type="submit"
                         disabled={changePasswordMutation.isPending}
-                        className="px-6 py-2.5 rounded-xl bg-[#1E3A8A] hover:bg-[#152a63] text-white text-xs font-bold shadow-md cursor-pointer transition-all disabled:opacity-50"
+                        className="cursor-pointer rounded-xl bg-[#1E3A8A] px-6 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#152a63] disabled:opacity-50"
                       >
                         Update Password
                       </button>
@@ -437,40 +470,48 @@ const ProfileRoute = () => {
             {activeTab === 'about' && (
               <div className="space-y-6">
                 <div className="border-b border-slate-100 pb-4">
-                  <h3 className="text-lg font-bold text-slate-800">About TaskFlow</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Information on application configuration and environment</p>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    About TaskFlow
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    Information on application configuration and environment
+                  </p>
                 </div>
 
-                <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-5 space-y-4 max-w-md text-xs font-semibold text-slate-600">
-                  <div className="flex justify-between py-1 border-b border-slate-100">
+                <div className="max-w-md space-y-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-5 text-xs font-semibold text-slate-600">
+                  <div className="flex justify-between border-b border-slate-100 py-1">
                     <span>Application Client</span>
-                    <strong className="text-slate-800">TaskFlow Web Dashboard</strong>
+                    <strong className="text-slate-800">
+                      TaskFlow Web Dashboard
+                    </strong>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
+                  <div className="flex justify-between border-b border-slate-100 py-1">
                     <span>Build Version</span>
                     <strong className="text-[#0EA5E9]">v1.2.4</strong>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
+                  <div className="flex justify-between border-b border-slate-100 py-1">
                     <span>Environment Mode</span>
-                    <strong className="text-amber-600 uppercase">Production Staging</strong>
+                    <strong className="uppercase text-amber-600">
+                      Production Staging
+                    </strong>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100">
+                  <div className="flex justify-between border-b border-slate-100 py-1">
                     <span>Database Engine</span>
-                    <strong className="text-slate-800">MongoDB Distributed Cluster</strong>
+                    <strong className="text-slate-800">
+                      MongoDB Distributed Cluster
+                    </strong>
                   </div>
                   <div className="flex justify-between py-1">
                     <span>System Status</span>
-                    <span className="flex items-center gap-1.5 text-emerald-600 font-extrabold">
-                      <span className="size-2 bg-emerald-500 rounded-full animate-ping" />
+                    <span className="flex items-center gap-1.5 font-extrabold text-emerald-600">
+                      <span className="size-2 animate-ping rounded-full bg-emerald-500" />
                       All systems operational
                     </span>
                   </div>
                 </div>
               </div>
             )}
-
           </div>
-
         </div>
       </div>
     </ContentLayout>

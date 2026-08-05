@@ -9,8 +9,9 @@ export const queryConfig = {
   },
 } satisfies DefaultOptions;
 
-export type ApiFnReturnType<FnType extends (...args: never[]) => Promise<unknown>> =
-  Awaited<ReturnType<FnType>>;
+export type ApiFnReturnType<
+  FnType extends (...args: never[]) => Promise<unknown>,
+> = Awaited<ReturnType<FnType>>;
 
 export type QueryConfig<T extends (...args: never[]) => unknown> = Omit<
   ReturnType<T>,

@@ -7,29 +7,29 @@ import { Button } from '@/components/ui/button';
 import { paths } from '@/config/paths';
 import { getUsersQueryOptions } from '@/features/users/api/get-users';
 import { UsersList } from '@/features/users/components/users-list';
-import { Authorization, ROLES } from '@/lib/authorization';
 import { useUser } from '@/lib/auth';
+import { Authorization, ROLES } from '@/lib/authorization';
 
 export const clientLoader =
   (queryClient: QueryClient) =>
-    async ({ request }: LoaderFunctionArgs) => {
-      const url = new URL(request.url);
+  async ({ request }: LoaderFunctionArgs) => {
+    const url = new URL(request.url);
 
-      const page = Number(url.searchParams.get('page') || 1);
-      const search = url.searchParams.get('search') || '';
+    const page = Number(url.searchParams.get('page') || 1);
+    const search = url.searchParams.get('search') || '';
 
-      const query = getUsersQueryOptions({ page, search });
+    const query = getUsersQueryOptions({ page, search });
 
-      try {
-        return (
-          queryClient.getQueryData(query.queryKey) ??
-          (await queryClient.fetchQuery(query))
-        );
-      } catch (error) {
-        console.error('Failed to load users:', error);
-        return null;
-      }
-    };
+    try {
+      return (
+        queryClient.getQueryData(query.queryKey) ??
+        (await queryClient.fetchQuery(query))
+      );
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      return null;
+    }
+  };
 
 const UsersRoute = () => {
   const navigate = useNavigate();

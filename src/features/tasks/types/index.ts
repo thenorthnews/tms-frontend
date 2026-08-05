@@ -67,6 +67,29 @@ export type TimeLog = {
   createdAt: string;
 };
 
+export type LogTimeDTO = {
+  taskId: string;
+  data: {
+    hours: number;
+    minutes: number;
+    description?: string;
+  };
+};
+
+export type GetTasksParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: number;
+  priority?: number;
+  assignedTo?: string;
+  createdBy?: string;
+  teamId?: string;
+  dateFilter?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
 export type Task = {
   id: string;
   _id?: string;
@@ -84,15 +107,17 @@ export type Task = {
   activities?: Activity[];
   timeLogs?: TimeLog[];
   lastStartedAt?: string;
-  assigneeInfo?: {
-    firstName: string;
-    lastName: string;
-    image?: string;
-  } | {
-    firstName: string;
-    lastName: string;
-    image?: string;
-  }[];
+  assigneeInfo?:
+    | {
+        firstName: string;
+        lastName: string;
+        image?: string;
+      }
+    | {
+        firstName: string;
+        lastName: string;
+        image?: string;
+      }[];
   creatorInfo?: {
     firstName: string;
     lastName: string;

@@ -6,10 +6,12 @@ const CreateTaskRoute = () => {
   return (
     <ContentLayout title="Create Task">
       <Authorization
-        forbiddenFallback={<div>You do not have permission to create tasks.</div>}
+        forbiddenFallback={
+          <div>You do not have permission to create tasks.</div>
+        }
         allowedRoles={[ROLES.CEO, ROLES.MANAGER, ROLES.TL]}
       >
-        <div className="mt-4 animate-in fade-in duration-300">
+        <div className="mt-4 duration-300 animate-in fade-in">
           <CreateTask />
         </div>
       </Authorization>

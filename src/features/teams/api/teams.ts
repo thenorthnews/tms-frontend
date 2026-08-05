@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  queryOptions,
+} from '@tanstack/react-query';
+
 import { api } from '@/lib/api-client';
 import { User } from '@/types/api';
 
@@ -32,11 +38,16 @@ export const useTeams = () => {
 };
 
 // 2. Create team
-export const createTeam = async (data: { name: string; managerId: string }): Promise<Team> => {
+export const createTeam = async (data: {
+  name: string;
+  managerId: string;
+}): Promise<Team> => {
   return api.post('/admin/teams', data);
 };
 
-export const useCreateTeam = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+export const useCreateTeam = ({
+  onSuccess,
+}: { onSuccess?: () => void } = {}) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createTeam,
@@ -52,7 +63,9 @@ export const deleteTeam = async (id: string): Promise<void> => {
   return api.delete(`/admin/teams/${id}`);
 };
 
-export const useDeleteTeam = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+export const useDeleteTeam = ({
+  onSuccess,
+}: { onSuccess?: () => void } = {}) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteTeam,
@@ -64,11 +77,19 @@ export const useDeleteTeam = ({ onSuccess }: { onSuccess?: () => void } = {}) =>
 };
 
 // 4. Add member to team
-export const addTeamMember = async ({ teamId, userId }: { teamId: string; userId: string }): Promise<Team> => {
+export const addTeamMember = async ({
+  teamId,
+  userId,
+}: {
+  teamId: string;
+  userId: string;
+}): Promise<Team> => {
   return api.post(`/admin/teams/${teamId}/members`, { userId });
 };
 
-export const useAddTeamMember = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+export const useAddTeamMember = ({
+  onSuccess,
+}: { onSuccess?: () => void } = {}) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: addTeamMember,
@@ -80,11 +101,19 @@ export const useAddTeamMember = ({ onSuccess }: { onSuccess?: () => void } = {})
 };
 
 // 5. Remove member from team
-export const removeTeamMember = async ({ teamId, userId }: { teamId: string; userId: string }): Promise<Team> => {
+export const removeTeamMember = async ({
+  teamId,
+  userId,
+}: {
+  teamId: string;
+  userId: string;
+}): Promise<Team> => {
   return api.delete(`/admin/teams/${teamId}/members/${userId}`);
 };
 
-export const useRemoveTeamMember = ({ onSuccess }: { onSuccess?: () => void } = {}) => {
+export const useRemoveTeamMember = ({
+  onSuccess,
+}: { onSuccess?: () => void } = {}) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: removeTeamMember,

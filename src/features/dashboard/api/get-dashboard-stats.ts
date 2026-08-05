@@ -1,4 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
+
 import { QueryConfig } from '@/lib/react-query';
 
 export type DashboardMetric = {
@@ -121,7 +122,9 @@ type UseDashboardStatsOptions = {
   queryConfig?: QueryConfig<typeof getDashboardStatsQueryOptions>;
 };
 
-export const useDashboardStats = ({ queryConfig }: UseDashboardStatsOptions = {}) => {
+export const useDashboardStats = ({
+  queryConfig,
+}: UseDashboardStatsOptions = {}) => {
   return useQuery({
     ...getDashboardStatsQueryOptions(),
     ...queryConfig,

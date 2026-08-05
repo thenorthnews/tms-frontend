@@ -158,13 +158,11 @@ export const TablePagination = ({
       <div className="text-xs font-semibold text-slate-500">
         Page {currentPage} of {totalPages}
         {totalItems !== undefined && (
-          <span className="ml-1.5 text-slate-400">
-            ({totalItems} total)
-          </span>
+          <span className="ml-1.5 text-slate-400">({totalItems} total)</span>
         )}
       </div>
 
-      <Pagination className="justify-end w-auto mx-0 select-none">
+      <Pagination className="mx-0 w-auto select-none justify-end">
         <PaginationContent>
           {currentPage > 1 && (
             <PaginationItem>

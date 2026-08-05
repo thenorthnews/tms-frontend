@@ -26,7 +26,14 @@ export interface UpdateTeamInput {
 
 export type MemberRole = 'manager' | 'tl' | 'employee';
 
-export type MemberSortKey = 'name' | 'email' | 'role' | 'department' | 'assigned' | 'completed' | 'progress';
+export type MemberSortKey =
+  | 'name'
+  | 'email'
+  | 'role'
+  | 'department'
+  | 'assigned'
+  | 'completed'
+  | 'progress';
 
 export interface CreateMemberFormState {
   firstName: string;

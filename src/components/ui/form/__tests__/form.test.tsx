@@ -2,10 +2,11 @@ import { SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { rtlRender, screen, waitFor, userEvent } from '@/testing/test-utils';
 
 import { Form } from '../form';
 import { Input } from '../input';
+
+import { rtlRender, screen, waitFor, userEvent } from '@/testing/test-utils';
 
 const testData = {
   title: 'Hello World',

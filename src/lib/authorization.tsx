@@ -1,4 +1,5 @@
 import * as React from 'react';
+
 import { useUser } from './auth';
 
 export enum UserRole {
@@ -28,19 +29,34 @@ export const useAuthorization = () => {
     ({ allowedRoles }: { allowedRoles: RoleTypes[] }) => {
       if (allowedRoles && allowedRoles.length > 0 && user.data) {
         const userRole = user.data.role;
-        const numericRole = typeof userRole === 'string' ? parseInt(userRole, 10) : userRole;
-        return allowedRoles.some(allowedRole => {
+        const numericRole =
+          typeof userRole === 'string' ? parseInt(userRole, 10) : userRole;
+        return allowedRoles.some((allowedRole) => {
           if (allowedRole === 'CEO') {
-            return numericRole === UserRole.CEO || userRole === 'CEO' || userRole === 0;
+            return (
+              numericRole === UserRole.CEO ||
+              userRole === 'CEO' ||
+              userRole === 0
+            );
           }
           if (allowedRole === 'MANAGER') {
-            return numericRole === UserRole.MANAGER || userRole === 'MANAGER' || userRole === 1;
+            return (
+              numericRole === UserRole.MANAGER ||
+              userRole === 'MANAGER' ||
+              userRole === 1
+            );
           }
           if (allowedRole === 'TL') {
-            return numericRole === UserRole.TL || userRole === 'TL' || userRole === 2;
+            return (
+              numericRole === UserRole.TL || userRole === 'TL' || userRole === 2
+            );
           }
           if (allowedRole === 'EMPLOYEE') {
-            return numericRole === UserRole.EMPLOYEE || userRole === 'EMPLOYEE' || userRole === 4;
+            return (
+              numericRole === UserRole.EMPLOYEE ||
+              userRole === 'EMPLOYEE' ||
+              userRole === 4
+            );
           }
           return false;
         });
@@ -58,15 +74,15 @@ type AuthorizationProps = {
   forbiddenFallback?: React.ReactNode;
   children: React.ReactNode;
 } & (
-    | {
+  | {
       allowedRoles: RoleTypes[];
       policyCheck?: never;
     }
-    | {
+  | {
       allowedRoles?: never;
       policyCheck: boolean;
     }
-  );
+);
 
 export const Authorization = ({
   policyCheck,

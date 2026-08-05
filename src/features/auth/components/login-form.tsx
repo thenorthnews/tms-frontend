@@ -30,7 +30,7 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
               placeholder="Email or Username"
               error={formState.errors['email']}
               registration={register('email')}
-              className="rounded-full h-12 px-6 bg-transparent"
+              className="h-12 rounded-full bg-transparent px-6"
             />
             <div className="space-y-2">
               <Input
@@ -39,14 +39,14 @@ export const LoginForm = ({ onSuccess }: LoginFormProps) => {
                 placeholder="Password"
                 error={formState.errors['password']}
                 registration={register('password')}
-                className="rounded-full h-12 px-6 bg-transparent"
+                className="h-12 rounded-full bg-transparent px-6"
               />
             </div>
             <div className="pt-4">
               <Button
                 isLoading={login.isPending}
                 type="submit"
-                className="w-full rounded-full h-12 shadow-lg bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 hover:from-orange-600 hover:via-pink-600 hover:to-purple-700 text-white transition-all hover:scale-[1.02] text-base font-medium"
+                className="h-12 w-full rounded-full bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-base font-medium text-white shadow-lg transition-all hover:scale-[1.02] hover:from-orange-600 hover:via-pink-600 hover:to-purple-700"
               >
                 Sign In
               </Button>

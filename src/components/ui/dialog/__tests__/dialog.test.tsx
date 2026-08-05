@@ -2,7 +2,6 @@ import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import { rtlRender, screen, userEvent, waitFor } from '@/testing/test-utils';
 
 import {
   Dialog,
@@ -12,6 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../dialog';
+
+import { rtlRender, screen, userEvent, waitFor } from '@/testing/test-utils';
 
 const openButtonText = 'Open Modal';
 const cancelButtonText = 'Cancel';
