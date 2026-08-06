@@ -47,32 +47,38 @@ module.exports = {
           'error',
           {
             zones: [
-              // disables cross-feature imports:
-              // eg. src/features/discussions should not import from src/features/comments, etc.
+              // Feature isolation rules with allowed shared cross-feature dependencies:
               {
                 target: './src/features/auth',
                 from: './src/features',
-                except: ['./auth'],
-              },
-              {
-                target: './src/features/comments',
-                from: './src/features',
-                except: ['./comments'],
-              },
-              {
-                target: './src/features/discussions',
-                from: './src/features',
-                except: ['./discussions'],
-              },
-              {
-                target: './src/features/teams',
-                from: './src/features',
-                except: ['./teams'],
+                except: ['./auth', './file'],
               },
               {
                 target: './src/features/users',
                 from: './src/features',
-                except: ['./users'],
+                except: ['./users', './file'],
+              },
+              {
+                target: './src/features/teams',
+                from: './src/features',
+                except: ['./teams', './users', './tasks'],
+              },
+              {
+                target: './src/features/tasks',
+                from: './src/features',
+                except: ['./tasks', './file', './users', './clients'],
+              },
+              {
+                target: './src/features/dashboard',
+                from: './src/features',
+                except: [
+                  './dashboard',
+                  './tasks',
+                  './users',
+                  './clients',
+                  './teams',
+                  './reports',
+                ],
               },
               // enforce unidirectional codebase:
 
@@ -115,16 +121,16 @@ module.exports = {
             alphabetize: { order: 'asc', caseInsensitive: true },
           },
         ],
-        'import/default': 'off',
-        'import/no-named-as-default-member': 'off',
-        'import/no-named-as-default': 'off',
+        'import/default': 'error',
+        'import/no-named-as-default-member': 'error',
+        'import/no-named-as-default': 'error',
         'react/react-in-jsx-scope': 'off',
-        'jsx-a11y/anchor-is-valid': 'off',
+        'jsx-a11y/anchor-is-valid': 'warn',
         '@typescript-eslint/no-unused-vars': ['error'],
-        '@typescript-eslint/explicit-function-return-type': ['off'],
-        '@typescript-eslint/explicit-module-boundary-types': ['off'],
-        '@typescript-eslint/no-empty-function': ['off'],
-        '@typescript-eslint/no-explicit-any': ['off'],
+        '@typescript-eslint/explicit-function-return-type': ['warn'],
+        '@typescript-eslint/explicit-module-boundary-types': ['warn'],
+        '@typescript-eslint/no-empty-function': ['warn'],
+        '@typescript-eslint/no-explicit-any': ['error'],
         'prettier/prettier': ['error', {}, { usePrettierrc: true }],
         'check-file/filename-naming-convention': [
           'error',

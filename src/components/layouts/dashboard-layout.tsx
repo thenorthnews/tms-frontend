@@ -19,6 +19,13 @@ import { useNotifications } from '@/components/ui/notifications';
 import { paths } from '@/config/paths';
 import { useLogout, useUser } from '@/lib/auth';
 import { cn } from '@/utils/cn';
+import {
+  isEmployee as checkIsEmployee,
+  isManagerOrAbove as checkIsManagerOrAbove,
+  isCEO as checkIsCEO,
+  getRoleLabel,
+  getRoleBadgeStyle,
+} from '@/utils/roles';
 
 import {
   DropdownMenu,
@@ -61,7 +68,7 @@ const Progress = () => {
     setProgress(0);
   }, [location?.pathname]);
 
-  useEffect(() => {
+  useEffect(() => {                                                                                                                            
     if (state === 'loading') {
       const timer = setInterval(() => {
         setProgress((oldProgress) => {
@@ -102,23 +109,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   });
 
   const userRole = user.data?.role;
-  const isEmployee = userRole === 4 || userRole === 'Employee';
-  const isManagerOrAbove =
-    userRole === 0 ||
-    userRole === 1 ||
-    userRole === 2 ||
-    userRole === 'CEO' ||
-    userRole === 'Manager' ||
-    userRole === 'Team Lead';
-  const isCEO = userRole === 0 || userRole === 'CEO';
-
-  const actualRoleString = (() => {
-    if (userRole === 0 || userRole === 'CEO') return 'CEO';
-    if (userRole === 1 || userRole === 'Manager') return 'Manager';
-    if (userRole === 2 || userRole === 'Team Lead') return 'Team Lead';
-    if (userRole === 4 || userRole === 'Employee') return 'Employee';
-    return 'User';
-  })();
+  const isEmployee = checkIsEmployee(userRole);
+  const isManagerOrAbove = checkIsManagerOrAbove(userRole);
+  const isCEO = checkIsCEO(userRole);
+  const actualRoleString = getRoleLabel(userRole);
 
   const navigation = [
     { name: 'Dashboard', to: paths.app.dashboard.getHref(), icon: Home },
@@ -294,14 +288,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                       {user.data?.firstName} {user.data?.lastName}
                     </span>
                     <span
-                      className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        actualRoleString === 'CEO'
-                          ? 'bg-[#1E3A8A]/10 text-[#1E3A8A]'
-                          : actualRoleString === 'Manager' ||
-                              actualRoleString === 'Team Lead'
-                            ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]'
-                            : 'bg-emerald-50/15 text-emerald-600'
-                      }`}
+                      className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${getRoleBadgeStyle(userRole)}`}
                     >
                       {actualRoleString}
                     </span>

@@ -10,14 +10,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  UserCheck,
   Briefcase,
-  X,
   ArrowRight,
   RotateCcw,
   Building,
 } from 'lucide-react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { Button } from '@/components/ui/button';
@@ -35,6 +33,10 @@ import { useClients } from '@/features/clients/api/get-clients';
 import { useUsers } from '@/features/users/api/get-users';
 import { useUser } from '@/lib/auth';
 import { User } from '@/types/api';
+import {
+  isEmployee as checkIsEmployee,
+  isCEO as checkIsCEO,
+} from '@/utils/roles';
 import { formatDate } from '@/utils/format';
 
 import { useDeleteTask } from '../api/delete-task';
@@ -78,9 +80,8 @@ export const TasksList = () => {
   const { addNotification } = useNotifications();
   const currentUserQuery = useUser();
   const currentUser = currentUserQuery.data;
-  const isEmployee =
-    currentUser?.role === 4 || currentUser?.role === 'Employee';
-  const isCEO = currentUser?.role === 0 || currentUser?.role === 'CEO';
+  const isEmployee = checkIsEmployee(currentUser?.role);
+  const isCEO = checkIsCEO(currentUser?.role);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -391,7 +392,7 @@ export const TasksList = () => {
           );
         }
         return (
-          <span className="border-indigo-150 inline-flex items-center gap-1 rounded-full border bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 text-slate-800">
+          <span className="border-indigo-150 inline-flex items-center gap-1 rounded-full border bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">
             <Briefcase className="size-3 text-indigo-500" />
             {clientInfo.name}
           </span>
@@ -905,7 +906,7 @@ export const TasksList = () => {
             <Briefcase className="size-8" />
           </div>
           <h2 className="text-2xl font-extrabold tracking-tight text-slate-800">
-            Which client's tasks would you like to view?
+            Which client&apos;s tasks would you like to view?
           </h2>
           <p className="mx-auto max-w-lg text-sm font-medium text-slate-500">
             Please select a client below to view their associated tasks, project
@@ -1109,7 +1110,7 @@ export const TasksList = () => {
               }
               onChange={(e) => handleDateFilterChange(e.target.value)}
             >
-              <option value="today">Today's Tasks</option>
+              <option value="today">Today&apos;s Tasks</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
               <option value="all">All Dates</option>

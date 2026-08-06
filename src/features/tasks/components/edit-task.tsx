@@ -1,7 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import * as React from 'react';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   ChevronRight,
@@ -23,14 +20,17 @@ import {
   PauseCircle,
   PlayCircle,
 } from 'lucide-react';
-
+import * as React from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { z } from 'zod';
+
 import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/components/ui/notifications';
 import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
-import { User, Team } from '@/types/api';
 import { api, mapUser } from '@/lib/api-client';
+import { User, Team } from '@/types/api';
 
 const commentInputSchema = z
   .string()
@@ -337,7 +337,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         typeof a === 'string'
           ? a
           : (a as { _id?: string; id?: string })?._id ||
-          (a as { _id?: string; id?: string })?.id;
+            (a as { _id?: string; id?: string })?.id;
       if (id) assignedStrIds.add(String(id));
     });
 
@@ -376,7 +376,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
           typeof a === 'string'
             ? a
             : (a as { _id?: string; id?: string })?._id ||
-            (a as { _id?: string; id?: string })?.id;
+              (a as { _id?: string; id?: string })?.id;
         if (id) assignedSet.add(String(id));
       });
 
@@ -941,7 +941,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   {/* Priority Selector Dropdown */}
                   {isEmployee ? (
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border shadow-xs ${getPriorityBadgeStyle(taskPriorityNum)}`}
+                      className={`shadow-xs inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${getPriorityBadgeStyle(taskPriorityNum)}`}
                     >
                       {getPriorityLabel(taskPriorityNum)}
                     </span>
@@ -1178,13 +1178,14 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                   return (
                     <div
                       key={act._id || idx}
-                      className="flex gap-3 items-start text-xs text-left animate-fade-up"
+                      className="animate-fade-up flex items-start gap-3 text-left text-xs"
                     >
                       <div
-                        className={`size-7.5 rounded-full font-bold flex items-center justify-center text-[10px] shrink-0 ${isSystem
-                          ? 'bg-slate-100 text-slate-500'
-                          : 'bg-sky-50 text-[#0EA5E9]'
-                          }`}
+                        className={`size-7.5 flex shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                          isSystem
+                            ? 'bg-slate-100 text-slate-500'
+                            : 'bg-sky-50 text-[#0EA5E9]'
+                        }`}
                       >
                         {act.userInitials || 'SO'}
                       </div>
@@ -1225,7 +1226,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
             {/* Fixed comment input box */}
             <form
               onSubmit={handleAddComment}
-              className="border-t border-slate-100 pt-3 flex gap-2"
+              className="flex gap-2 border-t border-slate-100 pt-3"
             >
               <div className="relative flex-1">
                 <input
@@ -1337,8 +1338,11 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                         setReassignModalOpen(true);
                       }
                     }}
-                    className={`flex items-center gap-2 rounded-lg border border-transparent px-2 py-1 transition-colors ${canReassign ? 'cursor-pointer hover:border-slate-100 hover:bg-slate-50' : ''
-                      }`}
+                    className={`flex items-center gap-2 rounded-lg border border-transparent px-2 py-1 transition-colors ${
+                      canReassign
+                        ? 'cursor-pointer hover:border-slate-100 hover:bg-slate-50'
+                        : ''
+                    }`}
                   >
                     {task.assigneeInfo ? (
                       (() => {
@@ -1347,7 +1351,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                           : [task.assigneeInfo];
                         if (assignees.length === 0)
                           return (
-                            <span className="text-slate-400 font-medium italic">
+                            <span className="font-medium italic text-slate-400">
                               Unassigned
                             </span>
                           );
@@ -1360,7 +1364,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                               ) => (
                                 <span
                                   key={idx}
-                                  className="inline-flex items-center gap-1 bg-sky-50 text-[#0EA5E9] px-2.5 py-0.5 rounded-full text-xs font-bold border border-sky-100"
+                                  className="inline-flex items-center gap-1 rounded-full border border-sky-100 bg-sky-50 px-2.5 py-0.5 text-xs font-bold text-[#0EA5E9]"
                                 >
                                   {u.firstName} {u.lastName}
                                 </span>
@@ -1389,8 +1393,11 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                       : ''
                   }
                   onChange={handleDeadlineChange}
-                  className={`rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold focus:border-[#1E3A8A] focus:outline-none ${overdue ? 'border-rose-300 font-extrabold text-rose-600' : 'text-slate-700'
-                    }`}
+                  className={`rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold focus:border-[#1E3A8A] focus:outline-none ${
+                    overdue
+                      ? 'border-rose-300 font-extrabold text-rose-600'
+                      : 'text-slate-700'
+                  }`}
                 />
               </div>
 
@@ -1495,16 +1502,17 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                             Number(e.target.value),
                           )
                         }
-                        className={`shadow-2xs cursor-pointer rounded-full border px-2.5 py-0.5 text-[10px] font-bold focus:outline-none ${subStatusNum === 1
-                          ? 'border-sky-200 bg-sky-50 text-[#0EA5E9]'
-                          : subStatusNum === 2
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : subStatusNum === 3
-                              ? 'border-rose-200 bg-rose-50 text-rose-600'
-                              : subStatusNum === 4
-                                ? 'border-amber-200 bg-amber-50 text-amber-700'
-                                : 'border-slate-200 bg-slate-100 text-slate-600'
-                          }`}
+                        className={`shadow-2xs cursor-pointer rounded-full border px-2.5 py-0.5 text-[10px] font-bold focus:outline-none ${
+                          subStatusNum === 1
+                            ? 'border-sky-200 bg-sky-50 text-[#0EA5E9]'
+                            : subStatusNum === 2
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : subStatusNum === 3
+                                ? 'border-rose-200 bg-rose-50 text-rose-600'
+                                : subStatusNum === 4
+                                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                  : 'border-slate-200 bg-slate-100 text-slate-600'
+                        }`}
                       >
                         {isEmployee ? (
                           <>
@@ -1595,13 +1603,13 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                           <span className="text-[10px] font-semibold text-slate-700">
                             {sub.dueDate
                               ? new Date(sub.dueDate).toLocaleDateString(
-                                'en-US',
-                                {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                },
-                              )
+                                  'en-US',
+                                  {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  },
+                                )
                               : 'No Deadline'}
                           </span>
                         ) : (
@@ -1610,8 +1618,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                             value={
                               sub.dueDate
                                 ? new Date(sub.dueDate)
-                                  .toISOString()
-                                  .split('T')[0]
+                                    .toISOString()
+                                    .split('T')[0]
                                 : ''
                             }
                             onChange={(e) =>
@@ -1626,18 +1634,18 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     {/* Live Active Session, Total Logged Time, and Subtask Work History Logs display */}
                     {(subStatusNum === TaskStatus.IN_PROGRESS &&
                       sub.lastStartedAt) ||
-                      (sub.totalTimeSpent &&
-                        (sub.totalTimeSpent.hours > 0 ||
-                          sub.totalTimeSpent.minutes > 0)) ||
-                      (sub.timeLogs && sub.timeLogs.length > 0) ? (
+                    (sub.totalTimeSpent &&
+                      (sub.totalTimeSpent.hours > 0 ||
+                        sub.totalTimeSpent.minutes > 0)) ||
+                    (sub.timeLogs && sub.timeLogs.length > 0) ? (
                       <div className="flex flex-col gap-2 border-t border-slate-200/40 pt-1 text-[10px]">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           {subStatusNum === TaskStatus.IN_PROGRESS &&
-                            sub.lastStartedAt ? (
+                          sub.lastStartedAt ? (
                             <div className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">
                               <span className="relative flex size-2">
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex size-2 rounded-full bg-emerald-500"></span>
                               </span>
                               <span>
                                 Live:{' '}
@@ -1647,7 +1655,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                                 h{' '}
                                 {Math.floor(
                                   ((subtaskSessionSeconds[subId] || 0) % 3600) /
-                                  60,
+                                    60,
                                 )}
                                 m {(subtaskSessionSeconds[subId] || 0) % 60}s
                               </span>
@@ -1658,8 +1666,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
                           <div className="ml-auto flex flex-wrap items-center gap-1.5">
                             {sub.totalTimeSpent &&
-                              (sub.totalTimeSpent.hours > 0 ||
-                                sub.totalTimeSpent.minutes > 0) ? (
+                            (sub.totalTimeSpent.hours > 0 ||
+                              sub.totalTimeSpent.minutes > 0) ? (
                               <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 font-extrabold text-slate-700">
                                 ⏱️ Logged: {sub?.totalTimeSpent?.formatted}
                               </span>
@@ -1691,7 +1699,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                                 {sub.timeLogs.map((log: any, lIdx: number) => (
                                   <div
                                     key={log._id || lIdx}
-                                    className="flex items-center justify-between gap-2 text-[10px] bg-slate-50 p-2 rounded-md border border-slate-100"
+                                    className="flex items-center justify-between gap-2 rounded-md border border-slate-100 bg-slate-50 p-2 text-[10px]"
                                   >
                                     <div className="flex flex-col gap-0.5">
                                       <div className="flex items-center gap-1.5">
@@ -1701,18 +1709,18 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                                         <span className="text-[9px] font-medium text-slate-400">
                                           {log.createdAt
                                             ? new Date(
-                                              log.createdAt,
-                                            ).toLocaleDateString('en-US', {
-                                              month: 'short',
-                                              day: 'numeric',
-                                              hour: '2-digit',
-                                              minute: '2-digit',
-                                            })
+                                                log.createdAt,
+                                              ).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                              })
                                             : ''}
                                         </span>
                                       </div>
                                       {log.description && (
-                                        <span className="text-[9.5px] text-slate-500 italic font-medium">
+                                        <span className="text-[9.5px] font-medium italic text-slate-500">
                                           {log.description}
                                         </span>
                                       )}
@@ -1734,7 +1742,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
             {!isEmployee &&
               (isAddingSubtask ? (
-                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 pt-3">
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <input
                     type="text"
                     placeholder="Enter subtask title..."
@@ -1839,8 +1847,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
               <div className="animate-card-enter flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/80 p-3">
                 <div className="flex items-center gap-2">
                   <span className="relative flex size-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500"></span>
                   </span>
                   <span className="text-xs font-bold text-emerald-800">
                     In Progress (Live Session)
@@ -1860,7 +1868,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                 {task.timeLogs.map((log, idx: number) => (
                   <div
                     key={log._id || idx}
-                    className="flex justify-between items-start text-xs border-b border-slate-50 pb-2 last:border-0 last:pb-0"
+                    className="flex items-start justify-between border-b border-slate-50 pb-2 text-xs last:border-0 last:pb-0"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5">
@@ -2021,8 +2029,11 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     return (
                       <label
                         key={uId}
-                        className={`flex cursor-pointer items-center justify-between rounded-lg p-2 text-xs font-semibold transition-colors ${isSelected ? 'border border-indigo-200 bg-indigo-50/80 text-[#1E3A8A]' : 'text-slate-700 hover:bg-slate-50'
-                          }`}
+                        className={`flex cursor-pointer items-center justify-between rounded-lg p-2 text-xs font-semibold transition-colors ${
+                          isSelected
+                            ? 'border border-indigo-200 bg-indigo-50/80 text-[#1E3A8A]'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
                       >
                         <div className="flex items-center gap-2">
                           <input
@@ -2046,20 +2057,21 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                           />
                           <span>
                             {u.firstName} {u.lastName}{' '}
-                            <span className="text-slate-400 font-normal">
+                            <span className="font-normal text-slate-400">
                               ({u.email})
                             </span>
                           </span>
                         </div>
                         <span
-                          className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase ${u.role === 1
-                            ? 'bg-purple-100 text-purple-700'
-                            : u.role === 2
-                              ? 'bg-blue-100 text-blue-700'
-                              : u.role === 0
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
+                            u.role === 1
+                              ? 'bg-purple-100 text-purple-700'
+                              : u.role === 2
+                                ? 'bg-blue-100 text-blue-700'
+                                : u.role === 0
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-600'
+                          }`}
                         >
                           {roleBadge}
                         </span>
@@ -2178,10 +2190,11 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
                     type="button"
                     size="sm"
                     onClick={handleConfirmStatusComment}
-                    className={`rounded-xl text-white font-bold shadow-sm transition-all ${statusModalConfig.newStatus === TaskStatus.ON_HOLD
-                      ? 'bg-amber-600 hover:bg-amber-700'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                      }`}
+                    className={`rounded-xl font-bold text-white shadow-sm transition-all ${
+                      statusModalConfig.newStatus === TaskStatus.ON_HOLD
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
                   >
                     Submit & Change Status
                   </Button>

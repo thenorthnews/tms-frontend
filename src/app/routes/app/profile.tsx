@@ -21,6 +21,7 @@ import { useChangePassword } from '@/features/auth/api/change-password';
 import { useUpdateProfile } from '@/features/auth/api/update-profile';
 import { useUploadFile } from '@/features/file/api/upload-file';
 import { useUser, useLogout } from '@/lib/auth';
+import { getRoleLabel, isEmployee as checkIsEmployee } from '@/utils/roles';
 
 const profileFormSchema = z.object({
   firstName: z
@@ -168,20 +169,9 @@ const ProfileRoute = () => {
     );
   }
 
-  const getRoleString = (r: unknown) => {
-    if (r === 0 || r === 'CEO') return 'CEO';
-    if (r === 1 || r === 'Manager') return 'Manager';
-    if (r === 2 || r === 'Team Lead') return 'Team Lead';
-    if (r === 4 || r === 'Employee') return 'Employee';
-    return String(r ?? '');
-  };
-
   const role = user.data.role;
-  const roleString = getRoleString(role);
-  const isEmployee =
-    typeof role === 'number'
-      ? role === 4
-      : String(role).toLowerCase() === 'employee';
+  const roleString = getRoleLabel(role);
+  const isEmp = checkIsEmployee(role);
 
   // Photo upload trigger
   const handlePhotoClick = () => {
@@ -232,11 +222,10 @@ const ProfileRoute = () => {
                 {/* Account tab */}
                 <button
                   onClick={() => setActiveTab('account')}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
-                    activeTab === 'account'
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${activeTab === 'account'
                       ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                       : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
-                  }`}
+                    }`}
                 >
                   <User className="size-4" />
                   Account Profile
@@ -245,11 +234,10 @@ const ProfileRoute = () => {
                 {/* Security tab */}
                 <button
                   onClick={() => setActiveTab('security')}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
-                    activeTab === 'security'
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${activeTab === 'security'
                       ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                       : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
-                  }`}
+                    }`}
                 >
                   <Lock className="size-4" />
                   Security Lock
@@ -258,11 +246,10 @@ const ProfileRoute = () => {
                 {/* About tab */}
                 <button
                   onClick={() => setActiveTab('about')}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
-                    activeTab === 'about'
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${activeTab === 'about'
                       ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                       : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
-                  }`}
+                    }`}
                 >
                   <Info className="size-4" />
                   About TaskFlow

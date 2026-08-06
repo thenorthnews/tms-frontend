@@ -25,10 +25,7 @@ export const mapUser = (backendUser: Record<string, unknown>): User => {
     role: (backendUser.role as User['role']) ?? 4,
     teamId: String(backendUser.teamId || ''),
     bio: String(backendUser.bio || ''),
-    phoneNumber:
-      typeof phoneObj === 'string'
-        ? phoneObj
-        : phoneObj?.number,
+    phoneNumber: typeof phoneObj === 'string' ? phoneObj : phoneObj?.number,
     department: String(
       backendUser.department || userInfo.department || 'Engineering',
     ),

@@ -12,7 +12,10 @@ import { api, mapUser } from './api-client';
 
 const getUser = async (): Promise<User | null> => {
   try {
-    const response = (await api.get('/admin/auth/me')) as Record<string, any>;
+    const response = (await api.get('/admin/auth/me')) as Record<
+      string,
+      unknown
+    >;
     return mapUser(response);
   } catch (error) {
     return null;
@@ -37,7 +40,7 @@ const loginWithEmailAndPassword = async (
   const response = (await api.post('/admin/auth/login', {
     email: data.email,
     password: data.password,
-  })) as Record<string, any>;
+  })) as { access_token?: string; refresh_token?: string; user?: unknown };
 
   if (response.access_token) {
     localStorage.setItem('token', response.access_token);
@@ -47,9 +50,9 @@ const loginWithEmailAndPassword = async (
   }
 
   return {
-    jwt: response.access_token,
-    refresh_token: response.refresh_token,
-    user: mapUser(response.user),
+    jwt: response.access_token || '',
+    refresh_token: response.refresh_token || '',
+    user: mapUser(response.user as Record<string, unknown>),
   };
 };
 

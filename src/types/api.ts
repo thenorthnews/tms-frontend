@@ -1,3 +1,11 @@
+export {
+  UserRole,
+  UserStatus,
+  Gender,
+  TaskStatus,
+  TaskPriority,
+} from '@/utils/roles';
+
 export type BaseEntity = {
   id: string;
   createdAt?: number | string;

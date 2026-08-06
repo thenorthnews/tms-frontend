@@ -1,13 +1,10 @@
 import * as React from 'react';
 
+import { UserRole, normalizeRole } from '@/utils/roles';
+
 import { useUser } from './auth';
 
-export enum UserRole {
-  CEO = 0,
-  MANAGER = 1,
-  TL = 2,
-  EMPLOYEE = 4,
-}
+export { UserRole };
 
 export enum ROLES {
   CEO = 'CEO',
@@ -28,36 +25,12 @@ export const useAuthorization = () => {
   const checkAccess = React.useCallback(
     ({ allowedRoles }: { allowedRoles: RoleTypes[] }) => {
       if (allowedRoles && allowedRoles.length > 0 && user.data) {
-        const userRole = user.data.role;
-        const numericRole =
-          typeof userRole === 'string' ? parseInt(userRole, 10) : userRole;
+        const normRole = normalizeRole(user.data.role);
         return allowedRoles.some((allowedRole) => {
-          if (allowedRole === 'CEO') {
-            return (
-              numericRole === UserRole.CEO ||
-              userRole === 'CEO' ||
-              userRole === 0
-            );
-          }
-          if (allowedRole === 'MANAGER') {
-            return (
-              numericRole === UserRole.MANAGER ||
-              userRole === 'MANAGER' ||
-              userRole === 1
-            );
-          }
-          if (allowedRole === 'TL') {
-            return (
-              numericRole === UserRole.TL || userRole === 'TL' || userRole === 2
-            );
-          }
-          if (allowedRole === 'EMPLOYEE') {
-            return (
-              numericRole === UserRole.EMPLOYEE ||
-              userRole === 'EMPLOYEE' ||
-              userRole === 4
-            );
-          }
+          if (allowedRole === 'CEO') return normRole === UserRole.CEO;
+          if (allowedRole === 'MANAGER') return normRole === UserRole.MANAGER;
+          if (allowedRole === 'TL') return normRole === UserRole.TL;
+          if (allowedRole === 'EMPLOYEE') return normRole === UserRole.EMPLOYEE;
           return false;
         });
       }

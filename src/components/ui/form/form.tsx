@@ -197,6 +197,7 @@ const Form = <
         className={cn('space-y-6', className)}
         onSubmit={form.handleSubmit(onSubmit)}
         id={id}
+        noValidate
       >
         {children(form)}
       </form>

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Form, Input, Select } from '@/components/ui/form';
 import { useNotifications } from '@/components/ui/notifications';
+import { Spinner } from '@/components/ui/spinner';
 import { useUploadFile } from '@/features/file/api/upload-file';
 
 import { useGetUser } from '../api/get-user';
@@ -13,7 +14,6 @@ import {
   UpdateUserInput,
   useUpdateUser,
 } from '../api/update-user';
-import { Spinner } from '@/components/ui/spinner';
 
 type EditUserFormProps = {
   userId: string;
@@ -24,8 +24,6 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
   const { addNotification } = useNotifications();
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
-
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const userQuery = useGetUser({ userId });
   const uploadFileMutation = useUploadFile();
@@ -43,18 +41,12 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
         response?: { data?: { message?: string }; status?: number };
         message?: string;
       }) => {
-        const backendMsg = err.response?.data?.message || err.message || '';
-        if (
-          backendMsg.toLowerCase().includes('email') ||
-          err.response?.status === 409
-        ) {
-          setFormErrors((prev) => ({ ...prev, email: 'Email already exists' }));
-        } else if (backendMsg.toLowerCase().includes('phone')) {
-          setFormErrors((prev) => ({
-            ...prev,
-            phoneNumber: 'Phone number already exists',
-          }));
-        }
+        const backendMsg = err.response?.data?.message || err.message || 'Failed to update user';
+        addNotification({
+          type: 'error',
+          title: 'Update Failed',
+          message: backendMsg,
+        });
       },
     },
   });

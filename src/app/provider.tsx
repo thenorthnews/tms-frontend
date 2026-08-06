@@ -14,7 +14,7 @@ type AppProviderProps = {
   children: React.ReactNode;
 };
 
-export const AppProvider = ({ children }: AppProviderProps) => {
+export const AppProvider = ({ children }: AppProviderProps) => {  
   const [queryClient] = React.useState(
     () =>
       new QueryClient({
