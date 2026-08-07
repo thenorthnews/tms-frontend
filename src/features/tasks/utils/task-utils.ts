@@ -1,6 +1,13 @@
 import { TaskStatus, TaskPriority } from '../types';
 
-const toNum = (val: any): number => {
+type TaskFieldValue =
+  | number
+  | string
+  | { id?: number | string }
+  | null
+  | undefined;
+
+const toNum = (val: TaskFieldValue): number => {
   if (val && typeof val === 'object' && 'id' in val) {
     return Number(val.id ?? 0);
   }
@@ -9,7 +16,7 @@ const toNum = (val: any): number => {
 
 // ─── Priority Helpers ─────────────────────────────────────────────────────────
 
-export const getPriorityLabel = (p: any): string => {
+export const getPriorityLabel = (p: TaskFieldValue): string => {
   const val = toNum(p);
   switch (val) {
     case TaskPriority.HIGH:
@@ -21,7 +28,7 @@ export const getPriorityLabel = (p: any): string => {
   }
 };
 
-export const getPriorityBadgeStyle = (p: any): string => {
+export const getPriorityBadgeStyle = (p: TaskFieldValue): string => {
   const val = toNum(p);
   switch (val) {
     case TaskPriority.HIGH:
@@ -33,7 +40,7 @@ export const getPriorityBadgeStyle = (p: any): string => {
   }
 };
 
-export const getPriorityKanbanStyle = (p: any): string => {
+export const getPriorityKanbanStyle = (p: TaskFieldValue): string => {
   const val = toNum(p);
   switch (val) {
     case TaskPriority.HIGH:
@@ -45,7 +52,7 @@ export const getPriorityKanbanStyle = (p: any): string => {
   }
 };
 
-export const getPriorityDotColor = (p: any): string => {
+export const getPriorityDotColor = (p: TaskFieldValue): string => {
   const val = toNum(p);
   switch (val) {
     case TaskPriority.HIGH:
@@ -59,7 +66,7 @@ export const getPriorityDotColor = (p: any): string => {
 
 // ─── Status Helpers ───────────────────────────────────────────────────────────
 
-export const getStatusLabel = (status: any): string => {
+export const getStatusLabel = (status: TaskFieldValue): string => {
   const val = toNum(status);
   switch (val) {
     case TaskStatus.COMPLETED:
@@ -75,9 +82,7 @@ export const getStatusLabel = (status: any): string => {
   }
 };
 
-
-
-export const getStatusSelectStyle = (s: any): string => {
+export const getStatusSelectStyle = (s: TaskFieldValue): string => {
   const val = toNum(s);
   switch (val) {
     case TaskStatus.COMPLETED:
@@ -108,7 +113,7 @@ export const getUserInitials = (
 // ─── Overdue Helper ───────────────────────────────────────────────────────────
 
 export const isTaskOverdue = (
-  status: any,
+  status: TaskFieldValue,
   dueDate?: string | null,
 ): boolean => {
   const val = toNum(status);
@@ -119,5 +124,3 @@ export const isTaskOverdue = (
   today.setHours(0, 0, 0, 0);
   return deadline < today;
 };
-
-

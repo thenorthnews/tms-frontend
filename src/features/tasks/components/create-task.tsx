@@ -190,10 +190,10 @@ export const CreateTask = () => {
 
           const filteredUsers =
             currentUser?.role === UserRole.MANAGER ||
-              currentUser?.role === UserRole.TL
+            currentUser?.role === UserRole.TL
               ? users.filter((u: User) =>
-                teamMemberIds.has(String(u.id || u._id)),
-              )
+                  teamMemberIds.has(String(u.id || u._id)),
+                )
               : users;
 
           return (
@@ -315,7 +315,8 @@ export const CreateTask = () => {
                             )
                             .map((u: User) => (
                               <option key={u.id || u._id} value={u.id || u._id}>
-                                {u.firstName} {u.lastName} ({getRoleLabel(u.role)})
+                                {u.firstName} {u.lastName} (
+                                {getRoleLabel(u.role)})
                               </option>
                             ))}
                         </select>
@@ -490,18 +491,19 @@ export const CreateTask = () => {
                                   const newList = checked
                                     ? [...selectedAssignees, uId]
                                     : selectedAssignees.filter(
-                                      (id) => id !== uId,
-                                    );
+                                        (id) => id !== uId,
+                                      );
                                   setSelectedAssignees(newList);
                                 };
 
                                 return (
                                   <label
                                     key={uId}
-                                    className={`flex cursor-pointer items-center justify-between rounded-lg p-2 text-xs font-semibold transition-colors ${isSelected
-                                      ? 'border border-indigo-200 bg-indigo-50/80 text-[#1E3A8A]'
-                                      : 'text-slate-700 hover:bg-slate-100'
-                                      }`}
+                                    className={`flex cursor-pointer items-center justify-between rounded-lg p-2 text-xs font-semibold transition-colors ${
+                                      isSelected
+                                        ? 'border border-indigo-200 bg-indigo-50/80 text-[#1E3A8A]'
+                                        : 'text-slate-700 hover:bg-slate-100'
+                                    }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       <input
@@ -520,14 +522,15 @@ export const CreateTask = () => {
                                       </span>
                                     </div>
                                     <span
-                                      className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${u.role === 1
-                                        ? 'bg-purple-100 text-purple-700'
-                                        : u.role === 2
-                                          ? 'bg-blue-100 text-blue-700'
-                                          : u.role === 0
-                                            ? 'bg-amber-100 text-amber-800'
-                                            : 'bg-slate-100 text-slate-600'
-                                        }`}
+                                      className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
+                                        u.role === 1
+                                          ? 'bg-purple-100 text-purple-700'
+                                          : u.role === 2
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : u.role === 0
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-slate-100 text-slate-600'
+                                      }`}
                                     >
                                       {roleBadge}
                                     </span>

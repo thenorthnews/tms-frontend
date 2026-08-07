@@ -74,7 +74,9 @@ export const isManagerOrAbove = (
   role: number | string | undefined | null,
 ): boolean => {
   const norm = normalizeRole(role);
-  return norm === UserRole.CEO || norm === UserRole.MANAGER || norm === UserRole.TL;
+  return (
+    norm === UserRole.CEO || norm === UserRole.MANAGER || norm === UserRole.TL
+  );
 };
 
 export const getRoleLabel = (

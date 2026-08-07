@@ -25,8 +25,7 @@ export const clientLoader =
         queryClient.getQueryData(query.queryKey) ??
         (await queryClient.fetchQuery(query))
       );
-    } catch (error) {
-      console.error('Failed to load users:', error);
+    } catch {
       return null;
     }
   };

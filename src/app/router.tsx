@@ -11,15 +11,23 @@ import {
   ErrorBoundary as AppRootErrorBoundary,
 } from './routes/app/root';
 
-const convert = (queryClient: QueryClient) => (m: any) => {
-  const { clientLoader, clientAction, default: Component, ...rest } = m;
-  return {
-    ...rest,
-    loader: clientLoader?.(queryClient),
-    action: clientAction?.(queryClient),
-    Component,
+const convert =
+  (queryClient: QueryClient) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (m: any): any => {
+    const {
+      clientLoader,
+      clientAction,
+      default: Component,
+      ...rest
+    } = m;
+    return {
+      ...rest,
+      loader: clientLoader?.(queryClient),
+      action: clientAction?.(queryClient),
+      Component,
+    };
   };
-};
 
 export const createAppRouter = (queryClient: QueryClient) =>
   createBrowserRouter([

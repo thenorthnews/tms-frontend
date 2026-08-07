@@ -1,16 +1,6 @@
-import {
-  User,
-  Lock,
-  Info,
-  LogOut,
-  Upload,
-  Check,
-  AlertCircle,
-  ShieldAlert,
-} from 'lucide-react';
+import { User, Lock, Info, Upload, ShieldAlert } from 'lucide-react';
 import * as React from 'react';
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router';
 import { z } from 'zod';
 
 import { ContentLayout } from '@/components/layouts';
@@ -20,8 +10,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { useChangePassword } from '@/features/auth/api/change-password';
 import { useUpdateProfile } from '@/features/auth/api/update-profile';
 import { useUploadFile } from '@/features/file/api/upload-file';
-import { useUser, useLogout } from '@/lib/auth';
-import { getRoleLabel, isEmployee as checkIsEmployee } from '@/utils/roles';
+import { useUser } from '@/lib/auth';
+import { getRoleLabel } from '@/utils/roles';
 
 const profileFormSchema = z.object({
   firstName: z
@@ -54,9 +44,7 @@ const passwordFormSchema = z
   });
 
 const ProfileRoute = () => {
-  const navigate = useNavigate();
   const user = useUser();
-  const logout = useLogout();
   const { addNotification } = useNotifications();
 
   // --- ACTIVE TAB ---
@@ -171,7 +159,6 @@ const ProfileRoute = () => {
 
   const role = user.data.role;
   const roleString = getRoleLabel(role);
-  const isEmp = checkIsEmployee(role);
 
   // Photo upload trigger
   const handlePhotoClick = () => {
@@ -194,8 +181,8 @@ const ProfileRoute = () => {
           },
         });
       }
-    } catch (err) {
-      console.error('File upload failed', err);
+    } catch {
+      addNotification({ type: 'error', title: 'File upload failed' });
     }
   };
 
@@ -222,10 +209,11 @@ const ProfileRoute = () => {
                 {/* Account tab */}
                 <button
                   onClick={() => setActiveTab('account')}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${activeTab === 'account'
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    activeTab === 'account'
                       ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                       : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
-                    }`}
+                  }`}
                 >
                   <User className="size-4" />
                   Account Profile
@@ -234,10 +222,11 @@ const ProfileRoute = () => {
                 {/* Security tab */}
                 <button
                   onClick={() => setActiveTab('security')}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${activeTab === 'security'
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    activeTab === 'security'
                       ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                       : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
-                    }`}
+                  }`}
                 >
                   <Lock className="size-4" />
                   Security Lock
@@ -246,10 +235,11 @@ const ProfileRoute = () => {
                 {/* About tab */}
                 <button
                   onClick={() => setActiveTab('about')}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${activeTab === 'about'
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-all ${
+                    activeTab === 'about'
                       ? 'bg-[#1E3A8A] text-white shadow-md shadow-blue-900/10'
                       : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-800'
-                    }`}
+                  }`}
                 >
                   <Info className="size-4" />
                   About TaskFlow
@@ -297,7 +287,7 @@ const ProfileRoute = () => {
                         )}
                       </div>
                       <div className="space-y-2 text-center sm:text-left">
-                        <label className="block text-xs font-bold text-slate-700">
+                        <label htmlFor="avatar-photo-upload" className="block text-xs font-bold text-slate-700">
                           Avatar Photo
                         </label>
                         <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
@@ -311,6 +301,7 @@ const ProfileRoute = () => {
                             Change Photo
                           </button>
                           <input
+                            id="avatar-photo-upload"
                             type="file"
                             ref={fileInputRef}
                             accept="image/*"
@@ -355,10 +346,11 @@ const ProfileRoute = () => {
 
                       {/* Email (Read Only) */}
                       <div className="space-y-1.5">
-                        <label className="block pl-1 text-xs font-bold text-slate-400">
+                        <label htmlFor="profile-email-readonly" className="block pl-1 text-xs font-bold text-slate-400">
                           Email Address (Read-only)
                         </label>
                         <input
+                          id="profile-email-readonly"
                           type="text"
                           value={user.data?.email || ''}
                           disabled
@@ -368,10 +360,10 @@ const ProfileRoute = () => {
 
                       {/* Role Badge (Read Only) */}
                       <div className="space-y-1.5">
-                        <label className="block pl-1 text-xs font-bold text-slate-400">
+                        <label htmlFor="profile-role-badge" className="block pl-1 text-xs font-bold text-slate-400">
                           Authority Role Badge
                         </label>
-                        <div className="flex h-10 items-center pl-2">
+                        <div id="profile-role-badge" className="flex h-10 items-center pl-2">
                           <span className="inline-flex items-center rounded-full border border-blue-100 bg-[#1E3A8A]/10 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#1E3A8A]">
                             {roleString}
                           </span>

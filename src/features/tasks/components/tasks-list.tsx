@@ -240,7 +240,7 @@ export const TasksList = () => {
   };
 
   const queryParams = useMemo(() => {
-    const params: Record<string, any> = { search };
+    const params: Record<string, string | number | undefined> = { search };
     if (statusVal) params.status = Number(statusVal);
     if (priorityVal) params.priority = Number(priorityVal);
     if (clientVal && clientVal !== 'all') params.clientId = clientVal;
@@ -640,6 +640,13 @@ export const TasksList = () => {
                       <div
                         key={taskId}
                         draggable
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            navigate(paths.app.editTask.getHref(taskId));
+                          }
+                        }}
                         onDragStart={(e) => handleDragStart(e, taskId)}
                         onClick={() =>
                           navigate(paths.app.editTask.getHref(taskId))
@@ -868,6 +875,13 @@ export const TasksList = () => {
                     return (
                       <div
                         key={taskId}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            navigate(paths.app.editTask.getHref(taskId));
+                          }
+                        }}
                         onClick={() =>
                           navigate(paths.app.editTask.getHref(taskId))
                         }
@@ -919,6 +933,13 @@ export const TasksList = () => {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Card 0: All Clients */}
           <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                handleClientFilterChange('all');
+              }
+            }}
             onClick={() => handleClientFilterChange('all')}
             className="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border border-blue-800/20 bg-gradient-to-br from-[#1E3A8A] to-[#0EA5E9] p-6 text-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
           >
@@ -949,6 +970,13 @@ export const TasksList = () => {
             return (
               <div
                 key={cId}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleClientFilterChange(cId);
+                  }
+                }}
                 onClick={() => handleClientFilterChange(cId)}
                 className="group relative flex cursor-pointer flex-col justify-between rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-slate-50/80 hover:shadow-xl"
               >

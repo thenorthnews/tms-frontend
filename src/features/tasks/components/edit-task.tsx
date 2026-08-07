@@ -29,10 +29,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
 import { api, mapUser } from '@/lib/api-client';
 import { User, Team } from '@/types/api';
-import {
-  isEmployee as checkIsEmployee,
-  isManagerOrAbove,
-} from '@/utils/roles';
+import { isEmployee as checkIsEmployee, isManagerOrAbove } from '@/utils/roles';
 
 const commentInputSchema = z
   .string()
@@ -238,7 +235,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   }, [subTasks]);
 
-
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expandedSubtaskLogs, setExpandedSubtaskLogs] = useState<
@@ -290,11 +286,12 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       (teamsRes || []).forEach((t: Team) => {
         const mgrId =
           typeof t.managerId === 'object'
-            ? (t.managerId as any)?._id || (t.managerId as any)?.id
+            ? (t.managerId as { _id?: string; id?: string })?._id ||
+              (t.managerId as { _id?: string; id?: string })?.id
             : t.managerId;
         const mgrIdStr = mgrId ? String(mgrId) : '';
-        const memberIdStrs = (t.members || []).map((m: any) =>
-          typeof m === 'object' ? String(m._id || m.id) : String(m),
+        const memberIdStrs = (t.members || []).map((m: unknown) =>
+          typeof m === 'object' && m !== null ? String((m as { _id?: string; id?: string })._id || (m as { _id?: string; id?: string }).id) : String(m),
         );
 
         if (
@@ -343,7 +340,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       const rawInfo = Array.isArray(task.assigneeInfo)
         ? task.assigneeInfo
         : [task.assigneeInfo];
-      rawInfo.forEach((u: any) => {
+      const rawInfoList = rawInfo as Array<{ _id?: string; id?: string }>;
+      rawInfoList.forEach((u) => {
         const id = u?._id || u?.id;
         if (id) assignedStrIds.add(String(id));
       });
@@ -382,7 +380,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         const rawInfo = Array.isArray(task.assigneeInfo)
           ? task.assigneeInfo
           : [task.assigneeInfo];
-        rawInfo.forEach((u: any) => {
+        const rawInfoList = rawInfo as Array<{ _id?: string; id?: string }>;
+        rawInfoList.forEach((u) => {
           const id = u?._id || u?.id;
           if (id) assignedSet.add(String(id));
         });
@@ -479,11 +478,11 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   // Extract numeric status & priority values safely (handles both number and { id, label } object)
   const taskStatusNum =
     typeof task.status === 'object' && task.status !== null
-      ? Number((task.status as any).id ?? 0)
+      ? Number((task.status as { id?: number }).id ?? 0)
       : Number(task.status ?? 0);
   const taskPriorityNum =
     typeof task.priority === 'object' && task.priority !== null
-      ? Number((task.priority as any).id ?? 0)
+      ? Number((task.priority as { id?: number }).id ?? 0)
       : Number(task.priority ?? 0);
 
   // Overdue Check — uses live date instead of hardcoded value
@@ -561,8 +560,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
       setIsSubmittingComment(false);
     }
   };
-
-
 
   const handleToggleSubtask = (subId: string, index: number) => {
     const id = subId || `subtask-${index}`;
@@ -668,8 +665,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
         type: 'success',
         title: 'Status updated & comment added',
       });
-    } catch (err) {
-      console.error('Failed to update status or post comment:', err);
+    } catch {
       addNotification({
         type: 'error',
         title: 'Failed to update status or add comment',
@@ -748,84 +744,8 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     });
   };
 
-  // const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const files = e.target.files;
-  //   if (!files || files.length === 0) return;
-
-  //   setIsUploadingFile(true);
-  //   try {
-  //     const formData = new FormData();
-  //     for (let i = 0; i < files.length; i++) {
-  //       formData.append('file', files[i]);
-  //     }
-
-  //     const res = await api.post('/file/upload', formData, {
-  //       headers: {
-  //         'Content-Type': 'multipart/form-data',
-  //       },
-  //     });
-
-  //     const uploadedFiles = Array.isArray(res)
-  //       ? res
-  //       : (res as { data?: unknown[] })?.data || [];
-  //     if (uploadedFiles && uploadedFiles.length > 0) {
-  //       const rawAttachments = [...(task.attachments || []), ...uploadedFiles];
-  //       const newAttachments = rawAttachments.map((att: unknown) => {
-  //         const a = att as {
-  //           originalName: string;
-  //           filename: string;
-  //           mimetype?: string;
-  //           size?: number;
-  //           path: string;
-  //           url: string;
-  //         };
-  //         return {
-  //           originalName: a.originalName,
-  //           filename: a.filename,
-  //           mimetype: a.mimetype,
-  //           size: a.size,
-  //           path: a.path,
-  //           url: a.url,
-  //         };
-  //       });
-  //       await api.patch(`/tasks/${taskId}`, { attachments: newAttachments });
-  //       taskQuery.refetch();
-  //     }
-  //   } catch (err) {
-  //     addNotification({
-  //       type: 'error',
-  //       title: 'Failed to upload files',
-  //     });
-  //   } finally {
-  //     setIsUploadingFile(false);
-  //   }
-  // };
-
-  // const handleDeleteAttachment = async (filename: string) => {
-  //   try {
-  //     const rawAttachments = (task.attachments || []).filter(
-  //       (att) => att.filename !== filename,
-  //     );
-  //     const newAttachments = rawAttachments.map((att) => ({
-  //       originalName: att.originalName,
-  //       filename: att.filename,
-  //       mimetype: att.mimetype,
-  //       size: att.size,
-  //       path: att.path,
-  //       url: att.url,
-  //     }));
-  //     await api.patch(`/tasks/${taskId}`, { attachments: newAttachments });
-  //     taskQuery.refetch();
-  //   } catch (err) {
-  //     addNotification({
-  //       type: 'error',
-  //       title: 'Failed to delete attachment',
-  //     });
-  //   }
-  // };
 
   const handleReassignUser = (userIds: string[]) => {
-
     updateTaskMutation.mutate(
       {
         taskId,

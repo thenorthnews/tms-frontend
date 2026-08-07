@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Mail, Lock, Sparkles, KanbanSquare } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, KanbanSquare } from 'lucide-react';
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -69,6 +69,7 @@ const LoginRoute = () => {
       { email, password },
       {
         onError: (error: any) => {
+
           setErrors({
             api:
               error?.message ||
@@ -229,11 +230,10 @@ const LoginRoute = () => {
                         });
                     }}
                     placeholder="name@company.com"
-                    className={`h-11 w-full border bg-white pl-10 pr-4 ${
-                      errors.email
-                        ? 'border-rose-500 focus:ring-rose-200'
-                        : 'border-slate-200 focus:border-[#1E3A8A] focus:ring-sky-100'
-                    } rounded-[10px] text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:outline-none focus:ring-4`}
+                    className={`h-11 w-full border bg-white pl-10 pr-4 ${errors.email
+                      ? 'border-rose-500 focus:ring-rose-200'
+                      : 'border-slate-200 focus:border-[#1E3A8A] focus:ring-sky-100'
+                      } rounded-[10px] text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:outline-none focus:ring-4`}
                   />
                 </div>
                 {errors.email && (
@@ -243,19 +243,7 @@ const LoginRoute = () => {
 
               {/* Password Input */}
               <div className="space-y-1.5">
-                {/* <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
-                  <a 
-                    href="#forgot" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setErrors(prev => ({ ...prev, api: 'Password reset instructions have been sent to your registered email.' }));
-                    }}
-                    className="text-xs font-semibold text-[#0EA5E9] hover:underline"
-                  >
-                    Forgot Password?
-                  </a>
-                </div> */}
+
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                     <Lock className="size-4" />
@@ -272,11 +260,10 @@ const LoginRoute = () => {
                         });
                     }}
                     placeholder="••••••••"
-                    className={`h-11 w-full border bg-white px-10 ${
-                      errors.password
-                        ? 'border-rose-500 focus:ring-rose-200'
-                        : 'border-slate-200 focus:border-[#1E3A8A] focus:ring-sky-100'
-                    } rounded-[10px] text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:outline-none focus:ring-4`}
+                    className={`h-11 w-full border bg-white px-10 ${errors.password
+                      ? 'border-rose-500 focus:ring-rose-200'
+                      : 'border-slate-200 focus:border-[#1E3A8A] focus:ring-sky-100'
+                      } rounded-[10px] text-sm text-slate-900 transition-all duration-150 placeholder:text-slate-400 focus:outline-none focus:ring-4`}
                   />
                   <button
                     type="button"

@@ -60,8 +60,8 @@ export const UpdateProfileForm = () => {
       if (response?.url) {
         setValue('image', response.url);
       }
-    } catch (error) {
-      console.error('Image upload failed', error);
+    } catch {
+      addNotification({ type: 'error', title: 'Image upload failed' });
     }
   };
 

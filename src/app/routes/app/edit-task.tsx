@@ -7,22 +7,21 @@ import { EditTask } from '@/features/tasks/components/edit-task';
 
 export const clientLoader =
   (queryClient: QueryClient) =>
-  async ({ params }: LoaderFunctionArgs) => {
-    const taskId = params.taskId;
-    if (!taskId) return null;
+    async ({ params }: LoaderFunctionArgs) => {
+      const taskId = params.taskId;
+      if (!taskId) return null;
 
-    const query = getTaskQueryOptions(taskId);
+      const query = getTaskQueryOptions(taskId);
 
-    try {
-      return (
-        queryClient.getQueryData(query.queryKey) ??
-        (await queryClient.fetchQuery(query))
-      );
-    } catch (error) {
-      console.error('Failed to prefetch task details:', error);
-      return null;
-    }
-  };
+      try {
+        return (
+          queryClient.getQueryData(query.queryKey) ??
+          (await queryClient.fetchQuery(query))
+        );
+      } catch {
+        return null;
+      }
+    };
 
 const EditTaskRoute = () => {
   const { taskId } = useParams();

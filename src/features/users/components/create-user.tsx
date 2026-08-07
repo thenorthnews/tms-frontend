@@ -168,10 +168,11 @@ export const CreateUserForm = () => {
                 </div>
 
                 <div>
-                  <label className="mb-3 ml-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <label htmlFor="create-user-image-upload" className="mb-3 ml-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Profile Image
                   </label>
                   <input
+                    id="create-user-image-upload"
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleImageUpload(e, setValue)}

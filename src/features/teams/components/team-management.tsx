@@ -1300,7 +1300,7 @@ export const TeamManagement = () => {
               {/* Name fields */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-400">
+                  <label htmlFor="add-member-first-name" className="block text-[10px] font-bold uppercase text-slate-400">
                     First Name
                   </label>
                   <div
@@ -1308,6 +1308,7 @@ export const TeamManagement = () => {
                   >
                     <UserIcon className="size-3.5 text-slate-400" />
                     <input
+                      id="add-member-first-name"
                       type="text"
                       placeholder="John"
                       value={newMember.firstName}
@@ -1327,7 +1328,7 @@ export const TeamManagement = () => {
                   )}
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-bold uppercase text-slate-400">
+                  <label htmlFor="add-member-last-name" className="block text-[10px] font-bold uppercase text-slate-400">
                     Last Name
                   </label>
                   <div
@@ -1335,6 +1336,7 @@ export const TeamManagement = () => {
                   >
                     <UserIcon className="size-3.5 text-slate-400" />
                     <input
+                      id="add-member-last-name"
                       type="text"
                       placeholder="Doe"
                       value={newMember.lastName}
@@ -1357,7 +1359,7 @@ export const TeamManagement = () => {
 
               {/* Email */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="add-member-email" className="block text-[10px] font-bold uppercase text-slate-400">
                   Email Address
                 </label>
                 <div
@@ -1365,6 +1367,7 @@ export const TeamManagement = () => {
                 >
                   <Mail className="size-3.5 text-slate-400" />
                   <input
+                    id="add-member-email"
                     type="email"
                     placeholder="john.doe@taskflow.com"
                     value={newMember.email}
@@ -1386,7 +1389,7 @@ export const TeamManagement = () => {
 
               {/* Password */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="add-member-password" className="block text-[10px] font-bold uppercase text-slate-400">
                   Password
                 </label>
                 <div
@@ -1394,6 +1397,7 @@ export const TeamManagement = () => {
                 >
                   <Lock className="size-3.5 text-slate-400" />
                   <input
+                    id="add-member-password"
                     type="password"
                     placeholder="••••••••"
                     value={newMember.password}
@@ -1415,7 +1419,7 @@ export const TeamManagement = () => {
 
               {/* Phone Number */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="add-member-phone" className="block text-[10px] font-bold uppercase text-slate-400">
                   Phone Number (Optional)
                 </label>
                 <div
@@ -1423,6 +1427,7 @@ export const TeamManagement = () => {
                 >
                   <Phone className="size-3.5 text-slate-400" />
                   <input
+                    id="add-member-phone"
                     type="text"
                     placeholder="1234567890"
                     value={newMember.phoneNumber}
@@ -1444,12 +1449,13 @@ export const TeamManagement = () => {
 
               {/* Role Selector */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="add-member-role" className="block text-[10px] font-bold uppercase text-slate-400">
                   Role
                 </label>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2">
                   <Shield className="size-3.5 text-slate-400" />
                   <select
+                    id="add-member-role"
                     value={newMember.role}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -1468,12 +1474,13 @@ export const TeamManagement = () => {
 
               {/* Department Selector */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="add-member-department" className="block text-[10px] font-bold uppercase text-slate-400">
                   Department
                 </label>
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2">
                   <Layers className="size-3.5 text-slate-400" />
                   <select
+                    id="add-member-department"
                     value={newMember.department}
                     onChange={(e) =>
                       setNewMember((prev) => ({
@@ -1495,7 +1502,7 @@ export const TeamManagement = () => {
 
               {/* Gender Selector */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="add-member-gender" className="block text-[10px] font-bold uppercase text-slate-400">
                   Gender *
                 </label>
                 <div
@@ -1503,6 +1510,7 @@ export const TeamManagement = () => {
                 >
                   <UserIcon className="size-3.5 text-slate-400" />
                   <select
+                    id="add-member-gender"
                     value={newMember.gender}
                     onChange={(e) =>
                       setNewMember((prev) => ({
@@ -1571,7 +1579,7 @@ export const TeamManagement = () => {
               className="space-y-4 p-5 text-left"
             >
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="create-team-name" className="block text-[10px] font-bold uppercase text-slate-400">
                   Team Name
                 </label>
                 <div
@@ -1579,6 +1587,7 @@ export const TeamManagement = () => {
                 >
                   <FolderPlus className="size-3.5 text-slate-400" />
                   <input
+                    id="create-team-name"
                     type="text"
                     placeholder="e.g. Alpha Engineering"
                     value={newTeam.name}
@@ -1595,7 +1604,7 @@ export const TeamManagement = () => {
                 )}
               </div>
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="create-team-manager" className="block text-[10px] font-bold uppercase text-slate-400">
                   Assign Team Leader / Manager
                 </label>
                 <div
@@ -1603,6 +1612,7 @@ export const TeamManagement = () => {
                 >
                   <Shield className="size-3.5 text-slate-400" />
                   <select
+                    id="create-team-manager"
                     value={newTeam.managerId}
                     onChange={(e) =>
                       setNewTeam((p) => ({ ...p, managerId: e.target.value }))
@@ -1670,7 +1680,7 @@ export const TeamManagement = () => {
               className="space-y-4 p-5 text-left"
             >
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="assign-member-team" className="block text-[10px] font-bold uppercase text-slate-400">
                   Select Team
                 </label>
                 <div
@@ -1678,6 +1688,7 @@ export const TeamManagement = () => {
                 >
                   <Layers className="size-3.5 text-slate-400" />
                   <select
+                    id="assign-member-team"
                     value={selectedTeamId}
                     onChange={(e) => setSelectedTeamId(e.target.value)}
                     className="w-full cursor-pointer border-0 bg-transparent text-xs font-medium text-slate-800 focus:outline-none"
@@ -1697,7 +1708,7 @@ export const TeamManagement = () => {
                 )}
               </div>
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold uppercase text-slate-400">
+                <label htmlFor="assign-member-employee" className="block text-[10px] font-bold uppercase text-slate-400">
                   Select Employee
                 </label>
                 <div
@@ -1705,6 +1716,7 @@ export const TeamManagement = () => {
                 >
                   <UserIcon className="size-3.5 text-slate-400" />
                   <select
+                    id="assign-member-employee"
                     value={assignUserId}
                     onChange={(e) => setAssignUserId(e.target.value)}
                     className="w-full cursor-pointer border-0 bg-transparent text-xs font-medium text-slate-800 focus:outline-none"

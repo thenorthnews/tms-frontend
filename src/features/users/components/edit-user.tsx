@@ -41,7 +41,8 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
         response?: { data?: { message?: string }; status?: number };
         message?: string;
       }) => {
-        const backendMsg = err.response?.data?.message || err.message || 'Failed to update user';
+        const backendMsg =
+          err.response?.data?.message || err.message || 'Failed to update user';
         addNotification({
           type: 'error',
           title: 'Update Failed',
@@ -223,10 +224,11 @@ export const EditUserForm = ({ userId }: EditUserFormProps) => {
                   </div>
 
                   <div>
-                    <label className="mb-3 ml-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <label htmlFor="edit-user-image-upload" className="mb-3 ml-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Profile Image
                     </label>
                     <input
+                      id="edit-user-image-upload"
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleImageUpload(e, setValue)}

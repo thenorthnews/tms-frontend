@@ -68,7 +68,7 @@ const Progress = () => {
     setProgress(0);
   }, [location?.pathname]);
 
-  useEffect(() => {                                                                                                                            
+  useEffect(() => {
     if (state === 'loading') {
       const timer = setInterval(() => {
         setProgress((oldProgress) => {
