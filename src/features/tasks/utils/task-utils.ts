@@ -75,21 +75,7 @@ export const getStatusLabel = (status: any): string => {
   }
 };
 
-export const getStatusBadgeStyle = (s: any): string => {
-  const val = toNum(s);
-  switch (val) {
-    case TaskStatus.COMPLETED:
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    case TaskStatus.IN_PROGRESS:
-      return 'bg-blue-50 text-blue-700 border-blue-200';
-    case TaskStatus.ON_HOLD:
-      return 'bg-amber-50 text-amber-700 border-amber-200';
-    case TaskStatus.CANCELLED:
-      return 'bg-rose-50 text-rose-700 border-rose-200';
-    default:
-      return 'bg-slate-50 text-slate-700 border-slate-200';
-  }
-};
+
 
 export const getStatusSelectStyle = (s: any): string => {
   const val = toNum(s);
@@ -134,18 +120,4 @@ export const isTaskOverdue = (
   return deadline < today;
 };
 
-// ─── Time Display Helper ──────────────────────────────────────────────────────
 
-export const formatTimeLogged = (
-  timeLogs: Array<{ hours: number; minutes: number }>,
-): { hours: number; minutes: number; totalMinutes: number } => {
-  const totalMinutes = timeLogs.reduce(
-    (acc, log) => acc + log.hours * 60 + log.minutes,
-    0,
-  );
-  return {
-    hours: Math.floor(totalMinutes / 60),
-    minutes: totalMinutes % 60,
-    totalMinutes,
-  };
-};

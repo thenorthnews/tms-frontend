@@ -36,6 +36,7 @@ import { User } from '@/types/api';
 import {
   isEmployee as checkIsEmployee,
   isCEO as checkIsCEO,
+  getRoleLabel,
 } from '@/utils/roles';
 import { formatDate } from '@/utils/format';
 
@@ -1060,12 +1061,7 @@ export const TasksList = () => {
               <option value="">All Members</option>
               {usersList.map((u: User) => {
                 const uId = u._id || u.id;
-                const roleLabel =
-                  u.role === 1 || u.role === 'MANAGER' || u.role === 'Manager'
-                    ? 'Manager'
-                    : u.role === 2 || u.role === 'TL'
-                      ? 'TL'
-                      : 'Employee';
+                const roleLabel = getRoleLabel(u.role);
                 return (
                   <option key={uId} value={uId}>
                     {u.firstName} {u.lastName} ({roleLabel})

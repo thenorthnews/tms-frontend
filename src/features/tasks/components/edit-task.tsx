@@ -14,8 +14,6 @@ import {
   UserCheck,
   CheckSquare,
   AlertCircle,
-  Paperclip,
-  FileText,
   X,
   PauseCircle,
   PlayCircle,
@@ -31,6 +29,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { paths } from '@/config/paths';
 import { api, mapUser } from '@/lib/api-client';
 import { User, Team } from '@/types/api';
+import {
+  isEmployee as checkIsEmployee,
+  isManagerOrAbove,
+} from '@/utils/roles';
 
 const commentInputSchema = z
   .string()
@@ -236,8 +238,7 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   }, [subTasks]);
 
-  // File upload state
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
+
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expandedSubtaskLogs, setExpandedSubtaskLogs] = useState<
@@ -273,13 +274,10 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   const [searchParams] = useSearchParams();
 
-  // Permission for reassigning task: Only CEO (0), Manager (1), and TL (2) can reassign tasks
+  // Permission for reassigning task: Only CEO, Manager, and TL can reassign tasks
   const currentUserId = String(currentUser?._id || currentUser?.id || '');
-  const canReassign =
-    currentUser?.role === 0 ||
-    currentUser?.role === 1 ||
-    currentUser?.role === 2;
-  const isEmployee = currentUser?.role === 4;
+  const canReassign = isManagerOrAbove(currentUser?.role);
+  const isEmployee = checkIsEmployee(currentUser?.role);
 
   // Filter available target assignees for Manager/TL (CEO can assign to all; Manager/TL to all Manager/TL + team members)
   const availableAssignees = useMemo(() => {
@@ -564,21 +562,9 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
     }
   };
 
-  const checkSubtaskPermission = (_sub: Subtask) => {
-    return true;
-  };
+
 
   const handleToggleSubtask = (subId: string, index: number) => {
-    const targetSub = subTasks[index];
-    if (targetSub && !checkSubtaskPermission(targetSub)) {
-      addNotification({
-        type: 'error',
-        title: 'Permission Denied',
-        message: 'Only the user assigned to this subtask or task can update it',
-      });
-      return;
-    }
-
     const id = subId || `subtask-${index}`;
     const updated = subTasks.map((sub, idx) => {
       if (sub._id === id || idx === index) {
@@ -616,14 +602,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
 
   const handleSubtaskStatusChange = (index: number, newStatus: number) => {
     const targetSub = subTasks[index];
-    if (targetSub && !checkSubtaskPermission(targetSub)) {
-      addNotification({
-        type: 'error',
-        title: 'Permission Denied',
-        message: 'Only the user assigned to this subtask or task can update it',
-      });
-      return;
-    }
 
     if (
       isEmployee &&
@@ -847,7 +825,6 @@ export const EditTask = ({ taskId }: EditTaskProps) => {
   // };
 
   const handleReassignUser = (userIds: string[]) => {
-    const isEmployee = currentUser?.role === 4;
 
     updateTaskMutation.mutate(
       {

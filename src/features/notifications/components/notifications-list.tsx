@@ -19,7 +19,8 @@ export const NotificationsList = () => {
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
 
-  // --- NOTIFICATIONS STATE ---
+  // TODO: Replace hardcoded mock notifications with real API integration
+  // These are placeholder entries and should be fetched from a backend endpoint
   const [notifications, setNotifications] = useState([
     {
       id: 'notif-1',

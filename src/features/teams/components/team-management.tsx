@@ -34,6 +34,7 @@ import { useDeleteUser } from '@/features/users/api/delete-user';
 import { useUsers } from '@/features/users/api/get-users';
 import { useUser } from '@/lib/auth';
 import { User, Team, TeamMember } from '@/types/api';
+import { isCEO as checkIsCEO, getRoleLabel } from '@/utils/roles';
 
 import {
   useTeams,
@@ -119,7 +120,7 @@ export const TeamManagement = () => {
   const { addNotification } = useNotifications();
   const currentUser = useUser();
   const currentUserRole = currentUser.data?.role;
-  const isCEO = currentUserRole === 0 || currentUserRole === 'CEO';
+  const isCEO = checkIsCEO(currentUserRole);
 
   // --- INTERACTIVE UI STATES ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -364,14 +365,7 @@ export const TeamManagement = () => {
       id: u.id,
       name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'No Name',
       email: userEmailStr,
-      role:
-        u.role === 0
-          ? 'CEO'
-          : u.role === 1
-            ? 'Manager'
-            : u.role === 2
-              ? 'Team Lead'
-              : 'Employee',
+      role: getRoleLabel(u.role),
       department,
       assigned,
       completed,

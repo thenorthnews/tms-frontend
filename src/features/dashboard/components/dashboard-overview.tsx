@@ -10,8 +10,6 @@ import {
   ArrowUpRight,
   ArrowRight,
   Sparkles,
-  Edit,
-  UserPlus,
   XCircle,
   MessageSquare,
   ClipboardList,
@@ -29,19 +27,20 @@ import { Task, TaskStatus, TaskPriority } from '@/features/tasks/types';
 import { useTeams } from '@/features/teams/api/teams';
 import { useUser } from '@/lib/auth';
 import { TeamMember, Team, User } from '@/types/api';
+import {
+  isEmployee as checkIsEmployee,
+  isCEO as checkIsCEO,
+  isManagerOrAbove,
+} from '@/utils/roles';
 
 export const DashboardOverview = () => {
   const navigate = useNavigate();
   const user = useUser();
 
   const userRole = user.data?.role;
-  const isEmployee = userRole === 4 || userRole === 'Employee';
-  const isManager =
-    userRole === 1 ||
-    userRole === 2 ||
-    userRole === 'Manager' ||
-    userRole === 'Team Lead';
-  const isCEO = userRole === 0 || userRole === 'CEO';
+  const isEmployee = checkIsEmployee(userRole);
+  const isManager = isManagerOrAbove(userRole);
+  const isCEO = checkIsCEO(userRole);
 
   // --- CEO DASHBOARD DATE FILTER STATE ---
   const [ceoDateFilter, setCeoDateFilter] = useState<
@@ -125,11 +124,11 @@ export const DashboardOverview = () => {
   const dbTasks = tasksQuery.data?.data || [];
   const dbTeams = teamsQuery.data || [];
 
-  // Check if deadline is overdue (current local time context is 2026-07-20)
   const isDeadlineOverdue = (dateStr: string, status: string) => {
     if (status === 'Done') return false;
     const deadline = new Date(dateStr);
-    const today = new Date('2026-07-20');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return deadline < today;
   };
 
@@ -675,7 +674,7 @@ export const DashboardOverview = () => {
       avatarInitials: initials,
       priority: priorityStr,
       status: statusStr,
-      deadline: t.dueDate || '2026-07-20',
+      deadline: t.dueDate || new Date().toISOString().split('T')[0],
       deadlineFormatted: t.dueDate
         ? new Date(t.dueDate).toLocaleDateString('en-US', {
             month: 'long',
